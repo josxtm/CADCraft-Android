@@ -36,6 +36,18 @@ Dispositivo: Nothing Phone 2a; registrar si el teléfono está vertical u horizo
 | 11 | Exportar OBJ y STL | Android permite elegir el destino y aparecen los archivos |
 | 12 | Introducir una medida imposible (altura 0) | Se muestra error y no desaparece el sólido anterior |
 
+## Pruebas previstas del análisis de contactos (futura APK importante)
+
+Estas comprobaciones **no requieren generar una APK ahora**. Se incorporarán a un hito de prueba cuando el bloque 3D esté suficientemente maduro.
+
+| N.º | Preparación y acción | Resultado esperado |
+|---|---|---|
+| C1 | Crear dos piezas y superponerlas usando XYZ; pulsar `Comprobar contactos` | Debe señalar intersección entre ambas piezas |
+| C2 | Situar las dos piezas contiguas, tocándose por una cara, y volver a comprobar | Debe indicar contacto, no intersección volumétrica |
+| C3 | Pulsar `Separar pieza +10 mm` y repetir la comprobación | No debe detectar contactos |
+| C4 | Guardar el proyecto, volverlo a abrir y comprobar los contactos | Debe conservar las posiciones y la separación de las piezas |
+| C5 | Modificar la altura o mover una pieza después de analizar los contactos | El resultado anterior debe invalidarse hasta volver a comprobar |
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
