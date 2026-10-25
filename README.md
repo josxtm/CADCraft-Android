@@ -125,6 +125,23 @@ Implementadas en el estudio 3D, todavía **sin solicitar una nueva APK**:
 
 Estas operaciones son una etapa limitada y explícita antes de integrar un motor CSG/B-Rep general. Las pruebas JavaScript de geometría no sustituyen la compilación Android ni las pruebas manuales en el teléfono.
 
+### Booleanas como piezas de escena — siguiente bloque, sin nueva APK
+
+El estudio 3D incorpora ahora un flujo de resultados booleanos **persistentes**:
+
+- **Añadir unión / resta / intersección a escena** convierte el cálculo de dos bloques rectangulares alineados en una **pieza de malla triangulada independiente**, sin modificar las extrusiones originales.
+- **Seleccionar resultado**, **Volver a extrusión**, **Duplicar resultado** y **Eliminar resultado** permiten gestionar las piezas resultantes.
+- La pieza booleana seleccionada se puede **mover en XYZ** con los campos existentes; el resto de piezas mantiene sus coordenadas.
+- La visualización, el encuadre y la exportación de la **escena completa a STL/OBJ** incluyen las mallas booleanas.
+- El formato de proyecto propio pasa a **JSON v3** e incluye mallas, IDs, operaciones, referencias de las piezas origen, desplazamientos y selección actual. Abre los formatos v1 y v2 anteriores.
+- Antes de importar una malla, se comprueban coordenadas, índices, caras degeneradas, bordes abiertos, volumen y límites de tamaño. Un error no reemplaza la escena en memoria.
+- Se separan explícitamente los controles de extrusión paramétrica y de malla booleana: las mallas resultantes pueden **moverse, seleccionarse, duplicarse y borrarse**, pero **no pueden editarse mediante croquis, altura de extrusión o modificación directa de caras**. No hay todavía historial de operaciones reconstruible ni recomputación automática al cambiar sus fuentes.
+- Máximo de **24 piezas totales** entre extrusiones y resultados booleanos.
+- Las operaciones booleanas de creación de malla se limitan a **dos prismas rectangulares alineados a XYZ**. El volumen de intersección sí puede calcularse para perfiles extruidos más generales, pero eso no genera una malla booleana editable.
+- Para evitar proyectos imposibles de reabrir, el guardado JSON rechaza un archivo demasiado grande (límite de 2 MB).
+
+El control JavaScript alcanza **180 pruebas de regresión**, incluidas creación, desplazamiento, exportación, duplicación, persistencia y rechazo de proyectos corruptos. Este bloque **no modifica la versión APK (0.5.0)**. GitHub Actions mantiene el trabajo de compilación Android reservado al disparo manual.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
