@@ -3,7 +3,7 @@
 <body><header><button onclick="location.href='../web/index.html'">CAD 2D</button><strong>CADCraft · 3D</strong><button onclick="exportSTL()">Exportar STL</button></header>
 <main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">EXTRUIR</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
 <div id="cube"><span></span><button onclick="snap('top')">SUP</button><span></span><button onclick="snap('left')">IZQ</button><button onclick="snap('iso')">3D</button><button onclick="snap('right')">DER</button><span></span><button onclick="snap('front')">FTE</button><span></span></div>
-<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
+<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button><button onclick="updateSelectedPoint()">Mover seleccionado</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="redoSketch()">Rehacer</button><button onclick="makeRectangleSketch()">Rectángulo exacto</button><button id="sketchSnapButton" onclick="toggleSketchSnap()">Rejilla ON</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
 <script>
 'use strict';
 const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
@@ -178,8 +178,19 @@ function receive2dHandoff(){
 
 /* Local planar sketch: shared outline and height with the existing extrusion model.
    This is deliberately separate from upstream CADCraft's document model. */
-let sketchPoints=[],sketchActive=false;
+let sketchPoints=[],sketchActive=false,selectedSketchVertex=-1,sketchDragId=null,sketchDragRecorded=false;
+let sketchHistory=[],sketchRedoHistory=[],sketchSnapping=true;
 const sketchStep=5,sketchScale=2;
+function cloneSketch(points){return points.map(p=>p.slice());}
+function pushSketchHistory(){sketchHistory.push(cloneSketch(sketchPoints));if(sketchHistory.length>100)sketchHistory.shift();sketchRedoHistory=[];}
+function undoSketchState(){if(!sketchHistory.length)return false;sketchRedoHistory.push(cloneSketch(sketchPoints));sketchPoints=sketchHistory.pop();selectedSketchVertex=-1;return true;}
+function redoSketchState(){if(!sketchRedoHistory.length)return false;sketchHistory.push(cloneSketch(sketchPoints));sketchPoints=sketchRedoHistory.pop();selectedSketchVertex=-1;return true;}
+function rectangleSketch(w,l){if(!Number.isFinite(w)||!Number.isFinite(l)||w<=0||l<=0)throw Error('Ancho y largo deben ser positivos');return [[0,0],[w,0],[w,l],[0,l]];}
+function snapSketchPoint(x,y){return sketchSnapping?[Math.round(x/sketchStep)*sketchStep,Math.round(y/sketchStep)*sketchStep]:[x,y];}
+function moveSketchVertex(index,x,y){
+ if(!Number.isInteger(index)||index<0||index>=sketchPoints.length||!Number.isFinite(x)||!Number.isFinite(y))throw Error('Vértice o coordenadas incorrectos');
+ pushSketchHistory();sketchPoints[index]=[x,y];selectedSketchVertex=index;return true;
+}
 function setSketchProfile(points){
  const candidate=points.map(p=>[Number(p[0]),Number(p[1])]);
  const next=extrude(candidate,number('height')); // validate BEFORE changing the live model
@@ -188,18 +199,36 @@ function setSketchProfile(points){
  return next;
 }
 function openSketch(){
- sketchPoints=poly.map(p=>p.slice());sketchActive=true;
+ sketchPoints=cloneSketch(poly);sketchActive=true;sketchHistory=[];sketchRedoHistory=[];selectedSketchVertex=-1;sketchDragId=null;
  const panel=document.getElementById('sketchPanel');panel.classList.add('open');
  const sc=document.getElementById('sketchCanvas');
  if(!sc.dataset.ready){
   sc.addEventListener('pointerdown',e=>{
    if(!sketchActive)return;
-   const rect=sc.getBoundingClientRect();
-   const x=(e.clientX-rect.left-rect.width/2)/sketchScale;
-   const y=(rect.height/2-(e.clientY-rect.top))/sketchScale;
-   sketchPoints.push([Math.round(x/sketchStep)*sketchStep,Math.round(y/sketchStep)*sketchStep]);
+   const rect=sc.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
+   let nearest=-1,best=15;
+   for(let i=0;i<sketchPoints.length;i++){
+    const p=sketchPoints[i],dist=Math.hypot(rect.width/2+p[0]*sketchScale-x,rect.height/2-p[1]*sketchScale-y);
+    if(dist<best){nearest=i;best=dist;}
+   }
+   if(nearest>=0){selectedSketchVertex=nearest;sketchDragId=e.pointerId;sketchDragRecorded=false;}
+   else {
+    if(sketchPoints.length>=10000){document.getElementById('sketchInfo').textContent='Límite de vértices';return;}
+    pushSketchHistory();sketchPoints.push(snapSketchPoint((x-rect.width/2)/sketchScale,(rect.height/2-y)/sketchScale));
+    selectedSketchVertex=sketchPoints.length-1;sketchDragId=null;
+   }
+   if(sc.setPointerCapture)sc.setPointerCapture(e.pointerId);
    drawSketch();
   });
+  sc.addEventListener('pointermove',e=>{
+   if(!sketchActive||e.pointerId!==sketchDragId||selectedSketchVertex<0)return;
+   const rect=sc.getBoundingClientRect(),p=snapSketchPoint((e.clientX-rect.left-rect.width/2)/sketchScale,(rect.height/2-(e.clientY-rect.top))/sketchScale);
+   const old=sketchPoints[selectedSketchVertex];
+   if(old[0]===p[0]&&old[1]===p[1])return;
+   if(!sketchDragRecorded){pushSketchHistory();sketchDragRecorded=true;}
+   sketchPoints[selectedSketchVertex]=p;drawSketch();
+  });
+  for(const event of ['pointerup','pointercancel'])sc.addEventListener(event,e=>{if(e.pointerId===sketchDragId)sketchDragId=null;});
   sc.dataset.ready='1';
  }
  requestAnimationFrame(drawSketch);
@@ -218,19 +247,32 @@ function drawSketch(){
  c.strokeStyle='#73d2ec';c.lineWidth=2;c.beginPath();
  sketchPoints.forEach((p,i)=>{const q=to(p);if(i===0)c.moveTo(...q);else c.lineTo(...q);});
  if(sketchPoints.length>=3)c.lineTo(...to(sketchPoints[0]));c.stroke();
- c.fillStyle='#fbc86c';for(const p of sketchPoints){const q=to(p);c.beginPath();c.arc(...q,4,0,Math.PI*2);c.fill();}
- document.getElementById('sketchInfo').textContent=sketchPoints.length+' vértices · cuadrícula 5 mm · origen centrado';
+ sketchPoints.forEach((p,i)=>{const q=to(p);c.beginPath();c.arc(...q,i===selectedSketchVertex?7:4,0,Math.PI*2);c.fillStyle=i===selectedSketchVertex?'#ff936c':'#fbc86c';c.fill();});
+ if(selectedSketchVertex>=0&&sketchPoints[selectedSketchVertex]){
+  document.getElementById('sketchX').value=String(sketchPoints[selectedSketchVertex][0]);
+  document.getElementById('sketchY').value=String(sketchPoints[selectedSketchVertex][1]);
+ }
+ document.getElementById('sketchInfo').textContent=sketchPoints.length+' vértices · toca un punto y arrastra para editar · cuadrícula '+(sketchSnapping?'5 mm':'libre');
 }
 function addPrecisePoint(){
- const x=Number(document.getElementById('sketchX').value);
- const y=Number(document.getElementById('sketchY').value);
- if(!sketchActive||!Number.isFinite(x)||!Number.isFinite(y)){document.getElementById('sketchInfo').textContent='Coordenadas XY no válidas';return false;}
- if(sketchPoints.length>=10000){document.getElementById('sketchInfo').textContent='Límite de vértices alcanzado';return false;}
- sketchPoints.push([x,y]);drawSketch();return true;
+ const x=Number(document.getElementById('sketchX').value),y=Number(document.getElementById('sketchY').value);
+ if(!sketchActive||!Number.isFinite(x)||!Number.isFinite(y)||sketchPoints.length>=10000){document.getElementById('sketchInfo').textContent='Coordenadas XY no válidas o límite alcanzado';return false;}
+ pushSketchHistory();sketchPoints.push([x,y]);selectedSketchVertex=sketchPoints.length-1;drawSketch();return true;
 }
-function undoSketch(){sketchPoints.pop();drawSketch();}
-function clearSketch(){sketchPoints=[];drawSketch();}
-function closeSketch(){sketchActive=false;document.getElementById('sketchPanel').classList.remove('open');}
+function updateSelectedPoint(){
+ const x=Number(document.getElementById('sketchX').value),y=Number(document.getElementById('sketchY').value);
+ try{if(!sketchActive)throw Error('Abre el editor');moveSketchVertex(selectedSketchVertex,x,y);drawSketch();return true;}
+ catch(e){document.getElementById('sketchInfo').textContent=e.message;return false;}
+}
+function makeRectangleSketch(){
+ try{const p=rectangleSketch(number('width'),number('length'));pushSketchHistory();sketchPoints=p;selectedSketchVertex=-1;drawSketch();return true;}
+ catch(e){document.getElementById('sketchInfo').textContent=e.message;return false;}
+}
+function toggleSketchSnap(){sketchSnapping=!sketchSnapping;document.getElementById('sketchSnapButton').textContent=sketchSnapping?'Rejilla ON':'Rejilla OFF';drawSketch();}
+function undoSketch(){if(undoSketchState())drawSketch();}
+function redoSketch(){if(redoSketchState())drawSketch();}
+function clearSketch(){pushSketchHistory();sketchPoints=[];selectedSketchVertex=-1;drawSketch();}
+function closeSketch(){sketchActive=false;sketchDragId=null;document.getElementById('sketchPanel').classList.remove('open');}
 function finishSketch(){
  try{setSketchProfile(sketchPoints);closeSketch();}
  catch(e){document.getElementById('sketchInfo').textContent='Error: '+e.message;}
