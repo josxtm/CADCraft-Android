@@ -161,4 +161,26 @@ assert.equal(volumes.concave.intersectionVolume,0,'concave open area has no over
 assert.equal(volumes.negative.intersectionVolume,500,'negative height prisms have correct overlap');
 assert.equal(volumes.diamond.intersectionVolume,500,'rotated profile overlap');
 
+
+// Limited but real boolean triangulated output for pairs of axis-aligned boxes.
+// Validate signed volume of oriented surface triangles, not only volume formulas.
+const booleanResults=evaluate("(()=>{const rect=[[0,0],[10,0],[10,10],[0,10]],make=(p,h=10,x=0,y=0,z=0)=>({id:1,profile:p,height:h,offset:[x,y,z],mesh:extrude(p,h)});const a=make(rect);const pair=(b)=>Object.fromEntries(['union','subtract','intersect'].map(op=>[op,meshOrientedVolume(booleanBoxMesh(a,b,op))]));const box=make(rect,10,5,5);return {overlap:pair(box),separate:pair(make(rect,10,20,20)),contained:pair(make([[2,2],[8,2],[8,8],[2,8]])),identical:pair(make(rect)),triangles:booleanBoxMesh(a,box,'union').faces.length,vertices:booleanBoxMesh(a,box,'union').v.length,refusesAngled:(()=>{try{booleanBoxMesh(a,make([[0,5],[5,0],[10,5],[5,10]]),'union');return false}catch(e){return true}})(),refusesInvalidMode:(()=>{try{booleanBoxMesh(a,box,'xor');return false}catch(e){return true}})()};})()");
+const roundSix=x=>Math.round(x*1e6)/1e6;
+assert.equal(roundSix(booleanResults.overlap.union),1750,'boolean union mesh volume');
+assert.equal(roundSix(booleanResults.overlap.subtract),750,'boolean subtraction mesh volume');
+assert.equal(roundSix(booleanResults.overlap.intersect),250,'boolean intersection mesh volume');
+assert.equal(roundSix(booleanResults.separate.union),2000,'boolean union of disjoint blocks');
+assert.equal(roundSix(booleanResults.separate.subtract),1000,'boolean subtraction of disjoint blocks');
+assert.equal(roundSix(booleanResults.separate.intersect),0,'empty boolean intersection');
+assert.equal(roundSix(booleanResults.contained.union),1000,'union with fully contained block');
+assert.equal(roundSix(booleanResults.contained.subtract),640,'subtraction creates cavity');
+assert.equal(roundSix(booleanResults.contained.intersect),360,'contained box intersection');
+assert.equal(roundSix(booleanResults.identical.union),1000,'union of identical boxes');
+assert.equal(roundSix(booleanResults.identical.subtract),0,'subtraction of identical boxes is empty');
+assert.equal(roundSix(booleanResults.identical.intersect),1000,'intersection of identical boxes');
+assert.equal(booleanResults.refusesAngled,true,'axis-aligned rectangular restriction enforced');
+assert.equal(booleanResults.refusesInvalidMode,true,'reject unsupported boolean operation');
+assert.equal(booleanResults.triangles>12,true,'partially merged box mesh has triangulated surface');
+assert.equal(booleanResults.vertices>8,true,'partially merged mesh has additional boundary vertices');
+
 console.log('3D studio tests passed');
