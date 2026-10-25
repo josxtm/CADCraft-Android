@@ -87,6 +87,23 @@ No instalar otra APK todavía. Cuando se anuncie la próxima versión para móvi
 
 Este guion se ejecutará únicamente cuando se acuerde compilar una APK importante.
 
+## Pruebas pendientes de los controles táctiles (próxima APK importante)
+
+| N.º | Acción en Nothing Phone 2a | Resultado esperado |
+|---|---|---|
+| T1 | En 3D, activar `Mover: ON`, tocar una pieza y arrastrar con un dedo | Se mueve la pieza, pero no gira la cámara |
+| T2 | En `Plano XY`, usar la vista superior y arrastrar diagonalmente | La pieza cambia X/Y manteniendo Z |
+| T3 | Cambiar a eje `Z` y arrastrar en una vista frontal | Solo cambia la coordenada Z |
+| T4 | Activar rejilla de 5 mm | El desplazamiento se ajusta a múltiplos de 5 mm |
+| T5 | Probar sensibilidad 0,5 y 2 para el mismo gesto | Con 2 el desplazamiento es mayor |
+| T6 | Arrastrar una pieza, soltar y pulsar `Deshacer mover` / `Rehacer mover` | Vuelve a la posición anterior y recupera la nueva |
+| T7 | Mover usando los campos XYZ y deshacer | También se recuperan los valores anteriores |
+| T8 | Cambiar a `Seleccionar cara` mientras Mover está activo | Se desactiva Mover; la herramienta selecciona sin trasladar |
+| T9 | Ocultar el panel con `Panel: OFF`, girar la vista y volver a mostrarlo | El dibujo ocupa más espacio y los controles se recuperan |
+| T10 | Guardar JSON v3, cerrar y abrir | Las posiciones de todas las piezas siguen iguales |
+
+No se necesita instalar nada todavía. Se integrará este bloque en la lista de aceptación de la siguiente **APK aprobada expresamente**.
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
