@@ -189,4 +189,44 @@ const manifoldChecks=evaluate("(()=>{const p=[[0,0],[10,0],[10,10],[0,10]],make=
 assert.equal(manifoldChecks.length,15,'all boolean shape scenarios checked for manifold edges');
 assert.equal(manifoldChecks.every(Boolean),true,'boolean meshes have no open triangle edges');
 
+
+// Persisted booleans as independent scene meshes: JSON v3 with v1/v2 imports.
+assert.equal(evaluate('createSceneSolid()'),true,'second extruded prism created for boolean');
+assert.equal(evaluate('moveActiveSolid(50,0,0)'),true,'position partial overlapping extrusion');
+assert.equal(evaluate("Number.isInteger(addBooleanToScene('subtract'))"),true,'create boolean as a scene object');
+assert.equal(evaluate('derivedSolids.length'),1,'one boolean result retained in scene');
+assert.equal(evaluate('selectedDerivedId===derivedSolids[0].id'),true,'new boolean result is selected');
+assert.equal(evaluate('validateDerivedMesh(derivedSolids[0].mesh).faces.length>0'),true,'stored derived triangle mesh is manifold');
+assert.equal(evaluate('combinedScene().owners.includes(selectedDerivedId)'),true,'scene renderer includes boolean result');
+assert.equal(evaluate('moveActiveSolid(100,20,30)'),true,'move selected boolean result XYZ');
+assert.equal(evaluate('selectedDerived().offset[2]'),30,'mesh Z offset changed');
+assert.equal(evaluate('activeOffset[0]'),50,'changing derived mesh does not move source extrusion');
+assert.equal(evaluate('allSceneMeshes().at(-1).v[0][2]-derivedSolids[0].mesh.v[0][2]'),30,'derived world mesh obeys offset');
+assert.equal(evaluate('JSON.parse(serializeProject()).version'),3,'JSON v3 stores derived meshes');
+assert.equal(evaluate('JSON.parse(serializeProject()).derivedSolids.length'),1,'serialized project includes boolean results');
+assert.equal(evaluate('loadProjectText(serializeProject()).faces.length'),12,'JSON v3 roundtrip retains active extrusion');
+assert.equal(evaluate('derivedSolids.length'),1,'JSON v3 restores boolean scene objects');
+assert.equal(evaluate('selectedDerived()!=null'),true,'project restores selected boolean');
+assert.equal(evaluate('selectedDerived().offset[0]'),100,'project restores boolean XYZ offset');
+assert.equal(evaluate('selectedDerived().parents.length'),2,'operation retains both source IDs');
+assert.equal(evaluate('changeHeight(1)'),false,'boolean mesh does not masquerade as parametric extrusion');
+assert.equal(evaluate('duplicateDerivedSolid()'),true,'duplicate selected boolean mesh');
+assert.equal(evaluate('derivedSolids.length'),2,'scene holds two independent boolean copies');
+assert.equal(evaluate('cycleDerivedSolid()'),true,'cycle selected boolean result');
+assert.equal(evaluate('deleteDerivedSolid()'),true,'delete selected boolean mesh');
+assert.equal(evaluate('derivedSolids.length'),1,'deleting one mesh preserves other objects');
+assert.equal(evaluate("meshAsObj(combinedScene()).split('\\n').filter(l=>l.startsWith('f ')).length>24"),true,'combined OBJ exports derived and extrusions');
+const savedBoolean=evaluate('serializeProject()');
+const derivedBefore=evaluate('derivedSolids.length');
+assert.equal(evaluate("(()=>{const o=JSON.parse(serializeProject());o.derivedSolids[0].mesh.faces[0]=[0,0,0];try{loadProjectText(JSON.stringify(o));return false}catch(e){return true}})()"),true,'malformed boolean faces rejected on load');
+assert.equal(evaluate('derivedSolids.length'),derivedBefore,'rejected file does not overwrite scene');
+assert.equal(evaluate("(()=>{const o=JSON.parse(serializeProject());o.derivedSolids[0].id=o.activeSolidId;try{loadProjectText(JSON.stringify(o));return false}catch(e){return true}})()"),true,'duplicate source and result IDs rejected');
+assert.equal(evaluate('derivedSolids.length'),derivedBefore,'rejected duplicate ID leaves data intact');
+assert.equal(evaluate("(()=>{const o=JSON.parse(serializeProject());o.selectedDerivedId=999999;try{loadProjectText(JSON.stringify(o));return false}catch(e){return true}})()"),true,'unknown selected boolean ID rejected');
+assert.equal(evaluate('derivedSolids.length'),derivedBefore,'rejected selected ID leaves data intact');
+assert.equal(evaluate('loadProjectText(serializeProject()).faces.length'),12,'valid boolean scene still loadable');
+assert.equal(evaluate("loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:2,profile:[[0,0],[10,0],[10,10],[0,10]],height:10,activeSolidId:4,activeOffset:[0,0,0],solids:[]})).faces.length"),12,'legacy v2 project imports');
+assert.equal(evaluate('derivedSolids.length'),0,'legacy v2 project has no derived meshes');
+assert.equal(evaluate('selectedDerivedId'),null,'legacy v2 project has no derived selection');
+
 console.log('3D studio tests passed');
