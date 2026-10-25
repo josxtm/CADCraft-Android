@@ -119,6 +119,20 @@ No se necesita instalar nada todavía. Se integrará este bloque en la lista de 
 
 Estas pruebas solo se pedirán al generar **la siguiente APK de hito**, no tras cada commit.
 
+## Pruebas futuras: arrastrar directamente planos 3D
+
+Solo se solicitarán cuando preparemos la próxima APK importante para el Nothing Phone 2a.
+
+| Código | Prueba | Resultado esperado |
+|---|---|---|
+| D1 | Crear dos bloques parcialmente superpuestos y añadir una resta a la escena | Aparece una malla booleana independiente de las dos extrusiones |
+| D2 | Seleccionar `Arrastrar plano: ON`, tocar la cara superior en vista isométrica y arrastrarla ligeramente | Se ilumina el plano completo y la geometría cambia mientras se mueve el dedo |
+| D3 | Soltar y pulsar `Deshacer cara`, después `Rehacer cara` | Recupera el volumen anterior y después el modificado |
+| D4 | Empezar un arrastre y cancelar o cambiar a `Mover: ON` | La vista previa se descarta y no se crea una operación extra de deshacer |
+| D5 | Activar rejilla de 5 mm e intentar arrastrar demasiado una cara | El arrastre se ajusta a 5 mm y se rechaza cualquier posición que invalide la malla |
+| D6 | Guardar JSON v3, cerrar y volver a abrir el proyecto | La malla conserva su edición y las extrusiones originales no han cambiado |
+| D7 | Intentar arrastrar una cara de una extrusión normal | La aplicación explica que ese modo solo admite resultados booleanos |
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
