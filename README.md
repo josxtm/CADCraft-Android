@@ -167,6 +167,18 @@ El control JavaScript alcanza **180 pruebas de regresión**, incluidas creación
 
 **Limitaciones:** gestos verificados con eventos simulados, no todavía mediante pruebas en pantalla táctil Android. El zoom con dos dedos está disponible en modo navegación; en modo Mover se prioriza evitar que un segundo dedo modifique accidentalmente la pieza o la cámara.
 
+### Manipulador 3D: selección visible, medición y foco de cámara (desarrollo posterior a v0.5.0)
+
+- El estudio 3D muestra un **contorno amarillo de la pieza activa** al activar **Mover: ON**. Esto permite distinguir la pieza que se desplazará incluso en escenas con varios sólidos.
+- Cuando se arrastra una flecha X, Y o Z del manipulador, se destaca el eje bloqueado y se muestra el **desplazamiento acumulado en milímetros** junto a la pieza. El dato desaparece al terminar el gesto.
+- El control amarillo **XY** se desactiva automáticamente cuando el plano se observa de canto, para evitar desplazamientos incorrectos por proyección numéricamente inestable. Al cambiar a **Superior** vuelve a poder utilizarse.
+- Nuevo control **Centrar pieza**: cambia el pivote y el zoom de la cámara para encuadrar solo la pieza seleccionada sin desplazar ninguna geometría.
+- Los botones **Mover: ON/OFF** y **Seleccionar cara** redibujan inmediatamente la vista y el manipulador al cambiar de modo; no es necesario tocar la pantalla de nuevo.
+- El cálculo del contorno seleccionado utiliza un recorrido incremental de los vértices, sin listas de argumentos de tamaño proporcional al número de triángulos, para soportar mejor mallas grandes.
+- Pruebas automáticas: **299 comprobaciones JavaScript**; se han añadido regresiones de contorno, centrado de cámara, distancia mostrada, eje fijo durante el gesto y desactivación de XY cuando la cámara queda alineada con el plano.
+
+**Sin nueva APK:** esta fase se mantiene como desarrollo comprobado mediante pruebas JavaScript. Falta validar la interacción táctil real y la compilación Android en una versión importante. El motor sigue sin ofrecer booleanas B-Rep arbitrarias ni modificación paramétrica general de mallas.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
