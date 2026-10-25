@@ -1,14 +1,15 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>CADCraft 3D</title>
-<style>html,body{height:100%;margin:0;background:#1c222d;color:#e7edf5;font:14px Arial,sans-serif}header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px;background:#303a49}button,input{background:#39485d;color:#fff;border:1px solid #647287;border-radius:7px;padding:10px;font-size:15px}button:active{background:#627895}main{position:relative;height:calc(100% - 102px)}canvas{width:100%;height:100%;display:block;touch-action:none}aside{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:7px;max-width:50%}aside label{display:flex;gap:6px;align-items:center;background:#303a49e9;border-radius:6px;padding:4px}aside input{width:65px}#cube{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:repeat(3,40px);gap:3px;background:#263244d9;padding:6px;border-radius:8px}#cube button{padding:6px 0;font-size:12px}#status{position:absolute;bottom:8px;left:8px;background:#141c2dd9;padding:6px;border-radius:5px}footer{height:40px;display:flex;justify-content:space-around;align-items:center;background:#303a49;gap:6px;overflow-x:auto;padding:0 6px;box-sizing:border-box}footer button{flex-shrink:0}footer button{padding:5px 9px;font-size:13px}#sketchPanel{display:none;position:absolute;inset:4%;z-index:10;background:#202b3a;border:2px solid #7189a8;border-radius:12px;padding:10px;box-sizing:border-box;flex-direction:column;gap:8px}#sketchPanel.open{display:flex}#sketchCanvas{flex:1;min-height:80px;background:#14202e;border:1px solid #526980;touch-action:none;width:100%}#sketchPanel .toolbar{display:flex;flex-wrap:wrap;gap:6px}#sketchInfo{font-size:12px;color:#d4e0f4}</style></head>
+<style>html,body{height:100%;margin:0;background:#1c222d;color:#e7edf5;font:14px Arial,sans-serif}header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px;background:#303a49}button,input{background:#39485d;color:#fff;border:1px solid #647287;border-radius:7px;padding:10px;font-size:15px}button:active{background:#627895}main{position:relative;height:calc(100% - 102px)}canvas{width:100%;height:100%;display:block;touch-action:none}aside{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:7px;max-width:50%;max-height:calc(100% - 20px);overflow-y:auto;overscroll-behavior:contain}aside label{display:flex;gap:6px;align-items:center;background:#303a49e9;border-radius:6px;padding:4px}aside input{width:65px}#cube{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:repeat(3,40px);gap:3px;background:#263244d9;padding:6px;border-radius:8px}#cube button{padding:6px 0;font-size:12px}#status{position:absolute;bottom:8px;left:8px;background:#141c2dd9;padding:6px;border-radius:5px}footer{height:40px;display:flex;justify-content:space-around;align-items:center;background:#303a49;gap:6px;overflow-x:auto;padding:0 6px;box-sizing:border-box}footer button{flex-shrink:0}footer button{padding:5px 9px;font-size:13px}#sketchPanel{display:none;position:absolute;inset:4%;z-index:10;background:#202b3a;border:2px solid #7189a8;border-radius:12px;padding:10px;box-sizing:border-box;flex-direction:column;gap:8px}#sketchPanel.open{display:flex}#sketchCanvas{flex:1;min-height:80px;background:#14202e;border:1px solid #526980;touch-action:none;width:100%}#sketchPanel .toolbar{display:flex;flex-wrap:wrap;gap:6px}#sketchInfo{font-size:12px;color:#d4e0f4}</style></head>
 <body><header><button onclick="location.href='../web/index.html'">CAD 2D</button><strong>CADCraft · 3D</strong><button onclick="exportSTL()">Exportar STL</button><button onclick="exportOBJ()">Exportar OBJ</button></header>
-<main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">APLICAR EXTRUSIÓN</button><button onclick="changeHeight(-5)">Altura −5 mm</button><button onclick="changeHeight(5)">Altura +5 mm</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
+<main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">APLICAR EXTRUSIÓN</button><button onclick="changeHeight(-5)">Altura −5 mm</button><button onclick="changeHeight(5)">Altura +5 mm</button><button onclick="createSceneSolid()">Nueva pieza</button><button onclick="duplicateSceneSolid()">Duplicar pieza</button><button onclick="cycleSceneSolid()">Siguiente pieza</button><button onclick="deleteSceneSolid()">Eliminar pieza</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
 <div id="cube"><span></span><button onclick="snap('top')">SUP</button><span></span><button onclick="snap('left')">IZQ</button><button onclick="snap('iso')">3D</button><button onclick="snap('right')">DER</button><span></span><button onclick="snap('front')">FTE</button><span></span></div>
 <section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button><button onclick="updateSelectedPoint()">Mover seleccionado</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="redoSketch()">Rehacer</button><button onclick="makeRectangleSketch()">Rectángulo exacto</button><label>Ø mm <input id="sketchDiameter" type="number" min="0.01" value="40" step="1"></label><button onclick="makeCircleSketch()">Círculo exacto</button><button onclick="deleteSelectedVertex()">Borrar vértice</button><button id="sketchSnapButton" onclick="toggleSketchSnap()">Rejilla ON</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="measurements" aria-live="polite" style="position:absolute;right:8px;bottom:52px;background:#141c2de8;padding:7px;border-radius:6px;max-width:60%;font-size:12px">Medidas del sólido</div><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button id="selectFaceButton" onclick="toggleFaceMode()">Seleccionar cara</button><button onclick="clearFaceSelection()">Deseleccionar</button><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
 <script>
 'use strict';
 const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
 let poly=[[0,0],[100,0],[100,60],[0,60]], height=25, az=-0.75, el=0.5, zoom=2.6;
-let model=null,profileFromDXF=false,sourceHandle=null,faceMode=false,selectedFace=-1; const status=document.getElementById('status');
+let model=null,profileFromDXF=false,sourceHandle=null,faceMode=false,selectedFace=-1;
+let storedSolids=[],activeSolidId=1,nextSolidId=2,activeOffset=[0,0,0]; const status=document.getElementById('status');
 function number(id){return Number(document.getElementById(id).value);}
 function setStatus(t){status.textContent=t;}
 function validate(p,h){if(p.length<3||!p.every(q=>q.every(Number.isFinite))||!Number.isFinite(h)||Math.abs(h)<1e-8)throw Error('Perfil o altura no válidos');}
@@ -45,6 +46,70 @@ function extrude(points,h){
  for(let i=0;i<n;i++){const j=(i+1)%n;if(h>0)faces.push([i,j,j+n],[i,j+n,i+n]);else faces.push([j+n,j,i],[i+n,j+n,i]);}
  return {v,faces,outline:p,h};
 }
+function offsetMesh(mesh, offset){
+ return {v:mesh.v.map(p=>p.map((v,i)=>v+offset[i])),faces:mesh.faces.map(face=>face.slice()),outline:mesh.outline,h:mesh.h};
+}
+function captureActiveSolid(){
+ if(!model)throw Error('No hay pieza activa');
+ return {id:activeSolidId,profile:poly.map(p=>p.slice()),height,sourceHandle,offset:activeOffset.slice(),mesh:model};
+}
+function restoreActiveSolid(record){
+ activeSolidId=record.id;poly=record.profile.map(p=>p.slice());height=record.height;
+ sourceHandle=record.sourceHandle||null;activeOffset=record.offset.slice();model=record.mesh||extrude(poly,height);
+ profileFromDXF=true;selectedFace=-1;
+ document.getElementById('height').value=String(height);
+}
+function validateOffset(value){
+ if(!Array.isArray(value)||value.length!==3||!value.every(n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<=1e8))throw Error('Desplazamiento 3D no válido');
+ return value.slice();
+}
+function createSceneSolid(){
+ if(!model||storedSolids.length>=23){setStatus('Límite de 24 piezas');return false;}
+ try{
+  const next=extrude([[0,0],[100,0],[100,60],[0,60]],25);
+  const farthestX=Math.max(...allSceneMeshes().flatMap(item=>item.v.map(p=>p[0])));
+  storedSolids.push(captureActiveSolid());
+  activeSolidId=nextSolidId++;activeOffset=[farthestX+20,0,0];
+  poly=[[0,0],[100,0],[100,60],[0,60]];height=25;model=next;sourceHandle=null;profileFromDXF=true;selectedFace=-1;
+  document.getElementById('height').value='25';
+  fit();setStatus('Nueva pieza '+activeSolidId+' · '+(storedSolids.length+1)+' en escena');return true;
+ }catch(e){setStatus('Nueva pieza: '+e.message);return false;}
+}
+function duplicateSceneSolid(){
+ if(!model||storedSolids.length>=23){setStatus('Límite de 24 piezas');return false;}
+ try{
+  const xs=model.v.map(p=>p[0]),width=Math.max(...xs)-Math.min(...xs);
+  const copy=captureActiveSolid();copy.id=nextSolidId++;
+  copy.offset=[activeOffset[0]+width+20,activeOffset[1],activeOffset[2]];
+  copy.profile=copy.profile.map(p=>p.slice());
+  copy.mesh=extrude(copy.profile,copy.height);storedSolids.push(copy);
+  fit();setStatus('Duplicada como pieza '+copy.id);return true;
+ }catch(e){setStatus('Duplicar: '+e.message);return false;}
+}
+function cycleSceneSolid(){
+ if(!storedSolids.length)return false;
+ const current=captureActiveSolid();
+ const next=storedSolids.shift();storedSolids.push(current);
+ restoreActiveSolid(next);fit();setStatus('Pieza activa '+activeSolidId);return true;
+}
+function deleteSceneSolid(){
+ if(!storedSolids.length){setStatus('Debe quedar al menos una pieza');return false;}
+ const next=storedSolids.pop();restoreActiveSolid(next);
+ fit();setStatus('Pieza eliminada · '+(storedSolids.length+1)+' restantes');return true;
+}
+function allSceneMeshes(){
+ const records=[captureActiveSolid(),...storedSolids];
+ return records.map(record=>({id:record.id,...offsetMesh(record.mesh||extrude(record.profile,record.height),record.offset)}));
+}
+function combinedScene(){
+ const parts=allSceneMeshes(),v=[],faces=[],owners=[];
+ for(const part of parts){
+  const start=v.length;v.push(...part.v);
+  for(const face of part.faces){faces.push(face.map(i=>i+start));owners.push(part.id);}
+ }
+ return {v,faces,owners};
+}
+
 function extrudeForm(){
  try{
   const w=number('width'),l=number('length'),h=number('height');
@@ -80,11 +145,12 @@ function insideTriangle2D(p,a,b,c){
 }
 function pickFaceAt(px,py){
  if(!model||!Number.isFinite(px)||!Number.isFinite(py))return -1;
- const projection=makeProjection(),vertices=model.v.map(projection);
+ const scene=combinedScene(),projection=makeProjection(scene),vertices=scene.v.map(projection);
  const d=devicePixelRatio||1,scale=zoom*d,w=canvas.width,h=canvas.height;
  const to=i=>[w/2+vertices[i].x*scale,h/2-vertices[i].y*scale];
- const faces=model.faces.map((face,index)=>({index,face,z:face.reduce((v,i)=>v+vertices[i].z,0)/3})).sort((a,b)=>b.z-a.z);
+ const faces=scene.faces.map((face,index)=>({index,face,z:face.reduce((v,i)=>v+vertices[i].z,0)/3})).sort((a,b)=>b.z-a.z);
  for(const {index,face} of faces){
+  if(scene.owners[index]!==activeSolidId)continue;
   if(insideTriangle2D([px,py],to(face[0]),to(face[1]),to(face[2])))return index;
  }
  return -1;
@@ -104,29 +170,29 @@ function toggleFaceMode(){
 }
 function clearFaceSelection(){selectedFace=-1;render();setStatus('Selección eliminada');}
 
-function makeProjection(){
+function makeProjection(scene=model){
  const ca=Math.cos(az),sa=Math.sin(az),ce=Math.cos(el),se=Math.sin(el);
  const right=[-sa,ca,0],up=[-ca*se,-sa*se,ce],depth=[ca*ce,sa*ce,se];
- const mid=model?model.v.reduce((a,p)=>a.map((v,i)=>v+p[i]/model.v.length),[0,0,0]):[0,0,0];
+ const mid=scene&&scene.v.length?scene.v.reduce((a,p)=>a.map((v,i)=>v+p[i]/scene.v.length),[0,0,0]):[0,0,0];
  return p=>{let d=p.map((v,i)=>v-mid[i]);return {x:d.reduce((s,v,i)=>s+v*right[i],0),y:d.reduce((s,v,i)=>s+v*up[i],0),z:d.reduce((s,v,i)=>s+v*depth[i],0)};};
 }
 function resize(){const d=devicePixelRatio||1;canvas.width=Math.round(canvas.clientWidth*d);canvas.height=Math.round(canvas.clientHeight*d);render();}
 function render(){if(!canvas.width||!model)return;renderMeasurements();const c=ctx,w=canvas.width,h=canvas.height,d=devicePixelRatio||1;c.clearRect(0,0,w,h);c.fillStyle='#202b3a';c.fillRect(0,0,w,h);
- const pr=makeProjection(),verts=model.v.map(pr);const sc=zoom*d; const to=p=>[w/2+p.x*sc,h/2-p.y*sc];
- let sorted=model.faces.map((face,index)=>({face,index,z:face.reduce((s,i)=>s+verts[i].z,0)/3})).sort((a,b)=>a.z-b.z);
+ const scene=combinedScene(),pr=makeProjection(scene),verts=scene.v.map(pr);const sc=zoom*d; const to=p=>[w/2+p.x*sc,h/2-p.y*sc];
+ let sorted=scene.faces.map((face,index)=>({face,index,z:face.reduce((s,i)=>s+verts[i].z,0)/3})).sort((a,b)=>a.z-b.z);
  for(const {face,index} of sorted){let a=to(verts[face[0]]),b=to(verts[face[1]]),cc=to(verts[face[2]]);
- const va=model.v[face[0]],vb=model.v[face[1]],vc=model.v[face[2]];
+ const va=scene.v[face[0]],vb=scene.v[face[1]],vc=scene.v[face[2]];
  const u=vb.map((v,i)=>v-va[i]),v=vc.map((x,i)=>x-va[i]);
  const normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
  const mag=Math.hypot(...normal)||1,lit=Math.max(0.12,Math.min(1,0.55+0.45*(normal[0]*0.3+normal[1]*-0.5+normal[2]*0.8)/mag));
  c.beginPath();c.moveTo(...a);c.lineTo(...b);c.lineTo(...cc);c.closePath();
  c.fillStyle='rgb('+Math.round(85+82*lit)+','+Math.round(111+98*lit)+','+Math.round(147+88*lit)+')';c.fill();
- c.strokeStyle='#16283a';c.lineWidth=0.6*d;c.stroke();if(index===selectedFace){c.fillStyle='rgba(255,152,47,0.55)';c.fill();c.strokeStyle='#ffb65a';c.lineWidth=2*d;c.stroke();}
+ c.strokeStyle='#16283a';c.lineWidth=0.6*d;c.stroke();if(scene.owners[index]===activeSolidId&&index===selectedFace){c.fillStyle='rgba(255,152,47,0.55)';c.fill();c.strokeStyle='#ffb65a';c.lineWidth=2*d;c.stroke();}
  }
 }
 function snap(name){({top:()=>{az=-.75;el=Math.PI/2},front:()=>{az=-Math.PI/2;el=0},left:()=>{az=Math.PI;el=0},right:()=>{az=0;el=0},iso:()=>{az=-.75;el=0.61548}}[name]||(()=>{}))();render();}
 function fit(){if(!model)return;const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
- for(const vertex of model.v)for(let i=0;i<3;i++){min[i]=Math.min(min[i],vertex[i]);max[i]=Math.max(max[i],vertex[i]);}zoom=Math.max(.1,Math.min(canvas.clientWidth,canvas.clientHeight)*.7/(Math.hypot(...max.map((v,i)=>v-min[i]))||1));render();}
+ for(const vertex of combinedScene().v)for(let i=0;i<3;i++){min[i]=Math.min(min[i],vertex[i]);max[i]=Math.max(max[i],vertex[i]);}zoom=Math.max(.1,Math.min(canvas.clientWidth,canvas.clientHeight)*.7/(Math.hypot(...max.map((v,i)=>v-min[i]))||1));render();}
 let pointers=new Map(),lastDist=0;
 canvas.addEventListener('pointerdown',e=>{if(faceMode){const rect=canvas.getBoundingClientRect();const d=devicePixelRatio||1;selectFaceAt((e.clientX-rect.left)*d,(e.clientY-rect.top)*d);return;}canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);});
 canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;const prev=pointers.get(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);
@@ -164,13 +230,13 @@ function meshAsObj(solid){
 function exportOBJ(){
  try{
   const a=document.createElement('a');a.download='CADCraft_3D.obj';
-  a.href=URL.createObjectURL(new Blob([meshAsObj(model)],{type:'text/plain'}));a.click();
+  a.href=URL.createObjectURL(new Blob([meshAsObj(combinedScene())],{type:'text/plain'}));a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);setStatus('OBJ preparado para guardar');
  }catch(e){setStatus('OBJ: '+e.message);}
 }
 
-function exportSTL(){if(!model)return;let out='solid cadcraft_android\n';
- for(const f of model.faces){const a=model.v[f[0]],b=model.v[f[1]],c=model.v[f[2]],u=b.map((v,i)=>v-a[i]),v=c.map((x,i)=>x-a[i]),n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],mag=Math.hypot(...n)||1;
+function exportSTL(){if(!model)return;const scene=combinedScene();let out='solid cadcraft_android\n';
+ for(const f of scene.faces){const a=scene.v[f[0]],b=scene.v[f[1]],c=scene.v[f[2]],u=b.map((v,i)=>v-a[i]),v=c.map((x,i)=>x-a[i]),n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],mag=Math.hypot(...n)||1;
  out+='facet normal '+n.map(x=>x/mag).join(' ')+'\n outer loop\n';
  for(const p of [a,b,c])out+=' vertex '+p.join(' ')+'\n';out+=' endloop\nendfacet\n';}
  out+='endsolid cadcraft_android\n';let a=document.createElement('a');a.download='CADCraft_3D.stl';a.href=URL.createObjectURL(new Blob([out],{type:'model/stl'}));a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);setStatus('STL preparado para guardar');}
