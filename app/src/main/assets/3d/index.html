@@ -10,7 +10,7 @@ const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
 let poly=[[0,0],[100,0],[100,60],[0,60]], height=25, az=-0.75, el=0.5, zoom=2.6;
 let model=null,profileFromDXF=false,sourceHandle=null,faceMode=false,selectedFace=-1;
 let storedSolids=[],activeSolidId=1,nextSolidId=2,activeOffset=[0,0,0];
-let derivedSolids=[],selectedDerivedId=null; const status=document.getElementById('status');
+let derivedSolids=[],selectedDerivedId=null,derivedUndo=[],derivedRedo=[]; const status=document.getElementById('status');
 function number(id){return Number(document.getElementById(id).value);}
 function setStatus(t){status.textContent=t;}
 function validate(p,h){if(p.length<3||!p.every(q=>q.every(Number.isFinite))||!Number.isFinite(h)||Math.abs(h)<1e-8)throw Error('Perfil o altura no válidos');}
@@ -488,25 +488,55 @@ function insideTriangle2D(p,a,b,c){
  const d1=sign(p,a,b),d2=sign(p,b,c),d3=sign(p,c,a),eps=1e-7;
  return (d1>=-eps&&d2>=-eps&&d3>=-eps)||(d1<=eps&&d2<=eps&&d3<=eps);
 }
-function pickFaceAt(px,py){
+function faceAtScenePoint(px,py,onlyActive=false){
  if(!model||!Number.isFinite(px)||!Number.isFinite(py))return -1;
  const scene=combinedScene(),projection=makeProjection(scene),vertices=scene.v.map(projection);
  const d=devicePixelRatio||1,scale=zoom*d,w=canvas.width,h=canvas.height;
  const to=i=>[w/2+vertices[i].x*scale,h/2-vertices[i].y*scale];
- const faces=scene.faces.map((face,index)=>({index,face,z:face.reduce((v,i)=>v+vertices[i].z,0)/3})).sort((a,b)=>b.z-a.z);
- for(const {index,face} of faces){
-  if(scene.owners[index]!== (selectedDerivedId||activeSolidId))continue;
+ const visible=scene.faces.map((face,index)=>({index,face,z:face.reduce((v,i)=>v+vertices[i].z,0)/3})).sort((a,b)=>b.z-a.z);
+ const owner=selectedDerivedId||activeSolidId;
+ for(const {index,face} of visible){
+  if(onlyActive&&scene.owners[index]!==owner)continue;
   if(insideTriangle2D([px,py],to(face[0]),to(face[1]),to(face[2])))return index;
  }
  return -1;
 }
+function pickFaceAt(px,py){return faceAtScenePoint(px,py,true);}
+function faceLocalIndex(scene,index){
+ if(index<0||index>=scene.faces.length)return -1;
+ const owner=scene.owners[index];
+ return scene.owners.slice(0,index).filter(id=>id===owner).length;
+}
+function activateSceneOwner(owner){
+ const derived=derivedSolids.find(r=>r.id===owner);
+ if(derived){
+  if(selectedDerivedId!==owner){derivedUndo=[];derivedRedo=[];}
+  selectedDerivedId=owner;selectedFace=-1;syncOffsetFields();return true;
+ }
+ if(owner!==activeSolidId){
+  const index=storedSolids.findIndex(r=>r.id===owner);
+  if(index<0)return false;
+  const current=captureActiveSolid(),selected=storedSolids[index];
+  storedSolids[index]=current;
+  restoreActiveSolid(selected);
+ }
+ selectedDerivedId=null;selectedFace=-1;derivedUndo=[];derivedRedo=[];syncOffsetFields();
+ return owner===activeSolidId;
+}
 function selectFaceAt(px,py){
- selectedFace=pickFaceAt(px,py);
+ const before=combinedScene(),picked=faceAtScenePoint(px,py,false);
+ if(picked<0){selectedFace=-1;render();setStatus('Ninguna cara seleccionada');return false;}
+ const owner=before.owners[picked],local=faceLocalIndex(before,picked);
+ if(!activateSceneOwner(owner)){selectedFace=-1;return false;}
+ const after=combinedScene();
+ selectedFace=after.owners.findIndex((id,i)=>id===owner&&faceLocalIndex(after,i)===local);
+ if(selectedFace<0){render();setStatus('No se pudo seleccionar la cara');return false;}
  render();
- if(selectedFace<0){setStatus('Ninguna cara seleccionada');return false;}
- if(selectedDerivedId){setStatus('Cara del resultado '+selectedDerivedId+' · triángulo '+(selectedFace+1));return true;}
- const scene=combinedScene(),index=scene.owners.slice(0,selectedFace).filter(id=>id===activeSolidId).length;
- setStatus('Cara '+faceType(model.faces[index],model)+' · triángulo '+(index+1)+' de '+model.faces.length);
+ if(selectedDerivedId){
+  setStatus('Resultado '+owner+' seleccionado · cara '+(local+1)+' de '+selectedDerived().mesh.faces.length);
+ }else{
+  setStatus('Extrusión '+owner+' seleccionada · cara '+faceType(model.faces[local],model)+' · triángulo '+(local+1));
+ }
  return true;
 }
 function toggleFaceMode(){
