@@ -3,8 +3,8 @@ const vm=require('node:vm');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(process.argv[2],'utf8');
 const draw={beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){},stroke(){},clearRect(){},fillRect(){}};
-const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},faceDistance:{value:'5'},status:{textContent:''}};
-const canvas={clientWidth:900,clientHeight:600,width:900,height:600,getContext(){return draw},addEventListener(){},setPointerCapture(){}};
+const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},faceDistance:{value:'5'},moveAxis:{value:'XY'},moveSnap:{value:'0'},toolsPanel:{classList:{toggle(){}}},toolsToggle:{textContent:''},moveModeButton:{textContent:''},selectFaceButton:{textContent:''},offsetX:{value:'0'},offsetY:{value:'0'},offsetZ:{value:'0'},status:{textContent:''}};
+const canvas={clientWidth:900,clientHeight:600,width:900,height:600,getContext(){return draw},getBoundingClientRect(){return {left:0,top:0,width:900,height:600}},listeners:{},addEventListener(name,fn){this.listeners[name]=fn},setPointerCapture(){}};
 const file={addEventListener(){},click(){}};
 const document={
  getElementById(id){return id==='scene'?canvas:(id==='file'||id==='projectFile')?file:controls[id]},
@@ -258,5 +258,39 @@ assert.equal(evaluate('Math.round(meshOrientedVolume(selectedDerived().mesh))'),
 assert.equal(evaluate('undoDerivedEdit()'),false,'undo history is cleared on project import');
 assert.equal(evaluate('activateSceneOwner(storedSolids[0].id)'),true,'touch-selected source can be restored');
 assert.equal(evaluate('selectedDerivedId'),null,'switching to source clears boolean selection');
+
+
+// Pointer-gesture regression. Simulate real registered pointer callbacks in the VM.
+assert.equal(evaluate('toggleTools()'),false,'collapse mobile sidebar');
+assert.equal(evaluate('toggleTools()'),true,'expand mobile sidebar');
+assert.equal(evaluate("loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[100,0],[100,60],[0,60]],height:25})).faces.length"),12,'reset scene for gesture tests');
+assert.equal(evaluate('moveHistory.length'),0,'loading a project clears stale movement history');
+assert.equal(evaluate("projectedDragDelta(100,0,'XY',0,Math.PI/2,2)[1]"),50,'XY transform from pixel movement');
+assert.equal(evaluate("projectedDragDelta(0,-30,'Z',0,0,2)[2]"),15,'constrained Z drag maps screen movement');
+assert.equal(evaluate("(()=>{try{projectedDragDelta(10,10,'XY',0,0,2);return false}catch(e){return true}})()"),true,'prevent unstable XY drag when viewed edge-on');
+assert.equal(evaluate("(()=>{try{projectedDragDelta(10,10,'Z',0,Math.PI/2,2);return false}catch(e){return true}})()"),true,'reject nearly invisible constrained axis');
+const firstGesture=evaluate("(()=>{snap('top');const s=combinedScene(),f=s.faces[1],v=f.map(i=>makeProjection(s)(s.v[i]));const x=canvas.width/2+v.reduce((n,p)=>n+p.x,0)/3*zoom,y=canvas.height/2-v.reduce((n,p)=>n+p.y,0)/3*zoom;toggleMoveMode();const cameraAz=az,cameraEl=el;canvas.listeners.pointerdown({pointerId:33,clientX:x,clientY:y});canvas.listeners.pointermove({pointerId:33,clientX:x+24,clientY:y});canvas.listeners.pointerup({pointerId:33,clientX:x+24,clientY:y});return {offset:activeOffset.slice(),camStable:az===cameraAz&&el===cameraEl,history:moveHistory.length,mode:moveMode}})()");
+assert.equal(firstGesture.mode,true,'pointer test begins in move mode');
+assert.equal(firstGesture.camStable,true,'drag does not rotate camera');
+assert.equal(firstGesture.offset.some(n=>Math.abs(n)>0.01),true,'drag really moves a 3D object');
+assert.equal(firstGesture.history,1,'one pointer stroke creates one undo entry');
+assert.equal(evaluate('undoMove()'),true,'undo complete pointer gesture');
+assert.equal(evaluate('activeOffset[0]'),0,'undo X position');
+assert.equal(evaluate('activeOffset[1]'),0,'undo Y position');
+assert.equal(evaluate('redoMove()'),true,'redo complete pointer gesture');
+assert.equal(evaluate('moveHistory.length'),1,'redo does not duplicate history');
+assert.equal(evaluate("(()=>{captureMoveGesture(34,10,10,activeSolidId);updateMoveGesture(34,15,30,'XY',0);return finishMoveGesture(34,true)})()"),false,'cancelled gesture returns false');
+assert.equal(evaluate('moveHistory.length'),1,'cancelled gesture makes no history entry');
+assert.equal(evaluate("(()=>{document.getElementById('offsetX').value='30';document.getElementById('offsetY').value='60';document.getElementById('offsetZ').value='10';return applyOffset()})()"),true,'numeric XYZ moves are also undoable');
+assert.equal(evaluate('moveHistory.length'),2,'numeric move creates exactly one history entry');
+assert.equal(evaluate('activeOffset[2]'),10,'numeric move changes Z position');
+assert.equal(evaluate('undoMove()'),true,'undo numeric XYZ move');
+assert.equal(evaluate('activeOffset[2]'),0,'undo numeric move restores Z');
+assert.equal(evaluate('redoMove()'),true,'redo numeric XYZ move');
+assert.equal(evaluate('activeOffset[2]'),10,'redo numeric move restores Z');
+assert.equal(evaluate('toggleFaceMode()'),true,'face selection mode can be enabled');
+assert.equal(evaluate('moveMode'),false,'enabling face selection disables object move mode');
+assert.equal(evaluate('loadProjectText(serializeProject()).faces.length'),12,'moving scene survives JSON save/load');
+assert.equal(evaluate('moveHistory.length'),0,'load clears gesture history to prevent unrelated undo');
 
 console.log('3D studio tests passed');
