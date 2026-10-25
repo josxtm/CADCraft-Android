@@ -179,6 +179,17 @@ El control JavaScript alcanza **180 pruebas de regresión**, incluidas creación
 
 **Sin nueva APK:** esta fase se mantiene como desarrollo comprobado mediante pruebas JavaScript. Falta validar la interacción táctil real y la compilación Android en una versión importante. El motor sigue sin ofrecer booleanas B-Rep arbitrarias ni modificación paramétrica general de mallas.
 
+### Edición directa de planos mediante gestos — desarrollo posterior a v0.5.0
+
+- **Arrastrar plano: ON/OFF** activa un tercer modo táctil, independiente de **Mover pieza** y **Seleccionar cara**. Solo las **mallas booleanas** son editables así; las extrusiones originales se mantienen intactas.
+- Tocar un triángulo de un plano válido selecciona la malla y **resalta todos los triángulos coplanares**. Arrastrar mueve el plano completo sobre su eje normal (X, Y o Z), con una **vista previa en tiempo real**, milímetros en el mensaje de estado y soporte de **rejilla** y **sensibilidad táctil**.
+- Soltar el dedo consolida **una única edición deshacible**, aunque se hayan producido múltiples eventos de movimiento. **Cancelar** el gesto, cambiar de modo, eliminar el resultado o cambiar la pieza devuelve la malla a su geometría anterior.
+- Los movimientos que cruzarían otro plano, crearían triángulos degenerados, invertirían la malla o usarían un eje casi invisible para la cámara se rechazan **sin sustituir la geometría válida**.
+- **Deshacer cara / Rehacer cara** y el guardado **JSON v3** siguen disponibles; el historial temporal de edición se reinicia al abrir un proyecto. Las piezas booleanas guardan su nueva malla, pero no mantienen historial paramétrico regenerable.
+- Regresión local ampliada a **340 comprobaciones JavaScript**, incluidas secuencias reales de eventos simulados de pulsar/arrastrar/soltar, cancelación, cambio de modo, volumen, plano coplanar completo, deshacer/rehacer y guardado.
+
+**Alcance:** esta edición desplaza vértices que comparten un mismo plano alineado con los ejes y valida la malla resultante. No implementa operaciones B-Rep generales, arrastre de caras curvas, redondeos ni relaciones paramétricas de Shapr3D. Sigue sin requerirse una APK nueva hasta el siguiente hito aprobado.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
