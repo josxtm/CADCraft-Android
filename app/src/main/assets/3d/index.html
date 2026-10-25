@@ -1,7 +1,7 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>CADCraft 3D</title>
 <style>html,body{height:100%;margin:0;background:#1c222d;color:#e7edf5;font:14px Arial,sans-serif}header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px;background:#303a49}button,input{background:#39485d;color:#fff;border:1px solid #647287;border-radius:7px;padding:10px;font-size:15px}button:active{background:#627895}main{position:relative;height:calc(100% - 102px)}canvas{width:100%;height:100%;display:block;touch-action:none}aside{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:7px;max-width:50%}aside label{display:flex;gap:6px;align-items:center;background:#303a49e9;border-radius:6px;padding:4px}aside input{width:65px}#cube{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:repeat(3,40px);gap:3px;background:#263244d9;padding:6px;border-radius:8px}#cube button{padding:6px 0;font-size:12px}#status{position:absolute;bottom:8px;left:8px;background:#141c2dd9;padding:6px;border-radius:5px}footer{height:40px;display:flex;justify-content:space-around;align-items:center;background:#303a49}footer button{padding:5px 9px;font-size:13px}#sketchPanel{display:none;position:absolute;inset:4%;z-index:10;background:#202b3a;border:2px solid #7189a8;border-radius:12px;padding:10px;box-sizing:border-box;flex-direction:column;gap:8px}#sketchPanel.open{display:flex}#sketchCanvas{flex:1;min-height:80px;background:#14202e;border:1px solid #526980;touch-action:none;width:100%}#sketchPanel .toolbar{display:flex;flex-wrap:wrap;gap:6px}#sketchInfo{font-size:12px;color:#d4e0f4}</style></head>
 <body><header><button onclick="location.href='../web/index.html'">CAD 2D</button><strong>CADCraft · 3D</strong><button onclick="exportSTL()">Exportar STL</button></header>
-<main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">EXTRUIR</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
+<main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">EXTRUIR</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
 <div id="cube"><span></span><button onclick="snap('top')">SUP</button><span></span><button onclick="snap('left')">IZQ</button><button onclick="snap('iso')">3D</button><button onclick="snap('right')">DER</button><span></span><button onclick="snap('front')">FTE</button><span></span></div>
 <section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
 <script>
@@ -82,6 +82,27 @@ function exportSTL(){if(!model)return;let out='solid cadcraft_android\n';
  for(const p of [a,b,c])out+=' vertex '+p.join(' ')+'\n';out+=' endloop\nendfacet\n';}
  out+='endsolid cadcraft_android\n';let a=document.createElement('a');a.download='CADCraft_3D.stl';a.href=URL.createObjectURL(new Blob([out],{type:'model/stl'}));a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);setStatus('STL preparado para guardar');}
 function pickDxf(){document.getElementById('file').click();}
+
+function profileAsDxf(points){
+ if(!Array.isArray(points)||points.length<3||points.length>10000)throw Error('Perfil inválido');
+ // Validate shape using the same 3D kernel, avoiding export of non-closed geometry.
+ extrude(points,1);
+ const lines=['0','SECTION','2','ENTITIES','0','LWPOLYLINE','90',String(points.length),'70','1'];
+ for(const p of points)lines.push('10',String(p[0]),'20',String(p[1]));
+ lines.push('0','ENDSEC','0','EOF');
+ return lines.join('\n')+'\n';
+}
+function exportProfileDxf(){
+ try {
+  const a=document.createElement('a');
+  a.download='CADCraft_perfil_2D.dxf';
+  a.href=URL.createObjectURL(new Blob([profileAsDxf(poly)],{type:'application/dxf'}));
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  setStatus('Perfil DXF preparado para guardar');
+ }catch(e){setStatus('DXF: '+e.message);}
+}
+
 
 function projectData(){return {format:'cadcraft-android-3d',version:1,profile:poly.map(p=>p.slice()),height:height};}
 function serializeProject(){return JSON.stringify(projectData(),null,2);}
