@@ -23,6 +23,22 @@ La actividad Android añade el botón **3D EXTRUIR**, que abre una pantalla 3D t
 
 Este modo todavía requiere una **compilación manual nueva** y pruebas en Nothing Phone 2a. No confundir código publicado con APK generada.
 
+## Estudio 3D táctil (desarrollo octubre 2026)
+
+Se han incorporado herramientas experimentales de boceto 2D directamente en la vista 3D:
+
+- Crear rectángulos por ancho y largo exactos y círculos por diámetro (aproximados con 48 segmentos rectos).
+- Añadir puntos XY en milímetros, seleccionar o arrastrar vértices, borrar vértices, deshacer y rehacer.
+- Activar/desactivar el ajuste a cuadrícula de 5 mm.
+- Extruir un contorno simple sin autointersecciones y exportar su perfil 2D a DXF.
+- Importar perfiles DXF LWPOLYLINE cerrados y rectos mediante selector Android, y exportar el sólido a STL.
+- Guardar y abrir proyectos propios JSON con perfil y altura, independientes del proyecto original de CADCraft.
+- Transferir desde la pantalla principal un archivo DXF seleccionado por el usuario al módulo 3D.
+
+**Alcance:** la selección de objetos directamente desde el lienzo del editor original CADCraft y su extrusión sin archivos intermedios todavía no está integrada. Los círculos se aproximan mediante segmentos; no se admiten agujeros, splines ni arcos DXF. Esta rama exige probar el APK en teléfono: los commits por sí solos no validan la compilación ni el funcionamiento Android.
+
+En GitHub Actions, el trabajo `preflight` comprueba la sintaxis JavaScript, la geometría y las pruebas Rust antes de `android`. El archivo APK solo aparecerá si todos los pasos concluyen correctamente.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
