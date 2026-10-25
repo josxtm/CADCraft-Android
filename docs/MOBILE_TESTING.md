@@ -104,6 +104,21 @@ Este guion se ejecutará únicamente cuando se acuerde compilar una APK importan
 
 No se necesita instalar nada todavía. Se integrará este bloque en la lista de aceptación de la siguiente **APK aprobada expresamente**.
 
+## Pruebas del manipulador visual (incorporar en el próximo hito de APK)
+
+| Código | Prueba en Nothing Phone 2a | Resultado esperado |
+|---|---|---|
+| G1 | Crear dos piezas y activar `Mover: ON` | La pieza activa muestra un contorno amarillo y controles X, Y, Z |
+| G2 | Arrastrar la flecha X 20–30 píxeles | Solo cambia X y aparece el desplazamiento en mm |
+| G3 | Cambiar el eje seleccionado de la barra lateral mientras arrastras la flecha Y | El gesto sigue limitado a Y hasta soltar |
+| G4 | Elegir vista frontal y tocar el punto central XY | No comienza un desplazamiento XY inestable |
+| G5 | Cambiar a vista superior y arrastrar el punto central XY | Se mueve la pieza en el plano XY |
+| G6 | Seleccionar una segunda pieza y pulsar `Centrar pieza` | La cámara encuadra esa pieza sin modificar sus coordenadas |
+| G7 | Activar y desactivar el modo Mover y después Seleccionar cara | El manipulador aparece/desaparece inmediatamente |
+| G8 | Arrastrar una pieza, soltar, deshacer y rehacer | La posición anterior y la nueva coinciden con el resultado del gesto |
+
+Estas pruebas solo se pedirán al generar **la siguiente APK de hito**, no tras cada commit.
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
