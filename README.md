@@ -152,6 +152,21 @@ El control JavaScript alcanza **180 pruebas de regresión**, incluidas creación
 - La detección de contactos sigue evaluando únicamente las **extrusiones**; no analiza todavía colisiones entre mallas booleanas de geometría general.
 - Regresión JavaScript ampliada a más de 200 casos sin generar ninguna nueva APK. La validez del APK continúa sin verificarse para este bloque.
 
+### Modo Mover táctil y navegación — desarrollo sin APK
+
+- Nuevo botón en la barra inferior **Mover: ON/OFF**. En modo Mover, tocar una pieza y arrastrarla modifica su desplazamiento XYZ; **la cámara no gira** durante ese arrastre.
+- Restricciones de movimiento **Plano XY, X, Y o Z**. El desplazamiento proyecta los movimientos de pantalla sobre el eje/plano elegido, utilizando la orientación y escala actuales de la cámara.
+- **Rejilla** opcional ajustable en milímetros (0 = desactivada) y **sensibilidad táctil** regulable de 0,1 a 5.
+- Los ejes demasiado paralelos a la dirección de la cámara se rechazan para evitar cambios descontrolados; para arrastrar en XY cuando el plano se ve de canto, seleccionar la **vista superior**.
+- **Deshacer mover / Rehacer mover**: hasta 50 desplazamientos, tanto arrastrando como escribiendo coordenadas XYZ. Cada gesto completo produce **una única entrada** en el historial. Un gesto cancelado revierte el desplazamiento.
+- **Seleccionar cara** y **Mover** son modos excluyentes: cambiar a uno desactiva el otro y cancela sin guardar un arrastre incompleto. Con ambos desactivados se mantiene la navegación por giro y zoom.
+- **Panel: ON/OFF** permite ocultar temporalmente el panel lateral de herramientas, dejando libre el dibujo en teléfonos de pantalla pequeña.
+- El proyecto JSON v3 conserva posiciones finales, pero el historial de movimiento es temporal y se borra al cargar un proyecto o eliminar una pieza; esto evita deshacer movimientos de objetos ya inexistentes.
+- El modo Mover funciona para las extrusiones y para los resultados booleanos triangulados. No cambia su geometría interna, solo la transformación XYZ.
+- La batería de regresión JavaScript suma **252 comprobaciones correctas**, incluidas simulaciones de eventos pointerdown / pointermove / pointerup y validación de que la cámara permanezca inmóvil. Este bloque **no ha generado APK**.
+
+**Limitaciones:** gestos verificados con eventos simulados, no todavía mediante pruebas en pantalla táctil Android. El zoom con dos dedos está disponible en modo navegación; en modo Mover se prioriza evitar que un segundo dedo modifique accidentalmente la pieza o la cámara.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
