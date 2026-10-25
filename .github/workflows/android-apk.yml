@@ -1,0 +1,43 @@
+name: Build CADCraft Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install Trunk
+        run: cargo install trunk --locked
+      - name: Get CADCraft upstream
+        run: git clone --depth 1 https://github.com/storytold/cadcraft.git upstream
+      - name: Compile CADCraft WebAssembly
+        working-directory: upstream/apps/cadcraft-web
+        run: trunk build --release
+      - name: Bundle web into Android
+        run: |
+          mkdir -p app/src/main/assets/web
+          cp -a upstream/dist/web/. app/src/main/assets/web/
+          test -f app/src/main/assets/web/index.html
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build APK
+        run: gradle --no-daemon :app:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CADCraft-Android-v0.1.0-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
