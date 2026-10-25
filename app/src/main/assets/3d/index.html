@@ -68,7 +68,7 @@ function createSceneSolid(){
  try{
   const next=extrude([[0,0],[100,0],[100,60],[0,60]],25);
   const farthestX=Math.max(...allSceneMeshes().flatMap(item=>item.v.map(p=>p[0])));
-  storedSolids.push(captureActiveSolid());
+  storedSolids.push(captureActiveSolid());invalidateSceneContacts();
   activeSolidId=nextSolidId++;activeOffset=[farthestX+20,0,0];
   poly=[[0,0],[100,0],[100,60],[0,60]];height=25;model=next;sourceHandle=null;profileFromDXF=true;selectedFace=-1;
   document.getElementById('height').value='25';syncOffsetFields();
@@ -82,7 +82,7 @@ function duplicateSceneSolid(){
   const copy=captureActiveSolid();copy.id=nextSolidId++;
   copy.offset=[activeOffset[0]+width+20,activeOffset[1],activeOffset[2]];
   copy.profile=copy.profile.map(p=>p.slice());
-  copy.mesh=extrude(copy.profile,copy.height);storedSolids.push(copy);
+  copy.mesh=extrude(copy.profile,copy.height);storedSolids.push(copy);invalidateSceneContacts();
   fit();setStatus('Duplicada como pieza '+copy.id);return true;
  }catch(e){setStatus('Duplicar: '+e.message);return false;}
 }
@@ -90,16 +90,20 @@ function cycleSceneSolid(){
  if(!storedSolids.length)return false;
  const current=captureActiveSolid();
  const next=storedSolids.shift();storedSolids.push(current);
- restoreActiveSolid(next);fit();setStatus('Pieza activa '+activeSolidId);return true;
+ restoreActiveSolid(next);invalidateSceneContacts();fit();setStatus('Pieza activa '+activeSolidId);return true;
 }
 function deleteSceneSolid(){
  if(!storedSolids.length){setStatus('Debe quedar al menos una pieza');return false;}
- const next=storedSolids.pop();restoreActiveSolid(next);
+ const next=storedSolids.pop();restoreActiveSolid(next);invalidateSceneContacts();
  fit();setStatus('Pieza eliminada · '+(storedSolids.length+1)+' restantes');return true;
+}
+function invalidateSceneContacts(){
+ const label=document.getElementById('contactInfo');
+ if(label)label.textContent='Escena modificada · vuelve a comprobar contactos';
 }
 function moveActiveSolid(x,y,z){
  const candidate=validateOffset([x,y,z]);
- activeOffset=candidate;render();return true;
+ activeOffset=candidate;invalidateSceneContacts();render();return true;
 }
 function syncOffsetFields(){
  for(let i=0;i<3;i++){
@@ -234,7 +238,7 @@ function extrudeForm(){
   if(!profileFromDXF&&!(Number.isFinite(w)&&Number.isFinite(l)&&w>0&&l>0))throw Error('Medidas incorrectas');
   const candidate=profileFromDXF?poly:[[0,0],[w,0],[w,l],[0,l]];
   const next=extrude(candidate,h);
-  poly=candidate;height=h;model=next;selectedFace=-1;
+  poly=candidate;height=h;model=next;selectedFace=-1;invalidateSceneContacts();
   if(!profileFromDXF)sourceHandle=null;
   render();setStatus('Sólido generado · '+model.faces.length+' triángulos');return true;
  }catch(e){setStatus('Error: '+e.message);return false;}
@@ -244,7 +248,7 @@ function changeHeight(delta){
  if(!Number.isFinite(next)||Math.abs(next)<1e-8){setStatus('Altura no válida');return false;}
  try{
   const candidate=extrude(poly,next);
-  height=next;model=candidate;selectedFace=-1;
+  height=next;model=candidate;selectedFace=-1;invalidateSceneContacts();
   document.getElementById('height').value=String(height);
   render();setStatus('Altura actualizada: '+height+' mm');return true;
  }catch(e){setStatus('Altura: '+e.message);return false;}
@@ -415,7 +419,7 @@ function loadProjectText(text){
  const ids=[main.id,...records.map(p=>p.id)];
  if(new Set(ids).size!==ids.length)throw Error('ID de pieza duplicado');
  // Commit after validation: an invalid imported project never damages the scene.
- storedSolids=records;
+ storedSolids=records;invalidateSceneContacts();
  nextSolidId=Math.max(...ids)+1;
  restoreActiveSolid(main);
  fit();setStatus('Proyecto cargado · '+ids.length+' pieza(s)');
@@ -526,7 +530,7 @@ function moveSketchVertex(index,x,y){
 function setSketchProfile(points){
  const candidate=points.map(p=>[Number(p[0]),Number(p[1])]);
  const next=extrude(candidate,number('height')); // validate BEFORE changing the live model
- poly=candidate;height=number('height');model=next;profileFromDXF=true;sourceHandle=null;
+ poly=candidate;height=number('height');model=next;profileFromDXF=true;sourceHandle=null;invalidateSceneContacts();
  fit();setStatus('Perfil 2D extruido · '+candidate.length+' vértices');
  return next;
 }
