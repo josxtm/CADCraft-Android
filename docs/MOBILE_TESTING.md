@@ -48,6 +48,18 @@ Estas comprobaciones **no requieren generar una APK ahora**. Se incorporarán a 
 | C4 | Guardar el proyecto, volverlo a abrir y comprobar los contactos | Debe conservar las posiciones y la separación de las piezas |
 | C5 | Modificar la altura o mover una pieza después de analizar los contactos | El resultado anterior debe invalidarse hasta volver a comprobar |
 
+## Pruebas previstas del primer paquete booleano (futura APK importante)
+
+| N.º | Acción en el estudio 3D | Resultado esperado |
+|---|---|---|
+| B1 | Crear dos bloques que se solapen y pulsar `Calcular unión/resta` | Se muestran los volúmenes común, unido y restado |
+| B2 | Exportar `Unión OBJ · bloques` | Android permite guardar un OBJ con la superficie exterior de la unión |
+| B3 | Exportar `Resta OBJ · bloques` | Se guarda el OBJ del bloque activo descontando la segunda pieza |
+| B4 | Probar los mismos botones sobre cilindros o perfiles inclinados | La exportación rechaza el tipo de geometría y conserva el proyecto original |
+| B5 | Separar completamente los bloques y volver a calcular | El solapamiento tiene volumen 0; intersección OBJ no exporta malla vacía |
+
+Esta lista se usará **solo cuando se recomiende una nueva APK**, no ahora.
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
