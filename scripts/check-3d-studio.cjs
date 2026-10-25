@@ -11,7 +11,9 @@ const document={
  createElement(){return {click(){},style:{}}},
 };
 const window={addEventListener(){}};
-const context=vm.createContext({document,window,devicePixelRatio:1,Math,Number,Error,Map,Blob,URL,console,setTimeout(){}});
+const sessionData=new Map();
+const sessionStorage={getItem:k=>sessionData.get(k)||null,setItem:(k,v)=>sessionData.set(k,String(v)),removeItem:k=>sessionData.delete(k)};
+const context=vm.createContext({document,window,devicePixelRatio:1,Math,Number,Error,Map,Blob,URL,console,sessionStorage,setTimeout(){}});
 vm.runInContext(source,context,{timeout:3000});
 function evaluate(expression){return vm.runInContext(expression,context,{timeout:3000})}
 assert.equal(evaluate('model.v.length'),8,'extrusion should have 8 vertices');
@@ -29,4 +31,7 @@ assert.equal(evaluate("(()=>{try{setSketchProfile([[0,0],[10,10],[0,10],[10,0]])
 assert.equal(evaluate("poly[1][0]"),40,'invalid sketch cannot replace the active model');
 assert.equal(evaluate("parseDxfProfile('0\\nLWPOLYLINE\\n70\\n1\\n10\\n0\\n20\\n0\\n10\\n40\\n20\\n0\\n10\\n40\\n20\\n20\\n10\\n0\\n20\\n20\\n0\\nENDSEC').length"),4,'DXF closed polyline parsing');
 assert.equal(evaluate("importDxfText('0\\nLWPOLYLINE\\n70\\n1\\n10\\n0\\n20\\n0\\n10\\n40\\n20\\n0\\n10\\n40\\n20\\n20\\n10\\n0\\n20\\n20\\n0\\nENDSEC').faces.length"),12,'DXF 2D-to-3D extrusion');
+sessionStorage.setItem('cadcraft.android.dxf.handoff','0\\nLWPOLYLINE\\n70\\n1\\n10\\n0\\n20\\n0\\n10\\n20\\n20\\n0\\n10\\n20\\n20\\n10\\n10\\n0\\n20\\n10\\n0\\nENDSEC');
+assert.equal(evaluate('receive2dHandoff(); model.faces.length'),12,'2D handoff builds a solid');
+assert.equal(sessionStorage.getItem('cadcraft.android.dxf.handoff'),null,'handoff consumed exactly once');
 console.log('3D studio tests passed');
