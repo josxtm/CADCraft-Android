@@ -2,13 +2,26 @@
 
 Adaptación experimental de [CADCraft](https://github.com/storytold/cadcraft) para **Android**, con compilación de APK en la nube utilizando **GitHub Actions**.
 
-> **Estado:** fase 0.1.0 — prototipo inicial, pendiente de compilación y pruebas en dispositivo real. No se ha verificado aún una APK funcional.
+> **Estado:** la APK 2D v0.1.0 fue probada en Nothing Phone 2a. Se ha añadido un estudio 3D independiente aún no validado en móvil.
 
 ## Objetivo
 
 Disponer de una aplicación CAD para Android que aproveche el código abierto de CADCraft y permita trabajar con dibujos desde una pantalla táctil. Las prioridades son dibujo 2D, precisión, cotas, apertura/guardado de archivos y evolución posterior de las herramientas 3D.
 
 La primera vía técnica prevista consiste en compilar la versión web **Rust → WebAssembly** y empaquetarla en una APK con una actividad Android **WebView**. Una integración nativa de Rust/egui queda como opción futura si WebView impone limitaciones.
+
+## Modo experimental 3D (nuevos cambios)
+
+La actividad Android añade el botón **3D EXTRUIR**, que abre una pantalla 3D táctil empaquetada sin conexión en `app/src/main/assets/3d/index.html`. Esta pantalla ofrece:
+
+- Crear un sólido extruyendo un rectángulo con ancho, largo y altura numéricos.
+- Rotar con un dedo, zoom con pellizco y botones de orientación (superior, frontal, izquierda, derecha, isométrica).
+- Importar un archivo DXF **LWPOLYLINE cerrado con segmentos rectos** para extruirlo; por ahora utiliza el primer contorno compatible, sin agujeros ni arcos.
+- Exportar la malla a STL (sin garantía todavía de compatibilidad del selector de descarga Android).
+
+**Limitación importante:** el modo 3D es una pantalla independiente del editor CADCraft 2D. Todavía **no** recibe automáticamente las entidades seleccionadas en el editor principal, ni crea sólidos dentro del documento CADCraft/DXF. Esta integración completa queda pendiente. No afirmar que el ViewCube original del editor CADCraft se ha reparado; el ViewCube funcional es el del nuevo modo 3D.
+
+Este modo todavía requiere una **compilación manual nueva** y pruebas en Nothing Phone 2a. No confundir código publicado con APK generada.
 
 ## Hoja de ruta
 
