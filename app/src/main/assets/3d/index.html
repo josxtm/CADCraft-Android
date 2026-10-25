@@ -672,11 +672,15 @@ function loadProjectText(text){
  return model;
 }
 function saveProject(){
- const blob=new Blob([serializeProject()],{type:'application/json'});
- const a=document.createElement('a');a.download='CADCraft_proyecto.json';
- a.href=URL.createObjectURL(blob);a.click();
- setTimeout(()=>URL.revokeObjectURL(a.href),2000);
- setStatus('Proyecto preparado para guardar');
+ try{
+  const content=serializeProject();
+  if(content.length>2000000)throw Error('El proyecto supera 2 MB; reduce la complejidad antes de guardarlo');
+  const blob=new Blob([content],{type:'application/json'});
+  const a=document.createElement('a');a.download='CADCraft_proyecto.json';
+  a.href=URL.createObjectURL(blob);a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  setStatus('Proyecto preparado para guardar');return true;
+ }catch(e){setStatus('Guardar: '+e.message);return false;}
 }
 function pickProject(){document.getElementById('projectFile').click();}
 document.getElementById('projectFile').addEventListener('change',async e=>{
@@ -776,7 +780,7 @@ function moveSketchVertex(index,x,y){
 function setSketchProfile(points){
  const candidate=points.map(p=>[Number(p[0]),Number(p[1])]);
  const next=extrude(candidate,number('height')); // validate BEFORE changing the live model
- poly=candidate;height=number('height');model=next;profileFromDXF=true;sourceHandle=null;invalidateSceneContacts();
+ poly=candidate;height=number('height');model=next;profileFromDXF=true;sourceHandle=null;selectedDerivedId=null;selectedFace=-1;syncOffsetFields();invalidateSceneContacts();
  fit();setStatus('Perfil 2D extruido · '+candidate.length+' vértices');
  return next;
 }
