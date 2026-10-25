@@ -608,12 +608,18 @@ function exportProfileDxf(){
 function plainSolidRecord(record){
  return {id:record.id,profile:record.profile.map(p=>p.slice()),height:record.height,offset:record.offset.slice(),sourceHandle:record.sourceHandle||null};
 }
+function serializeDerivedSolid(item){
+ return {id:item.id,mode:item.mode,parents:item.parents.slice(),offset:item.offset.slice(),
+  mesh:{v:item.mesh.v.map(p=>p.slice()),faces:item.mesh.faces.map(f=>f.slice())}};
+}
 function projectData(){
  return {
-  format:'cadcraft-android-3d',version:2,
+  format:'cadcraft-android-3d',version:3,
   profile:poly.map(p=>p.slice()),height,sourceHandle,
   activeSolidId,activeOffset:activeOffset.slice(),
-  solids:storedSolids.map(plainSolidRecord)
+  solids:storedSolids.map(plainSolidRecord),
+  derivedSolids:derivedSolids.map(serializeDerivedSolid),
+  selectedDerivedId
  };
 }
 function serializeProject(){return JSON.stringify(projectData(),null,2);}
@@ -627,21 +633,35 @@ function validateProjectSolid(data,id,offset){
   sourceHandle:typeof data.sourceHandle==='string'?data.sourceHandle:null,
   offset:validateOffset(offset),mesh};
 }
+function validateProjectDerived(data){
+ if(!data||!Number.isSafeInteger(data.id)||data.id<1||
+    !['union','subtract','intersect'].includes(data.mode)||
+    !Array.isArray(data.parents)||data.parents.length!==2||
+    !data.parents.every(id=>Number.isSafeInteger(id)&&id>0))
+  throw Error('Registro booleano incompatible');
+ return {id:data.id,mode:data.mode,parents:data.parents.slice(),
+  offset:validateOffset(data.offset),mesh:validateDerivedMesh(data.mesh)};
+}
 function loadProjectText(text){
  if(typeof text!=='string'||text.length>2000000)throw Error('Proyecto demasiado grande');
  const parsed=JSON.parse(text);
- if(!parsed||parsed.format!=='cadcraft-android-3d'||![1,2].includes(parsed.version))throw Error('Formato de proyecto no compatible');
+ if(!parsed||parsed.format!=='cadcraft-android-3d'||![1,2,3].includes(parsed.version))throw Error('Formato de proyecto no compatible');
  const legacy=parsed.version===1;
  const main=validateProjectSolid(parsed,legacy?1:parsed.activeSolidId,legacy?[0,0,0]:parsed.activeOffset);
  const others=legacy?[]:parsed.solids;
  if(!Array.isArray(others)||others.length>23)throw Error('Demasiadas piezas en el proyecto');
  const records=others.map(r=>validateProjectSolid(r,r.id,r.offset));
- const ids=[main.id,...records.map(p=>p.id)];
+ const output=parsed.version===3?parsed.derivedSolids:[];
+ if(!Array.isArray(output)||output.length+records.length>23)throw Error('Demasiadas piezas en el proyecto');
+ const meshes=output.map(validateProjectDerived);
+ const ids=[main.id,...records.map(p=>p.id),...meshes.map(p=>p.id)];
  if(new Set(ids).size!==ids.length)throw Error('ID de pieza duplicado');
- // Commit after validation: an invalid imported project never damages the scene.
- storedSolids=records;invalidateSceneContacts();
+ const selected=parsed.version===3&&parsed.selectedDerivedId!=null?parsed.selectedDerivedId:null;
+ if(selected!=null&&!meshes.some(m=>m.id===selected))throw Error('Selección booleana no existe');
+ // Atomic commit: failure in the mesh validation preserves the current scene.
+ storedSolids=records;derivedSolids=meshes;selectedDerivedId=selected;
  nextSolidId=Math.max(...ids)+1;
- restoreActiveSolid(main);
+ restoreActiveSolid(main);syncOffsetFields();invalidateSceneContacts();
  fit();setStatus('Proyecto cargado · '+ids.length+' pieza(s)');
  return model;
 }
