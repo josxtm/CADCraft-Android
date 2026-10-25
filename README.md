@@ -39,6 +39,16 @@ Se han incorporado herramientas experimentales de boceto 2D directamente en la v
 
 En GitHub Actions, el trabajo `preflight` comprueba la sintaxis JavaScript, la geometría y las pruebas Rust antes de `android`. El archivo APK solo aparecerá si todos los pasos concluyen correctamente.
 
+### Paquete de verificación 0.2.0
+- Estadísticas geométricas (área de base, superficie exterior y volumen) con unidades de dibujo asumidas como mm.
+- Exportación OBJ de malla triangulada además de STL y DXF.
+- Rectángulos y círculos precisos, rejilla opcional, deshacer y rehacer, selección, desplazamiento y borrado de vértices.
+- Android permite cambiar la orientación de pantalla (en lugar de estar bloqueado en apaisado).
+- Compilación de CADCraft web desde la etiqueta de origen `v0.13.0` para evitar cambios inesperados en cada ejecución.
+- APK de desarrollo versionada `0.2.0`, aplicación id `com.josxtm.cadcraft` (se conserva para actualización).
+
+**Calidad:** se prueban automáticamente los cálculos geométricos y la estructura del OBJ. Esta verificación no sustituye la compilación en GitHub Actions ni las pruebas en el teléfono.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
