@@ -58,6 +58,17 @@ En GitHub Actions, el trabajo `preflight` comprueba la sintaxis JavaScript, la g
 
 El puente WebAssembly es de **solo lectura** y funciona con la versión fija `v0.13.0`. No ofrece todavía selección múltiple, curvas DXF con bulge, agujeros, reconocimiento de límites a partir de líneas sueltas, sincronización de vuelta al documento original ni operaciones booleanas. La compilación WASM de GitHub Actions es obligatoria para comprobar que el parche Rust funciona con ese código. Las pruebas JavaScript por sí solas **no confirman un APK válida**.
 
+### Estudio 3D: selección y edición (v0.4.0)
+
+- Alternar entre **giro de cámara** y **selección de caras** en la barra inferior.
+- Seleccionar con un toque un triángulo visible de la malla y resaltarlo en naranja. La interfaz indica si pertenece a la cara superior, inferior o lateral.
+- **Deseleccionar** y continuar girando libremente al salir del modo selección.
+- Modificar la altura de extrusión en pasos de ±5 mm o mediante el campo de altura y **APLICAR EXTRUSIÓN**.
+- Comprobar la nueva geometría antes de sustituir la actual: entradas incorrectas o altura cero mantienen el último sólido válido.
+- Añadir 19 pruebas para selección, geometría y cambios de altura. La prueba JavaScript conjunta alcanza 71 comprobaciones, ejecutadas localmente; la compilación Rust/WASM y la APK requieren verificación por Actions.
+
+**Alcance:** esta es selección de triángulos de una única malla de extrusión, no un selector topológico B-Rep ni edición paramétrica de caras arbitrarias. Todavía no incluye múltiples sólidos, operaciones booleanas ni modificación de la geometría original de CADCraft 2D.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
