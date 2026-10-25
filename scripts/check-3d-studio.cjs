@@ -76,4 +76,23 @@ assert.equal(evaluate("setSketchProfile([[0,0],[25,0],[25,25],[0,25]]).faces.len
 assert.equal(evaluate('sourceHandle'),null,'new manually edited profile clears previous CADCraft selection handle');
 assert.equal(evaluate('JSON.parse(serializeProject()).sourceHandle'),null,'new project cannot retain stale origin');
 
+assert.equal(evaluate('changeHeight(5)'),true,'increase extrusion height');
+assert.equal(evaluate('model.h'),30,'extrusion height updated');
+assert.equal(evaluate('model.v[4][2]'),30,'extrusion vertices updated');
+assert.equal(evaluate('changeHeight(-30)'),false,'reject zero height from increment');
+assert.equal(evaluate('model.h'),30,'zero increment must preserve active solid');
+assert.equal(evaluate("(()=>{document.getElementById('height').value='0';return extrudeForm()})()"),false,'reject invalid numeric input');
+assert.equal(evaluate('model.h'),30,'invalid form preserves current model');
+assert.equal(evaluate("(()=>{document.getElementById('height').value='30';return extrudeForm()})()"),true,'restore valid form');
+assert.equal(evaluate('faceType(model.faces[0],model)'), 'inferior','bottom faces classified');
+assert.equal(evaluate('faceType(model.faces[1],model)'), 'superior','top faces classified');
+assert.equal(evaluate('faceType(model.faces[4],model)'), 'lateral','side faces classified');
+assert.equal(evaluate('insideTriangle2D([2,2],[0,0],[5,0],[0,5])'),true,'screen triangle point inside');
+assert.equal(evaluate('insideTriangle2D([5,5],[0,0],[5,0],[0,5])'),false,'screen triangle point outside');
+assert.equal(evaluate("(()=>{const p=makeProjection(),f=model.faces[1],v=f.map(i=>p(model.v[i])),sc=zoom*(devicePixelRatio||1),x=canvas.width/2+(v[0].x+v[1].x+v[2].x)/3*sc,y=canvas.height/2-(v[0].y+v[1].y+v[2].y)/3*sc;return selectFaceAt(x,y)})()"),true,'tap a projected triangle');
+assert.equal(evaluate('selectedFace>=0'),true,'face selection retained');
+assert.equal(evaluate('toggleFaceMode()'),true,'selection mode on');
+assert.equal(evaluate('toggleFaceMode()'),false,'selection mode off');
+assert.equal(evaluate('clearFaceSelection();selectedFace'),-1,'clear face selection');
+assert.equal(evaluate('pickFaceAt(-2000,-2000)'),-1,'miss outside canvas');
 console.log('3D studio tests passed');
