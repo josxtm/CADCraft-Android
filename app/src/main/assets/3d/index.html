@@ -3,7 +3,7 @@
 <body><header><button onclick="location.href='../web/index.html'">CAD 2D</button><strong>CADCraft · 3D</strong><button onclick="exportSTL()">Exportar STL</button></header>
 <main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">EXTRUIR</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
 <div id="cube"><span></span><button onclick="snap('top')">SUP</button><span></span><button onclick="snap('left')">IZQ</button><button onclick="snap('iso')">3D</button><button onclick="snap('right')">DER</button><span></span><button onclick="snap('front')">FTE</button><span></span></div>
-<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
+<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
 <script>
 'use strict';
 const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
@@ -199,6 +199,13 @@ function drawSketch(){
  if(sketchPoints.length>=3)c.lineTo(...to(sketchPoints[0]));c.stroke();
  c.fillStyle='#fbc86c';for(const p of sketchPoints){const q=to(p);c.beginPath();c.arc(...q,4,0,Math.PI*2);c.fill();}
  document.getElementById('sketchInfo').textContent=sketchPoints.length+' vértices · cuadrícula 5 mm · origen centrado';
+}
+function addPrecisePoint(){
+ const x=Number(document.getElementById('sketchX').value);
+ const y=Number(document.getElementById('sketchY').value);
+ if(!sketchActive||!Number.isFinite(x)||!Number.isFinite(y)){document.getElementById('sketchInfo').textContent='Coordenadas XY no válidas';return false;}
+ if(sketchPoints.length>=10000){document.getElementById('sketchInfo').textContent='Límite de vértices alcanzado';return false;}
+ sketchPoints.push([x,y]);drawSketch();return true;
 }
 function undoSketch(){sketchPoints.pop();drawSketch();}
 function clearSketch(){sketchPoints=[];drawSketch();}
