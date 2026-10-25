@@ -40,4 +40,15 @@ assert.equal(evaluate("(()=>{try{loadProjectText('{\"format\":\"invalid\"}');ret
 assert.equal(typeof evaluate('addPrecisePoint'),'function','precise XY input is wired');
 assert.equal(evaluate('parseDxfProfile(profileAsDxf([[0,0],[20,0],[20,10],[0,10]])).length'),4,'DXF export-import roundtrip');
 assert.equal(evaluate("(()=>{try{profileAsDxf([[0,0],[10,10],[0,10],[10,0]]);return false}catch(e){return true}})()"),true,'invalid DXF profile cannot export');
+assert.equal(evaluate('rectangleSketch(120,80).length'),4,'precise rectangle');
+assert.equal(evaluate("rectangleSketch(120,80)[2][1]"),80,'rectangle dimensions');
+assert.equal(evaluate("(()=>{try{rectangleSketch(-1,20);return false}catch(e){return true}})()"),true,'reject invalid rectangle');
+assert.equal(evaluate('circleSketch(40,48).length'),48,'precision circle');
+assert.equal(evaluate('extrude(circleSketch(40,48),10).faces.length'),188,'cylinder extrusion');
+assert.equal(evaluate("(()=>{try{circleSketch(0);return false}catch(e){return true}})()"),true,'reject invalid circle');
+assert.equal(evaluate('sketchPoints=[[0,0],[20,0],[20,20],[0,20]];selectedSketchVertex=1;sketchHistory=[];sketchRedoHistory=[];moveSketchVertex(1,30,0);sketchPoints[1][0]'),30,'edit existing vertex');
+assert.equal(evaluate('undoSketchState();sketchPoints[1][0]'),20,'undo edit');
+assert.equal(evaluate('redoSketchState();sketchPoints[1][0]'),30,'redo edit');
+assert.equal(evaluate('removeSketchVertex(1);sketchPoints.length'),3,'remove vertex');
+assert.equal(evaluate('undoSketchState();sketchPoints.length'),4,'undo vertex deletion');
 console.log('3D studio tests passed');
