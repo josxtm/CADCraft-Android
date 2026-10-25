@@ -101,9 +101,9 @@ assert.equal(evaluate('duplicateSceneSolid()'),true,'duplicate current 3D solid'
 assert.equal(evaluate('storedSolids.length'),1,'duplicated solid stored separately');
 assert.equal(evaluate('combinedScene().faces.length'),24,'both solids rendered');
 assert.equal(evaluate('meshAsObj(combinedScene()).split("\\n").filter(l=>l.startsWith("v ")).length'),16,'combined OBJ has both meshes');
-assert.equal(evaluate('JSON.parse(serializeProject()).version'),2,'project format upgraded to v2');
+assert.equal(evaluate('JSON.parse(serializeProject()).version'),3,'project format upgraded to v3');
 assert.equal(evaluate('JSON.parse(serializeProject()).solids.length'),1,'scene is saved');
-assert.equal(evaluate('loadProjectText(serializeProject()).faces.length'),12,'v2 scene roundtrip');
+assert.equal(evaluate('loadProjectText(serializeProject()).faces.length'),12,'v3 scene roundtrip');
 assert.equal(evaluate('combinedScene().faces.length'),24,'v2 restore retains both meshes');
 assert.equal(evaluate('moveActiveSolid(12,23,34)'),true,'move active solid in XYZ');
 assert.equal(evaluate('activeOffset[2]'),34,'Z offset retained');
