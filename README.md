@@ -69,6 +69,24 @@ El puente WebAssembly es de **solo lectura** y funciona con la versión fija `v0
 
 **Alcance:** esta es selección de triángulos de una única malla de extrusión, no un selector topológico B-Rep ni edición paramétrica de caras arbitrarias. Todavía no incluye múltiples sólidos, operaciones booleanas ni modificación de la geometría original de CADCraft 2D.
 
+### Escena 3D de varias piezas (v0.5.0)
+
+El estudio 3D incorpora una escena con un máximo de **24 sólidos extruidos**:
+
+- **Nueva pieza**: conserva las piezas anteriores y crea otra para modificarla.
+- **Duplicar pieza**: crea una copia independiente separada en el eje X.
+- **Siguiente pieza**: cambia cuál de las piezas es la activa para editar su altura o su perfil.
+- **Eliminar pieza**: elimina la pieza activa, dejando como mínimo una pieza.
+- **Mover pieza activa**: desplazamiento XYZ introduciendo coordenadas absolutas respecto al origen de la escena.
+- Renderizar todas las piezas a la vez y exportar la escena completa en **STL** u **OBJ**.
+- **Proyecto JSON v2**: guarda los sólidos, perfiles, alturas, identificadores y desplazamientos; sigue abriendo proyectos JSON v1 de una sola pieza.
+- Validación transaccional: un archivo inválido se rechaza antes de sustituir la escena cargada.
+- El indicador de medidas sigue mostrando la geometría de la **pieza activa**, no la suma de toda la escena.
+
+**Limitaciones:** el motor sigue basado en triangulación de contornos 2D extruidos, no en un sólido B-Rep. No hay unión, resta, intersección, agujeros ni restricciones geométricas entre piezas. La selección de caras opera únicamente sobre la pieza activa. Las piezas exportadas se agrupan como malla, sin operación booleana. El límite de 24 piezas es provisional para controlar memoria y rendimiento en Android.
+
+La regresión JavaScript de esta fase suma **98 comprobaciones**, incluida compatibilidad JSON v1/v2, agregado de mallas, operaciones de escena y preservación ante errores. Esto no sustituye la confirmación de la compilación APK ni pruebas táctiles en el teléfono.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
