@@ -8,7 +8,7 @@
 'use strict';
 const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
 let poly=[[0,0],[100,0],[100,60],[0,60]], height=25, az=-0.75, el=0.5, zoom=2.6;
-let model=null,profileFromDXF=false; const status=document.getElementById('status');
+let model=null,profileFromDXF=false,sourceHandle=null; const status=document.getElementById('status');
 function number(id){return Number(document.getElementById(id).value);}
 function setStatus(t){status.textContent=t;}
 function validate(p,h){if(p.length<3||!p.every(q=>q.every(Number.isFinite))||!Number.isFinite(h)||Math.abs(h)<1e-8)throw Error('Perfil o altura no válidos');}
@@ -139,7 +139,7 @@ function exportProfileDxf(){
 }
 
 
-function projectData(){return {format:'cadcraft-android-3d',version:1,profile:poly.map(p=>p.slice()),height:height};}
+function projectData(){return {format:'cadcraft-android-3d',version:1,profile:poly.map(p=>p.slice()),height:height,sourceHandle:sourceHandle};}
 function serializeProject(){return JSON.stringify(projectData(),null,2);}
 function loadProjectText(text){
  const parsed=JSON.parse(text);
@@ -148,7 +148,7 @@ function loadProjectText(text){
  if(!p.every(a=>Array.isArray(a)&&a.length===2&&a.every(n=>typeof n==='number'&&Number.isFinite(n))))throw Error('Coordenadas incorrectas');
  if(typeof parsed.height!=='number'||!Number.isFinite(parsed.height))throw Error('Altura incorrecta');
  const next=extrude(p,parsed.height);
- poly=p.map(a=>a.slice());height=parsed.height;model=next;profileFromDXF=true;
+ poly=p.map(a=>a.slice());height=parsed.height;model=next;profileFromDXF=true;sourceHandle=typeof parsed.sourceHandle==='string'?parsed.sourceHandle:null;
  document.getElementById('height').value=String(height);
  fit();setStatus('Proyecto cargado · '+poly.length+' vértices');
  return model;
@@ -209,6 +209,26 @@ function receive2dHandoff(){
   sessionStorage.removeItem(key);
   importDxfText(data);
  }catch(e){setStatus('Transferencia 2D: '+e.message);}
+}
+
+
+/* A one-time same-origin handoff populated from the actual selection in
+   CADCraft's WASM editor (not from a manually saved DXF). */
+function receiveSelectedProfile(){
+ const key='cadcraft.android.profile.handoff';
+ try{
+  const raw=sessionStorage.getItem(key);
+  if(!raw)return false;
+  sessionStorage.removeItem(key);
+  if(raw.length>512000)throw Error('Transferencia demasiado grande');
+  const data=JSON.parse(raw);
+  if(!data||data.version!==1||!Array.isArray(data.points)||data.points.length>10000)
+   throw Error('Perfil 2D incompatible');
+  const next=setSketchProfile(data.points);
+  sourceHandle=typeof data.sourceHandle==='string'?data.sourceHandle:null;
+  setStatus('Selección CADCraft extruida · '+next.outline.length+' vértices'+(sourceHandle?' · ID '+sourceHandle:''));
+  return true;
+ }catch(e){setStatus('Selección 2D: '+e.message);return false;}
 }
 
 /* Local planar sketch: shared outline and height with the existing extrusion model.
@@ -332,5 +352,5 @@ function finishSketch(){
  catch(e){document.getElementById('sketchInfo').textContent='Error: '+e.message;}
 }
 
-window.addEventListener('resize',resize);extrudeForm();resize();fit();receive2dHandoff();
+window.addEventListener('resize',resize);extrudeForm();resize();fit();if(!receiveSelectedProfile())receive2dHandoff();
 </script></body></html>
