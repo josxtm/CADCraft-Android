@@ -1,10 +1,6 @@
 name: Build CADCraft Android APK
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'app/src/main/assets/3d/index.html'
 permissions:
   contents: read
 jobs:
