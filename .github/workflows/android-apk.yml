@@ -1,10 +1,21 @@
-name: Build CADCraft Android APK
+name: CADCraft · Verificación continua / APK manual
 on:
-  workflow_dispatch:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      build_apk:
+        description: 'GENERAR APK: activar solo para una versión importante lista para pruebas'
+        type: boolean
+        required: true
+        default: false
+      test_objective:
+        description: 'Qué funcionalidades se van a probar (referencia de la versión)'
+        type: string
+        required: true
+        default: 'Pruebas de versión importante'
 concurrency:
-  group: cadcraft-android-${{ github.ref }}
+  group: cadcraft-android-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 permissions:
   contents: read
@@ -45,6 +56,8 @@ jobs:
         working-directory: native3d
         run: cargo test --all-targets
   android:
+    # Push only runs preflight. A release APK requires an explicit manual opt-in.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_apk == true }}
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 120
