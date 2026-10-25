@@ -23,4 +23,8 @@ assert.equal(evaluate("snap('iso'); el>0"),true,'isometric view');
 assert.equal(evaluate("(()=>{try{extrude([[0,0],[10,10],[0,10],[10,0]],5);return false}catch(e){return true}})()"),true,'reject bowtie polygon');
 assert.equal(evaluate("extrude([[0,0],[100,0],[100,60],[0,60]],-5).faces.length"),12,'negative extrusion');
 assert.equal(evaluate("extrude([[0,0],[50,0],[50,20],[20,20],[20,50],[0,50]],10).faces.length"),20,'concave extrusion');
+assert.equal(evaluate("setSketchProfile([[0,0],[40,0],[40,20],[0,20]]).faces.length"),12,'sketched rectangle extrudes');
+assert.equal(evaluate("poly[1][0]"),40,'sketch and 3D model share the same profile');
+assert.equal(evaluate("(()=>{try{setSketchProfile([[0,0],[10,10],[0,10],[10,0]]);return false}catch(e){return true}})()"),true,'invalid sketch rejected');
+assert.equal(evaluate("poly[1][0]"),40,'invalid sketch cannot replace the active model');
 console.log('3D studio tests passed');
