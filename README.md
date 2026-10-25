@@ -97,6 +97,21 @@ El estudio 3D incorpora una escena con un máximo de **24 sólidos extruidos**:
 
 La regresión JavaScript de esta fase suma **98 comprobaciones**, incluida compatibilidad JSON v1/v2, agregado de mallas, operaciones de escena y preservación ante errores. Esto no sustituye la confirmación de la compilación APK ni pruebas táctiles en el teléfono.
 
+### Análisis de contactos entre piezas — desarrollo posterior a 0.5.0
+
+Este bloque se publica en el código **sin crear una APK** y sin cambiar aún el número de versión:
+
+- Botón **Comprobar contactos**: identifica parejas de piezas que se interpenetran volumétricamente, que solo están en contacto o que están separadas.
+- El análisis utiliza los contornos 2D reales de cada extrusión (incluidos los perfiles cóncavos), la posición X/Y y los intervalos en Z. No se limita a comprobar si se superponen sus cajas rectangulares.
+- La comprobación admite alturas de extrusión negativas y distingue el contacto por una cara de la intersección con volumen compartido.
+- Botón **Separar pieza +10 mm**: sitúa la pieza activa a la derecha de las demás dejando al menos 10 mm entre sus límites en X.
+- El resultado del análisis se marca como no actualizado si se edita o mueve una pieza; es necesario volver a comprobarlo.
+- Se han añadido pruebas de superposición, contacto lateral, contacto vertical, contención, perfil cóncavo, altura negativa y separación automática.
+
+**Todavía NO implementa booleanas** (unir, cortar, restar, intersecar como nueva malla), ni garantiza tolerancias de fabricación. Las intersecciones se detectan entre prismas simples, no entre superficies B-Rep arbitrarias. Esta fase de análisis sirve para preparar las futuras operaciones booleanas de manera controlada.
+
+El paquete JavaScript del estudio 3D suma **115 comprobaciones locales correctas**, pero se mantiene el compromiso de **no generar una nueva APK por cada modificación**. Se indicará cuándo se alcance un hito que merezca una nueva prueba en Android.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
