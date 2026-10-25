@@ -3,7 +3,7 @@ const vm=require('node:vm');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(process.argv[2],'utf8');
 const draw={beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){},stroke(){},clearRect(){},fillRect(){}};
-const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},status:{textContent:''}};
+const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},faceDistance:{value:'5'},status:{textContent:''}};
 const canvas={clientWidth:900,clientHeight:600,width:900,height:600,getContext(){return draw},addEventListener(){},setPointerCapture(){}};
 const file={addEventListener(){},click(){}};
 const document={
@@ -228,5 +228,35 @@ assert.equal(evaluate('loadProjectText(serializeProject()).faces.length'),12,'va
 assert.equal(evaluate("loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:2,profile:[[0,0],[10,0],[10,10],[0,10]],height:10,activeSolidId:4,activeOffset:[0,0,0],solids:[]})).faces.length"),12,'legacy v2 project imports');
 assert.equal(evaluate('derivedSolids.length'),0,'legacy v2 project has no derived meshes');
 assert.equal(evaluate('selectedDerivedId'),null,'legacy v2 project has no derived selection');
+
+
+// Selecting any visible face must switch the active scene object, while
+// derived meshes support bounded planar push/pull and local undo/redo.
+assert.equal(evaluate("loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[100,0],[100,60],[0,60]],height:25})).faces.length"),12,'fresh 100x60 extrusion for tactile picking');
+assert.equal(evaluate('createSceneSolid()'),true,'create spatially separate second extrusion');
+const tapFromOther=evaluate("(()=>{snap('top');const s=combinedScene(),owner=storedSolids[0].id,idx=s.owners.findIndex((id,i)=>id===owner&&s.faces[i].every(j=>Math.abs(s.v[j][2]-25)<1e-8));const face=s.faces[idx],p=makeProjection(s),q=face.map(i=>p(s.v[i])),x=canvas.width/2+q.reduce((t,v)=>t+v.x,0)/3*zoom,y=canvas.height/2-q.reduce((t,v)=>t+v.y,0)/3*zoom;return {owner,selected:selectFaceAt(x,y),active:activeSolidId,local:faceLocalIndex(combinedScene(),selectedFace)}})()");
+assert.equal(tapFromOther.selected,true,'touch a face of previously inactive extrusion');
+assert.equal(tapFromOther.active,tapFromOther.owner,'touched extrusion becomes active');
+assert.equal(tapFromOther.local>=0,true,'touched face index remapped correctly after switching active object');
+assert.equal(evaluate('activateSceneOwner(storedSolids[0].id)'),true,'reselect second extrusion');
+assert.equal(evaluate('moveActiveSolid(50,0,0)'),true,'move second extrusion to overlap first');
+assert.equal(evaluate("Number.isInteger(addBooleanToScene('subtract'))"),true,'generate boolean result and select it');
+assert.equal(evaluate('Math.round(meshOrientedVolume(selectedDerived().mesh))'),75000,'subtraction starting volume');
+assert.equal(evaluate("(()=>{const s=combinedScene();selectedFace=s.owners.findIndex((id,i)=>id===selectedDerivedId&&facePlaneInfo(selectedDerived().mesh,faceLocalIndex(s,i)).axis===2&&facePlaneInfo(selectedDerived().mesh,faceLocalIndex(s,i)).sign===1);return selectedFace>=0})()"),true,'select planar upward face of boolean mesh');
+assert.equal(evaluate('selectedDerivedFace().axis'),2,'selected face normal aligned with Z');
+assert.equal(evaluate('editSelectedDerivedFace(5)'),true,'push top plane outward 5mm');
+assert.equal(evaluate('Math.round(meshOrientedVolume(selectedDerived().mesh))'),90000,'face push adds correct volume');
+assert.equal(evaluate('undoDerivedEdit()'),true,'undo last boolean face operation');
+assert.equal(evaluate('Math.round(meshOrientedVolume(selectedDerived().mesh))'),75000,'undo restores prior boolean volume');
+assert.equal(evaluate('redoDerivedEdit()'),true,'redo previously undone face operation');
+assert.equal(evaluate('Math.round(meshOrientedVolume(selectedDerived().mesh))'),90000,'redo restores modified boolean volume');
+assert.equal(evaluate('editSelectedDerivedFace(-100)'),false,'reject face passing through opposite solid plane');
+assert.equal(evaluate('Math.round(meshOrientedVolume(selectedDerived().mesh))'),90000,'failed face edit does not destroy geometry');
+assert.equal(evaluate('Math.round(meshOrientedVolume(model))'),150000,'source extrusion stays unchanged');
+assert.equal(evaluate('loadProjectText(serializeProject()).faces.length'),12,'JSON v3 reload after face editing');
+assert.equal(evaluate('Math.round(meshOrientedVolume(selectedDerived().mesh))'),90000,'edited boolean surface survives JSON roundtrip');
+assert.equal(evaluate('undoDerivedEdit()'),false,'undo history is cleared on project import');
+assert.equal(evaluate('activateSceneOwner(storedSolids[0].id)'),true,'touch-selected source can be restored');
+assert.equal(evaluate('selectedDerivedId'),null,'switching to source clears boolean selection');
 
 console.log('3D studio tests passed');
