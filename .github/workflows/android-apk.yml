@@ -4,7 +4,37 @@ on:
 permissions:
   contents: read
 jobs:
+  preflight:
+    name: Code verification gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ensure test harness and Android sources exist
+        run: |
+          test -s scripts/check-3d-studio.cjs
+          test -s app/src/main/assets/3d/index.html
+          test -s app/src/main/java/com/josxtm/cadcraft/MainActivity.java
+      - name: Extract 3D script
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('app/src/main/assets/3d/index.html').read_text()
+          assert html.count('<script>') == 1 and html.count('</script>') == 1
+          Path('/tmp/cadcraft-3d.js').write_text(html.split('<script>',1)[1].split('</script>',1)[0])
+          PY
+      - name: Verify JavaScript and 3D functionality
+        run: |
+          node --check /tmp/cadcraft-3d.js
+          node scripts/check-3d-studio.cjs /tmp/cadcraft-3d.js
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify Rust 3D unit tests
+        working-directory: native3d
+        run: cargo test --all-targets
   android:
+    needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
