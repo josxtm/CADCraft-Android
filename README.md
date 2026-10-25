@@ -19,7 +19,7 @@ La actividad Android añade el botón **3D EXTRUIR**, que abre una pantalla 3D t
 - Importar un archivo DXF **LWPOLYLINE cerrado con segmentos rectos** para extruirlo; por ahora utiliza el primer contorno compatible, sin agujeros ni arcos.
 - Exportar la malla a STL (sin garantía todavía de compatibilidad del selector de descarga Android).
 
-**Limitación importante:** el modo 3D es una pantalla independiente del editor CADCraft 2D. Todavía **no** recibe automáticamente las entidades seleccionadas en el editor principal, ni crea sólidos dentro del documento CADCraft/DXF. Esta integración completa queda pendiente. No afirmar que el ViewCube original del editor CADCraft se ha reparado; el ViewCube funcional es el del nuevo modo 3D.
+**Integración Android v0.3.0:** al compilar se aplica `scripts/patch-upstream-selection.py` sobre CADCraft `v0.13.0`. El editor 2D expone una única entidad seleccionada (LWPOLYLINE cerrada sin arcos o círculo) al botón **EXTRUIR SELECCIÓN**, que transfiere el perfil al estudio 3D sin exportar DXF. Los círculos se convierten en perfiles de 64 segmentos. La extrusión se crea en el estudio 3D independiente, **no modifica el dibujo original CADCraft** ni implementa todavía edición de sólidos dentro del mismo editor. Si no hay selección o no es compatible, el botón muestra una advertencia. El ViewCube original sigue sin repararse; el del estudio 3D es independiente.
 
 Este modo todavía requiere una **compilación manual nueva** y pruebas en Nothing Phone 2a. No confundir código publicado con APK generada.
 
@@ -48,6 +48,15 @@ En GitHub Actions, el trabajo `preflight` comprueba la sintaxis JavaScript, la g
 - APK de desarrollo versionada `0.2.0`, aplicación id `com.josxtm.cadcraft` (se conserva para actualización).
 
 **Calidad:** se prueban automáticamente los cálculos geométricos y la estructura del OBJ. Esta verificación no sustituye la compilación en GitHub Actions ni las pruebas en el teléfono.
+
+### Selección 2D → 3D sin archivos (v0.3.0, pendiente de validar en APK)
+
+1. En CADCraft 2D, dibuja un círculo o una polilínea **cerrada** de segmentos rectos.
+2. Selecciona **solo esa entidad**.
+3. Pulsa **EXTRUIR SELECCIÓN**, elige la altura en la vista 3D y pulsa EXTRUIR si necesitas cambiarla.
+4. Puedes exportar STL/OBJ o guardar el proyecto JSON; el perfil se asocia al handle original cuando existe.
+
+El puente WebAssembly es de **solo lectura** y funciona con la versión fija `v0.13.0`. No ofrece todavía selección múltiple, curvas DXF con bulge, agujeros, reconocimiento de límites a partir de líneas sueltas, sincronización de vuelta al documento original ni operaciones booleanas. La compilación WASM de GitHub Actions es obligatoria para comprobar que el parche Rust funciona con ese código. Las pruebas JavaScript por sí solas **no confirman un APK válida**.
 
 ## Hoja de ruta
 
