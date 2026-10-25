@@ -3,7 +3,7 @@ const vm=require('node:vm');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(process.argv[2],'utf8');
 const draw={highlightCount:0,beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){if(this.fillStyle==='rgba(255,152,47,0.55)')this.highlightCount++;},stroke(){},clearRect(){},fillRect(){},arc(){},fillText(){}};
-const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},faceDistance:{value:'5'},moveAxis:{value:'XY'},moveSnap:{value:'0'},moveSensitivity:{value:'1'},toolsPanel:{classList:{toggle(){}}},toolsToggle:{textContent:''},moveModeButton:{textContent:''},selectFaceButton:{textContent:''},offsetX:{value:'0'},offsetY:{value:'0'},offsetZ:{value:'0'},status:{textContent:''}};
+const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},faceDistance:{value:'5'},moveAxis:{value:'XY'},moveSnap:{value:'0'},moveSensitivity:{value:'1'},dragFaceButton:{textContent:''},toolsPanel:{classList:{toggle(){}}},toolsToggle:{textContent:''},moveModeButton:{textContent:''},selectFaceButton:{textContent:''},offsetX:{value:'0'},offsetY:{value:'0'},offsetZ:{value:'0'},status:{textContent:''}};
 const canvas={clientWidth:900,clientHeight:600,width:900,height:600,getContext(){return draw},getBoundingClientRect(){return {left:0,top:0,width:900,height:600}},listeners:{},addEventListener(name,fn){this.listeners[name]=fn},setPointerCapture(){}};
 const file={addEventListener(){},click(){}};
 const document={
@@ -385,6 +385,7 @@ assert.equal(evaluate('moveActiveSolid(300,0,0)'),true,'place edited boolean awa
 assert.equal(evaluate("snap('iso');fit();if(moveMode)toggleMoveMode();if(faceMode)toggleFaceMode();toggleFaceDragMode()"),true,'enable direct face drag mode');
 assert.equal(evaluate('moveMode'),false,'direct face editing excludes object movement');
 assert.equal(evaluate('faceMode'),false,'direct face editing excludes face selection mode');
+assert.equal(evaluate("document.getElementById('dragFaceButton').textContent"),'Arrastrar plano: ON','visible button reports direct edit mode');
 const dragFaceTarget=evaluate("(()=>{const scene=combinedScene(),proj=makeProjection(scene),sc=zoom*(devicePixelRatio||1),id=selectedDerivedId;const idx=scene.owners.findIndex((owner,i)=>owner===id&&facePlaneInfo(selectedDerived().mesh,faceLocalIndex(scene,i)).axis===2&&facePlaneInfo(selectedDerived().mesh,faceLocalIndex(scene,i)).sign===1);if(idx<0)throw Error('No upper face');const v=scene.faces[idx].map(k=>proj(scene.v[k]));return {x:canvas.width/2+v.reduce((s,p)=>s+p.x,0)/3*sc,y:canvas.height/2-v.reduce((s,p)=>s+p.y,0)/3*sc,owner:id}})()");
 assert.equal(evaluate("faceAtScenePoint("+dragFaceTarget.x+","+dragFaceTarget.y+",false)>=0"),true,'touch target projects to visible face');
 assert.equal(evaluate("meshOrientedVolume(selectedDerived().mesh)"),75000,'unmodified boolean mesh volume');
@@ -418,6 +419,7 @@ assert.equal(evaluate('beginFaceGesture(204,10,10)'),true,'begin third drag for 
 assert.equal(evaluate("previewFaceGesture(204,10,10+4/faceDragWorldDistance(faceGesture,10,11),1,0)"),true,'preview before switch');
 assert.equal(evaluate('toggleMoveMode()'),true,'switching to Move cancels direct face edit');
 assert.equal(evaluate('faceDragMode'),false,'mode switch exits face drag');
+assert.equal(evaluate("document.getElementById('dragFaceButton').textContent"),'Arrastrar plano: OFF','mode switch updates button immediately');
 assert.equal(evaluate('faceGesture'),null,'mode switch clears face gesture');
 assert.equal(evaluate('Math.round(meshOrientedVolume(selectedDerived().mesh))'),90000,'mode change cancels preview geometry');
 assert.equal(evaluate('derivedUndo.length'),1,'mode change does not create false undo');
