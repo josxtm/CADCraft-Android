@@ -58,4 +58,18 @@ assert.equal(evaluate('meshMeasurements(extrude([[0,0],[100,0],[100,60],[0,60]],
 assert.equal(evaluate("meshAsObj(extrude([[0,0],[100,0],[100,60],[0,60]],25)).split('\\n').filter(l=>l.startsWith('v ')).length"),8,'OBJ vertices');
 assert.equal(evaluate("meshAsObj(extrude([[0,0],[100,0],[100,60],[0,60]],25)).split('\\n').filter(l=>l.startsWith('f ')).length"),12,'OBJ faces');
 assert.equal(evaluate("(()=>{try{meshAsObj({v:[[0,0,0]],faces:[[0,1,2]]});return false}catch(e){return true}})()"),true,'reject invalid OBJ face');
+sessionStorage.setItem('cadcraft.android.profile.handoff',JSON.stringify({
+ version:1,sourceHandle:'2F',points:[[0,0],[80,0],[80,30],[0,30]]
+}));
+assert.equal(evaluate('receiveSelectedProfile()'),true,'direct selection received');
+assert.equal(evaluate('model.v.length'),8,'native CADCraft selected shape extruded');
+assert.equal(evaluate('sourceHandle'),'2F','source handle retained');
+assert.equal(sessionStorage.getItem('cadcraft.android.profile.handoff'),null,'selected profile consumed once');
+assert.equal(evaluate("JSON.parse(serializeProject()).sourceHandle"),'2F','origin metadata saved');
+assert.equal(evaluate('receiveSelectedProfile()'),false,'no replay on reload');
+sessionStorage.setItem('cadcraft.android.profile.handoff',JSON.stringify({
+ version:1,sourceHandle:'bad',points:[[0,0],[10,10],[0,10],[10,0]]
+}));
+assert.equal(evaluate('receiveSelectedProfile()'),false,'invalid CADCraft selection rejected');
+assert.equal(evaluate('model.v.length'),8,'invalid selection leaves previous solid unchanged');
 console.log('3D studio tests passed');
