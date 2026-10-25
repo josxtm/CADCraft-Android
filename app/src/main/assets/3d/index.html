@@ -1,14 +1,14 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>CADCraft 3D</title>
-<style>html,body{height:100%;margin:0;background:#1c222d;color:#e7edf5;font:14px Arial,sans-serif}header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px;background:#303a49}button,input{background:#39485d;color:#fff;border:1px solid #647287;border-radius:7px;padding:10px;font-size:15px}button:active{background:#627895}main{position:relative;height:calc(100% - 102px)}canvas{width:100%;height:100%;display:block;touch-action:none}aside{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:7px;max-width:50%}aside label{display:flex;gap:6px;align-items:center;background:#303a49e9;border-radius:6px;padding:4px}aside input{width:65px}#cube{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:repeat(3,40px);gap:3px;background:#263244d9;padding:6px;border-radius:8px}#cube button{padding:6px 0;font-size:12px}#status{position:absolute;bottom:8px;left:8px;background:#141c2dd9;padding:6px;border-radius:5px}footer{height:40px;display:flex;justify-content:space-around;align-items:center;background:#303a49}footer button{padding:5px 9px;font-size:13px}#sketchPanel{display:none;position:absolute;inset:4%;z-index:10;background:#202b3a;border:2px solid #7189a8;border-radius:12px;padding:10px;box-sizing:border-box;flex-direction:column;gap:8px}#sketchPanel.open{display:flex}#sketchCanvas{flex:1;min-height:80px;background:#14202e;border:1px solid #526980;touch-action:none;width:100%}#sketchPanel .toolbar{display:flex;flex-wrap:wrap;gap:6px}#sketchInfo{font-size:12px;color:#d4e0f4}</style></head>
+<style>html,body{height:100%;margin:0;background:#1c222d;color:#e7edf5;font:14px Arial,sans-serif}header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px;background:#303a49}button,input{background:#39485d;color:#fff;border:1px solid #647287;border-radius:7px;padding:10px;font-size:15px}button:active{background:#627895}main{position:relative;height:calc(100% - 102px)}canvas{width:100%;height:100%;display:block;touch-action:none}aside{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:7px;max-width:50%}aside label{display:flex;gap:6px;align-items:center;background:#303a49e9;border-radius:6px;padding:4px}aside input{width:65px}#cube{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:repeat(3,40px);gap:3px;background:#263244d9;padding:6px;border-radius:8px}#cube button{padding:6px 0;font-size:12px}#status{position:absolute;bottom:8px;left:8px;background:#141c2dd9;padding:6px;border-radius:5px}footer{height:40px;display:flex;justify-content:space-around;align-items:center;background:#303a49;gap:6px;overflow-x:auto;padding:0 6px;box-sizing:border-box}footer button{flex-shrink:0}footer button{padding:5px 9px;font-size:13px}#sketchPanel{display:none;position:absolute;inset:4%;z-index:10;background:#202b3a;border:2px solid #7189a8;border-radius:12px;padding:10px;box-sizing:border-box;flex-direction:column;gap:8px}#sketchPanel.open{display:flex}#sketchCanvas{flex:1;min-height:80px;background:#14202e;border:1px solid #526980;touch-action:none;width:100%}#sketchPanel .toolbar{display:flex;flex-wrap:wrap;gap:6px}#sketchInfo{font-size:12px;color:#d4e0f4}</style></head>
 <body><header><button onclick="location.href='../web/index.html'">CAD 2D</button><strong>CADCraft · 3D</strong><button onclick="exportSTL()">Exportar STL</button><button onclick="exportOBJ()">Exportar OBJ</button></header>
-<main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">EXTRUIR</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
+<main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">APLICAR EXTRUSIÓN</button><button onclick="changeHeight(-5)">Altura −5 mm</button><button onclick="changeHeight(5)">Altura +5 mm</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
 <div id="cube"><span></span><button onclick="snap('top')">SUP</button><span></span><button onclick="snap('left')">IZQ</button><button onclick="snap('iso')">3D</button><button onclick="snap('right')">DER</button><span></span><button onclick="snap('front')">FTE</button><span></span></div>
-<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button><button onclick="updateSelectedPoint()">Mover seleccionado</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="redoSketch()">Rehacer</button><button onclick="makeRectangleSketch()">Rectángulo exacto</button><label>Ø mm <input id="sketchDiameter" type="number" min="0.01" value="40" step="1"></label><button onclick="makeCircleSketch()">Círculo exacto</button><button onclick="deleteSelectedVertex()">Borrar vértice</button><button id="sketchSnapButton" onclick="toggleSketchSnap()">Rejilla ON</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="measurements" aria-live="polite" style="position:absolute;right:8px;bottom:52px;background:#141c2de8;padding:7px;border-radius:6px;max-width:60%;font-size:12px">Medidas del sólido</div><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
+<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button><button onclick="updateSelectedPoint()">Mover seleccionado</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="redoSketch()">Rehacer</button><button onclick="makeRectangleSketch()">Rectángulo exacto</button><label>Ø mm <input id="sketchDiameter" type="number" min="0.01" value="40" step="1"></label><button onclick="makeCircleSketch()">Círculo exacto</button><button onclick="deleteSelectedVertex()">Borrar vértice</button><button id="sketchSnapButton" onclick="toggleSketchSnap()">Rejilla ON</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="measurements" aria-live="polite" style="position:absolute;right:8px;bottom:52px;background:#141c2de8;padding:7px;border-radius:6px;max-width:60%;font-size:12px">Medidas del sólido</div><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button id="selectFaceButton" onclick="toggleFaceMode()">Seleccionar cara</button><button onclick="clearFaceSelection()">Deseleccionar</button><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
 <script>
 'use strict';
 const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
 let poly=[[0,0],[100,0],[100,60],[0,60]], height=25, az=-0.75, el=0.5, zoom=2.6;
-let model=null,profileFromDXF=false,sourceHandle=null; const status=document.getElementById('status');
+let model=null,profileFromDXF=false,sourceHandle=null,faceMode=false,selectedFace=-1; const status=document.getElementById('status');
 function number(id){return Number(document.getElementById(id).value);}
 function setStatus(t){status.textContent=t;}
 function validate(p,h){if(p.length<3||!p.every(q=>q.every(Number.isFinite))||!Number.isFinite(h)||Math.abs(h)<1e-8)throw Error('Perfil o altura no válidos');}
@@ -45,7 +45,65 @@ function extrude(points,h){
  for(let i=0;i<n;i++){const j=(i+1)%n;if(h>0)faces.push([i,j,j+n],[i,j+n,i+n]);else faces.push([j+n,j,i],[i+n,j+n,i]);}
  return {v,faces,outline:p,h};
 }
-function extrudeForm(){try{const w=number('width'),l=number('length'),h=number('height');if(!profileFromDXF){if(!(w>0&&l>0))throw Error('Medidas incorrectas');poly=[[0,0],[w,0],[w,l],[0,l]];} height=h;model=extrude(poly,height);render();setStatus('Sólido generado · '+model.faces.length+' triángulos');}catch(e){setStatus('Error: '+e.message);}}
+function extrudeForm(){
+ try{
+  const w=number('width'),l=number('length'),h=number('height');
+  if(!profileFromDXF&&!(Number.isFinite(w)&&Number.isFinite(l)&&w>0&&l>0))throw Error('Medidas incorrectas');
+  const candidate=profileFromDXF?poly:[[0,0],[w,0],[w,l],[0,l]];
+  const next=extrude(candidate,h);
+  poly=candidate;height=h;model=next;selectedFace=-1;
+  if(!profileFromDXF)sourceHandle=null;
+  render();setStatus('Sólido generado · '+model.faces.length+' triángulos');return true;
+ }catch(e){setStatus('Error: '+e.message);return false;}
+}
+function changeHeight(delta){
+ const old=height,next=old+Number(delta);
+ if(!Number.isFinite(next)||Math.abs(next)<1e-8){setStatus('Altura no válida');return false;}
+ try{
+  const candidate=extrude(poly,next);
+  height=next;model=candidate;selectedFace=-1;
+  document.getElementById('height').value=String(height);
+  render();setStatus('Altura actualizada: '+height+' mm');return true;
+ }catch(e){setStatus('Altura: '+e.message);return false;}
+}
+function faceType(face,solid){
+ const n=solid.outline.length;
+ if(face.every(i=>i<n))return 'inferior';
+ if(face.every(i=>i>=n))return 'superior';
+ return 'lateral';
+}
+function insideTriangle2D(p,a,b,c){
+ const sign=(u,v,w)=>(u[0]-w[0])*(v[1]-w[1])-(v[0]-w[0])*(u[1]-w[1]);
+ const aa=sign(a,b,c);if(Math.abs(aa)<1e-9)return false;
+ const d1=sign(p,a,b),d2=sign(p,b,c),d3=sign(p,c,a),eps=1e-7;
+ return (d1>=-eps&&d2>=-eps&&d3>=-eps)||(d1<=eps&&d2<=eps&&d3<=eps);
+}
+function pickFaceAt(px,py){
+ if(!model||!Number.isFinite(px)||!Number.isFinite(py))return -1;
+ const projection=makeProjection(),vertices=model.v.map(projection);
+ const d=devicePixelRatio||1,scale=zoom*d,w=canvas.width,h=canvas.height;
+ const to=i=>[w/2+vertices[i].x*scale,h/2-vertices[i].y*scale];
+ const faces=model.faces.map((face,index)=>({index,face,z:face.reduce((v,i)=>v+vertices[i].z,0)/3})).sort((a,b)=>b.z-a.z);
+ for(const {index,face} of faces){
+  if(insideTriangle2D([px,py],to(face[0]),to(face[1]),to(face[2])))return index;
+ }
+ return -1;
+}
+function selectFaceAt(px,py){
+ selectedFace=pickFaceAt(px,py);
+ render();
+ if(selectedFace<0){setStatus('Ninguna cara seleccionada');return false;}
+ setStatus('Cara '+faceType(model.faces[selectedFace],model)+' · triángulo '+(selectedFace+1)+' de '+model.faces.length);
+ return true;
+}
+function toggleFaceMode(){
+ faceMode=!faceMode;const b=document.getElementById('selectFaceButton');
+ if(b)b.textContent=faceMode?'Modo selección ON':'Seleccionar cara';
+ setStatus(faceMode?'Toca una cara para seleccionarla · desactiva para girar':'Modo girar modelo');
+ return faceMode;
+}
+function clearFaceSelection(){selectedFace=-1;render();setStatus('Selección eliminada');}
+
 function makeProjection(){
  const ca=Math.cos(az),sa=Math.sin(az),ce=Math.cos(el),se=Math.sin(el);
  const right=[-sa,ca,0],up=[-ca*se,-sa*se,ce],depth=[ca*ce,sa*ce,se];
@@ -55,22 +113,22 @@ function makeProjection(){
 function resize(){const d=devicePixelRatio||1;canvas.width=Math.round(canvas.clientWidth*d);canvas.height=Math.round(canvas.clientHeight*d);render();}
 function render(){if(!canvas.width||!model)return;renderMeasurements();const c=ctx,w=canvas.width,h=canvas.height,d=devicePixelRatio||1;c.clearRect(0,0,w,h);c.fillStyle='#202b3a';c.fillRect(0,0,w,h);
  const pr=makeProjection(),verts=model.v.map(pr);const sc=zoom*d; const to=p=>[w/2+p.x*sc,h/2-p.y*sc];
- let sorted=model.faces.map(face=>({face,z:face.reduce((s,i)=>s+verts[i].z,0)/3})).sort((a,b)=>a.z-b.z);
- for(const {face} of sorted){let a=to(verts[face[0]]),b=to(verts[face[1]]),cc=to(verts[face[2]]);
+ let sorted=model.faces.map((face,index)=>({face,index,z:face.reduce((s,i)=>s+verts[i].z,0)/3})).sort((a,b)=>a.z-b.z);
+ for(const {face,index} of sorted){let a=to(verts[face[0]]),b=to(verts[face[1]]),cc=to(verts[face[2]]);
  const va=model.v[face[0]],vb=model.v[face[1]],vc=model.v[face[2]];
  const u=vb.map((v,i)=>v-va[i]),v=vc.map((x,i)=>x-va[i]);
  const normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
  const mag=Math.hypot(...normal)||1,lit=Math.max(0.12,Math.min(1,0.55+0.45*(normal[0]*0.3+normal[1]*-0.5+normal[2]*0.8)/mag));
  c.beginPath();c.moveTo(...a);c.lineTo(...b);c.lineTo(...cc);c.closePath();
  c.fillStyle='rgb('+Math.round(85+82*lit)+','+Math.round(111+98*lit)+','+Math.round(147+88*lit)+')';c.fill();
- c.strokeStyle='#16283a';c.lineWidth=0.6*d;c.stroke();
+ c.strokeStyle='#16283a';c.lineWidth=0.6*d;c.stroke();if(index===selectedFace){c.fillStyle='rgba(255,152,47,0.55)';c.fill();c.strokeStyle='#ffb65a';c.lineWidth=2*d;c.stroke();}
  }
 }
 function snap(name){({top:()=>{az=-.75;el=Math.PI/2},front:()=>{az=-Math.PI/2;el=0},left:()=>{az=Math.PI;el=0},right:()=>{az=0;el=0},iso:()=>{az=-.75;el=0.61548}}[name]||(()=>{}))();render();}
 function fit(){if(!model)return;const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
  for(const vertex of model.v)for(let i=0;i<3;i++){min[i]=Math.min(min[i],vertex[i]);max[i]=Math.max(max[i],vertex[i]);}zoom=Math.max(.1,Math.min(canvas.clientWidth,canvas.clientHeight)*.7/(Math.hypot(...max.map((v,i)=>v-min[i]))||1));render();}
 let pointers=new Map(),lastDist=0;
-canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);});
+canvas.addEventListener('pointerdown',e=>{if(faceMode){const rect=canvas.getBoundingClientRect();const d=devicePixelRatio||1;selectFaceAt((e.clientX-rect.left)*d,(e.clientY-rect.top)*d);return;}canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);});
 canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;const prev=pointers.get(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);
 if(pointers.size===1){az+=(e.clientX-prev[0])*.009;el=Math.max(-1.56,Math.min(1.56,el-(e.clientY-prev[1])*.009));render();}
 else if(pointers.size===2){let q=[...pointers.values()],dist=Math.hypot(q[0][0]-q[1][0],q[0][1]-q[1][1]);if(lastDist)zoom=Math.max(.01,zoom*dist/lastDist);lastDist=dist;render();}});
