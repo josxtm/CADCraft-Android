@@ -112,6 +112,19 @@ Este bloque se publica en el código **sin crear una APK** y sin cambiar aún el
 
 El paquete JavaScript del estudio 3D suma **115 comprobaciones locales correctas**, pero se mantiene el compromiso de **no generar una nueva APK por cada modificación**. Se indicará cuándo se alcance un hito que merezca una nueva prueba en Android.
 
+### Booleanas iniciales y mediciones geométricas (desarrollo después de v0.5.0)
+
+Implementadas en el estudio 3D, todavía **sin solicitar una nueva APK**:
+
+- **Calcular unión/resta** muestra los volúmenes teóricos en mm³ de dos extrusiones, incluso con perfiles cóncavos y alturas negativas. El volumen común se calcula triangulando los contornos y recortando triángulos en XY, multiplicando el área compartida por el intervalo común en Z.
+- **Unión OBJ · bloques**, **Resta OBJ · bloques** e **Intersección OBJ · bloques** generan un archivo de malla real de dos prismas **rectangulares y alineados a los ejes XYZ**, sin superficies interiores redundantes. Se prueban casos superpuestos, disjuntos, idénticos y uno contenido dentro del otro. Los bordes de las mallas producidas en esos casos son cerrados.
+- Los dos operandos son la **pieza activa** y la **primera pieza almacenada** de la escena. Si no hay segunda pieza, no hay operación.
+- Las geometrías se exportan a **OBJ** como resultado independiente. **No reemplazan la escena actual, no se pueden editar como una entidad paramétrica y no se guardan en el JSON del proyecto**.
+- Los perfiles circulares, inclinados, cóncavos o los booleanos entre más de dos piezas siguen **sin generar una malla booleana**. Las mediciones de volumen de dos perfiles concavos sí están admitidas.
+- Una resta que no deja volumen, o una intersección vacía, se indica como resultado vacío y no intenta exportar una malla inexistente.
+
+Estas operaciones son una etapa limitada y explícita antes de integrar un motor CSG/B-Rep general. Las pruebas JavaScript de geometría no sustituyen la compilación Android ni las pruebas manuales en el teléfono.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
