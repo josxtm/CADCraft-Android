@@ -1,0 +1,25 @@
+name: Verify 3D core (no APK)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'native3d/**'
+      - '.github/workflows/native3d-tests.yml'
+permissions:
+  contents: read
+jobs:
+  rust3d:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native3d
+      - name: Rust 3D unit tests
+        working-directory: native3d
+        run: cargo test --all-targets --locked
+      - name: Rust 3D format verification
+        working-directory: native3d
+        run: cargo fmt --all -- --check
