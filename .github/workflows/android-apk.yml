@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+concurrency:
+  group: cadcraft-android-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
