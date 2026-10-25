@@ -1,9 +1,9 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>CADCraft 3D</title>
-<style>html,body{height:100%;margin:0;background:#1c222d;color:#e7edf5;font:14px Arial,sans-serif}header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px;background:#303a49}button,input{background:#39485d;color:#fff;border:1px solid #647287;border-radius:7px;padding:10px;font-size:15px}button:active{background:#627895}main{position:relative;height:calc(100% - 102px)}canvas{width:100%;height:100%;display:block;touch-action:none}aside{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:7px;max-width:50%}aside label{display:flex;gap:6px;align-items:center;background:#303a49e9;border-radius:6px;padding:4px}aside input{width:65px}#cube{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:repeat(3,40px);gap:3px;background:#263244d9;padding:6px;border-radius:8px}#cube button{padding:6px 0;font-size:12px}#status{position:absolute;bottom:8px;left:8px;background:#141c2dd9;padding:6px;border-radius:5px}footer{height:40px;display:flex;justify-content:space-around;align-items:center;background:#303a49}footer button{padding:5px 9px;font-size:13px}</style></head>
+<style>html,body{height:100%;margin:0;background:#1c222d;color:#e7edf5;font:14px Arial,sans-serif}header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px;background:#303a49}button,input{background:#39485d;color:#fff;border:1px solid #647287;border-radius:7px;padding:10px;font-size:15px}button:active{background:#627895}main{position:relative;height:calc(100% - 102px)}canvas{width:100%;height:100%;display:block;touch-action:none}aside{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:7px;max-width:50%}aside label{display:flex;gap:6px;align-items:center;background:#303a49e9;border-radius:6px;padding:4px}aside input{width:65px}#cube{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:repeat(3,40px);gap:3px;background:#263244d9;padding:6px;border-radius:8px}#cube button{padding:6px 0;font-size:12px}#status{position:absolute;bottom:8px;left:8px;background:#141c2dd9;padding:6px;border-radius:5px}footer{height:40px;display:flex;justify-content:space-around;align-items:center;background:#303a49}footer button{padding:5px 9px;font-size:13px}#sketchPanel{display:none;position:absolute;inset:4%;z-index:10;background:#202b3a;border:2px solid #7189a8;border-radius:12px;padding:10px;box-sizing:border-box;flex-direction:column;gap:8px}#sketchPanel.open{display:flex}#sketchCanvas{flex:1;min-height:80px;background:#14202e;border:1px solid #526980;touch-action:none;width:100%}#sketchPanel .toolbar{display:flex;flex-wrap:wrap;gap:6px}#sketchInfo{font-size:12px;color:#d4e0f4}</style></head>
 <body><header><button onclick="location.href='../web/index.html'">CAD 2D</button><strong>CADCraft · 3D</strong><button onclick="exportSTL()">Exportar STL</button></header>
-<main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">EXTRUIR</button><button onclick="pickDxf()">Abrir DXF</button><input type="file" id="file" accept=".dxf" hidden></aside>
+<main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">EXTRUIR</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><input type="file" id="file" accept=".dxf" hidden></aside>
 <div id="cube"><span></span><button onclick="snap('top')">SUP</button><span></span><button onclick="snap('left')">IZQ</button><button onclick="snap('iso')">3D</button><button onclick="snap('right')">DER</button><span></span><button onclick="snap('front')">FTE</button><span></span></div>
-<div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
+<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
 <script>
 'use strict';
 const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
@@ -86,5 +86,59 @@ document.getElementById('file').addEventListener('change',async e=>{const f=e.ta
  let profiles=[];for(let i=0;i<pairs.length;i++){if(pairs[i][0]==='0'&&pairs[i][1]==='LWPOLYLINE'){let pts=[],closed=false,bulge=false;for(i++;i<pairs.length&&pairs[i][0]!=='0';i++){let [code,value]=pairs[i];if(code==='10')pts.push([+value,0]);else if(code==='20'&&pts.length)pts.at(-1)[1]=+value;else if(code==='70')closed=(+value&1)!==0;else if(code==='42'&&Math.abs(+value)>1e-9)bulge=true;}i--;if(closed&&pts.length>=3&&!bulge)profiles.push(pts);}}
  if(!profiles.length)throw Error('No hay polilíneas cerradas rectas LWPOLYLINE');poly=profiles[0];height=number('height');model=extrude(poly,height);profileFromDXF=true;fit();setStatus('Perfil DXF cargado · '+poly.length+' vértices');}
  catch(err){setStatus('DXF: '+err.message);}e.target.value='';});
+
+/* Local planar sketch: shared outline and height with the existing extrusion model.
+   This is deliberately separate from upstream CADCraft's document model. */
+let sketchPoints=[],sketchActive=false;
+const sketchStep=5,sketchScale=2;
+function setSketchProfile(points){
+ const candidate=points.map(p=>[Number(p[0]),Number(p[1])]);
+ const next=extrude(candidate,number('height')); // validate BEFORE changing the live model
+ poly=candidate;height=number('height');model=next;profileFromDXF=true;
+ fit();setStatus('Perfil 2D extruido · '+candidate.length+' vértices');
+ return next;
+}
+function openSketch(){
+ sketchPoints=poly.map(p=>p.slice());sketchActive=true;
+ const panel=document.getElementById('sketchPanel');panel.classList.add('open');
+ const sc=document.getElementById('sketchCanvas');
+ if(!sc.dataset.ready){
+  sc.addEventListener('pointerdown',e=>{
+   if(!sketchActive)return;
+   const rect=sc.getBoundingClientRect();
+   const x=(e.clientX-rect.left-rect.width/2)/sketchScale;
+   const y=(rect.height/2-(e.clientY-rect.top))/sketchScale;
+   sketchPoints.push([Math.round(x/sketchStep)*sketchStep,Math.round(y/sketchStep)*sketchStep]);
+   drawSketch();
+  });
+  sc.dataset.ready='1';
+ }
+ requestAnimationFrame(drawSketch);
+}
+function drawSketch(){
+ const sc=document.getElementById('sketchCanvas');if(!sc)return;
+ const d=window.devicePixelRatio||1,r=sc.getBoundingClientRect();
+ sc.width=Math.max(1,Math.round(r.width*d));sc.height=Math.max(1,Math.round(r.height*d));
+ const c=sc.getContext('2d');c.setTransform(d,0,0,d,0,0);
+ const w=r.width,h=r.height; c.fillStyle='#14202e';c.fillRect(0,0,w,h);
+ c.lineWidth=1;c.strokeStyle='#304052';
+ const step=sketchStep*sketchScale;
+ for(let x=w/2%step;x<w;x+=step){c.beginPath();c.moveTo(x,0);c.lineTo(x,h);c.stroke();}
+ for(let y=h/2%step;y<h;y+=step){c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();}
+ const to=p=>[w/2+p[0]*sketchScale,h/2-p[1]*sketchScale];
+ c.strokeStyle='#73d2ec';c.lineWidth=2;c.beginPath();
+ sketchPoints.forEach((p,i)=>{const q=to(p);if(i===0)c.moveTo(...q);else c.lineTo(...q);});
+ if(sketchPoints.length>=3)c.lineTo(...to(sketchPoints[0]));c.stroke();
+ c.fillStyle='#fbc86c';for(const p of sketchPoints){const q=to(p);c.beginPath();c.arc(...q,4,0,Math.PI*2);c.fill();}
+ document.getElementById('sketchInfo').textContent=sketchPoints.length+' vértices · cuadrícula 5 mm · origen centrado';
+}
+function undoSketch(){sketchPoints.pop();drawSketch();}
+function clearSketch(){sketchPoints=[];drawSketch();}
+function closeSketch(){sketchActive=false;document.getElementById('sketchPanel').classList.remove('open');}
+function finishSketch(){
+ try{setSketchProfile(sketchPoints);closeSketch();}
+ catch(e){document.getElementById('sketchInfo').textContent='Error: '+e.message;}
+}
+
 window.addEventListener('resize',resize);extrudeForm();resize();fit();
 </script></body></html>
