@@ -1,9 +1,9 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>CADCraft 3D</title>
 <style>html,body{height:100%;margin:0;background:#1c222d;color:#e7edf5;font:14px Arial,sans-serif}header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px;background:#303a49}button,input{background:#39485d;color:#fff;border:1px solid #647287;border-radius:7px;padding:10px;font-size:15px}button:active{background:#627895}main{position:relative;height:calc(100% - 102px)}canvas{width:100%;height:100%;display:block;touch-action:none}aside{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:7px;max-width:50%;max-height:calc(100% - 20px);overflow-y:auto;overscroll-behavior:contain}aside label{display:flex;gap:6px;align-items:center;background:#303a49e9;border-radius:6px;padding:4px}aside input{width:65px}#cube{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:repeat(3,40px);gap:3px;background:#263244d9;padding:6px;border-radius:8px}#cube button{padding:6px 0;font-size:12px}#status{position:absolute;bottom:8px;left:8px;background:#141c2dd9;padding:6px;border-radius:5px}footer{height:40px;display:flex;justify-content:space-around;align-items:center;background:#303a49;gap:6px;overflow-x:auto;padding:0 6px;box-sizing:border-box}footer button{flex-shrink:0}footer button{padding:5px 9px;font-size:13px}#sketchPanel{display:none;position:absolute;inset:4%;z-index:10;background:#202b3a;border:2px solid #7189a8;border-radius:12px;padding:10px;box-sizing:border-box;flex-direction:column;gap:8px}#sketchPanel.open{display:flex}#sketchCanvas{flex:1;min-height:80px;background:#14202e;border:1px solid #526980;touch-action:none;width:100%}#sketchPanel .toolbar{display:flex;flex-wrap:wrap;gap:6px}#sketchInfo{font-size:12px;color:#d4e0f4}</style></head>
 <body><header><button onclick="location.href='../web/index.html'">CAD 2D</button><strong>CADCraft · 3D</strong><button onclick="exportSTL()">Exportar STL</button><button onclick="exportOBJ()">Exportar OBJ</button></header>
-<main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">APLICAR EXTRUSIÓN</button><button onclick="changeHeight(-5)">Altura −5 mm</button><button onclick="changeHeight(5)">Altura +5 mm</button><button onclick="createSceneSolid()">Nueva pieza</button><button onclick="duplicateSceneSolid()">Duplicar pieza</button><button onclick="cycleSceneSolid()">Siguiente pieza</button><button onclick="deleteSceneSolid()">Eliminar pieza</button><label>Despl. X <input id="offsetX" type="number" value="0" step="1"></label><label>Despl. Y <input id="offsetY" type="number" value="0" step="1"></label><label>Despl. Z <input id="offsetZ" type="number" value="0" step="1"></label><button onclick="applyOffset()">Mover pieza activa</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
+<main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">APLICAR EXTRUSIÓN</button><button onclick="changeHeight(-5)">Altura −5 mm</button><button onclick="changeHeight(5)">Altura +5 mm</button><button onclick="createSceneSolid()">Nueva pieza</button><button onclick="duplicateSceneSolid()">Duplicar pieza</button><button onclick="cycleSceneSolid()">Siguiente pieza</button><button onclick="deleteSceneSolid()">Eliminar pieza</button><label>Despl. X <input id="offsetX" type="number" value="0" step="1"></label><label>Despl. Y <input id="offsetY" type="number" value="0" step="1"></label><label>Despl. Z <input id="offsetZ" type="number" value="0" step="1"></label><button onclick="applyOffset()">Mover pieza activa</button><button onclick="inspectSceneContacts()">Comprobar contactos</button><button onclick="separateActiveSolid()">Separar pieza +10 mm</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
 <div id="cube"><span></span><button onclick="snap('top')">SUP</button><span></span><button onclick="snap('left')">IZQ</button><button onclick="snap('iso')">3D</button><button onclick="snap('right')">DER</button><span></span><button onclick="snap('front')">FTE</button><span></span></div>
-<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button><button onclick="updateSelectedPoint()">Mover seleccionado</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="redoSketch()">Rehacer</button><button onclick="makeRectangleSketch()">Rectángulo exacto</button><label>Ø mm <input id="sketchDiameter" type="number" min="0.01" value="40" step="1"></label><button onclick="makeCircleSketch()">Círculo exacto</button><button onclick="deleteSelectedVertex()">Borrar vértice</button><button id="sketchSnapButton" onclick="toggleSketchSnap()">Rejilla ON</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="measurements" aria-live="polite" style="position:absolute;right:8px;bottom:52px;background:#141c2de8;padding:7px;border-radius:6px;max-width:60%;font-size:12px">Medidas del sólido</div><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button id="selectFaceButton" onclick="toggleFaceMode()">Seleccionar cara</button><button onclick="clearFaceSelection()">Deseleccionar</button><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
+<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button><button onclick="updateSelectedPoint()">Mover seleccionado</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="redoSketch()">Rehacer</button><button onclick="makeRectangleSketch()">Rectángulo exacto</button><label>Ø mm <input id="sketchDiameter" type="number" min="0.01" value="40" step="1"></label><button onclick="makeCircleSketch()">Círculo exacto</button><button onclick="deleteSelectedVertex()">Borrar vértice</button><button id="sketchSnapButton" onclick="toggleSketchSnap()">Rejilla ON</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="contactInfo" aria-live="polite" style="position:absolute;right:8px;bottom:108px;background:#17293ae8;padding:7px;border-radius:6px;max-width:60%;font-size:12px;max-height:64px;overflow:auto">Contactos sin analizar</div><div id="measurements" aria-live="polite" style="position:absolute;right:8px;bottom:52px;background:#141c2de8;padding:7px;border-radius:6px;max-width:60%;font-size:12px">Medidas del sólido</div><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button id="selectFaceButton" onclick="toggleFaceMode()">Seleccionar cara</button><button onclick="clearFaceSelection()">Deseleccionar</button><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
 <script>
 'use strict';
 const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
@@ -113,6 +113,106 @@ function applyOffset(){
  });
  try{moveActiveSolid(...values);setStatus('Pieza '+activeSolidId+' movida · X '+values[0]+' Y '+values[1]+' Z '+values[2]);return true;}
  catch(e){setStatus('Mover pieza: '+e.message);return false;}
+}
+
+/* Collision detection for vertical prism extrusions: exact 2D polygon contacts
+ * and overlapping Z intervals. Contact is NOT a boolean union operation. */
+const contactEpsilon=1e-8;
+function worldSolid(record){
+ const m=record.mesh||extrude(record.profile,record.height);
+ const offset=validateOffset(record.offset);
+ const p=m.outline.map(q=>[q[0]+offset[0],q[1]+offset[1]]);
+ const z0=offset[2]+Math.min(0,m.h),z1=offset[2]+Math.max(0,m.h);
+ return {id:record.id,points:p,z0,z1,
+  minX:Math.min(...p.map(q=>q[0])),maxX:Math.max(...p.map(q=>q[0])),
+  minY:Math.min(...p.map(q=>q[1])),maxY:Math.max(...p.map(q=>q[1]))};
+}
+function segmentContact(a,b,c,d){
+ const o1=cross2(a,b,c),o2=cross2(a,b,d),o3=cross2(c,d,a),o4=cross2(c,d,b);
+ const eps=contactEpsilon;
+ const opposite=(u,v)=>(u>eps&&v< -eps)||(u< -eps&&v>eps);
+ if(opposite(o1,o2)&&opposite(o3,o4))return 2; // crossing interiors
+ const on=(p,q,r)=>Math.abs(cross2(p,q,r))<=eps&&
+  r[0]>=Math.min(p[0],q[0])-eps&&r[0]<=Math.max(p[0],q[0])+eps&&
+  r[1]>=Math.min(p[1],q[1])-eps&&r[1]<=Math.max(p[1],q[1])+eps;
+ return (on(a,b,c)||on(a,b,d)||on(c,d,a)||on(c,d,b))?1:0;
+}
+function pointInContour(point,polygon){
+ // 0 boundary, 1 strictly inside, -1 outside
+ let interior=false;const eps=contactEpsilon;
+ for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
+  const a=polygon[j],b=polygon[i];
+  if(Math.abs(cross2(a,b,point))<=eps &&
+    point[0]>=Math.min(a[0],b[0])-eps&&point[0]<=Math.max(a[0],b[0])+eps &&
+    point[1]>=Math.min(a[1],b[1])-eps&&point[1]<=Math.max(a[1],b[1])+eps)return 0;
+  if((a[1]>point[1])!==(b[1]>point[1])){
+   const crossing=a[0]+(point[1]-a[1])*(b[0]-a[0])/(b[1]-a[1]);
+   if(crossing>point[0])interior=!interior;
+  }
+ }
+ return interior?1:-1;
+}
+function planarContact(a,b){
+ let touch=false,strict=false;
+ for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
+  const hit=segmentContact(a[i],a[(i+1)%a.length],b[j],b[(j+1)%b.length]);
+  if(hit===2)strict=true;
+  if(hit)touch=true;
+ }
+ if(!strict){
+  if(a.some(p=>pointInContour(p,b)===1)||b.some(p=>pointInContour(p,a)===1))strict=true;
+ }
+ if(!strict){
+  // Covers coincident contours: all vertices may lie exactly on boundaries.
+  for(const [polygon,other] of [[a,b],[b,a]]){
+   const {p,tri}=triangulate(polygon);
+   if(tri.some(ids=>pointInContour([
+    (p[ids[0]][0]+p[ids[1]][0]+p[ids[2]][0])/3,
+    (p[ids[0]][1]+p[ids[1]][1]+p[ids[2]][1])/3],other)===1)){strict=true;break;}
+  }
+ }
+ return strict?2:touch?1:0;
+}
+function relationBetweenSolids(first,second){
+ const a=worldSolid(first),b=worldSolid(second),eps=contactEpsilon;
+ if(a.maxX<b.minX-eps||b.maxX<a.minX-eps||
+    a.maxY<b.minY-eps||b.maxY<a.minY-eps||
+    a.z1<b.z0-eps||b.z1<a.z0-eps)return 'separadas';
+ const xy=planarContact(a.points,b.points);
+ if(!xy)return 'separadas';
+ const zOverlap=Math.min(a.z1,b.z1)-Math.max(a.z0,b.z0);
+ return xy===2&&zOverlap>eps?'interseccion':'contacto';
+}
+function sceneContacts(records){
+ const result=[];
+ for(let i=0;i<records.length;i++)for(let j=i+1;j<records.length;j++){
+  const relation=relationBetweenSolids(records[i],records[j]);
+  if(relation!=='separadas')result.push({a:records[i].id,b:records[j].id,relation});
+ }
+ return result;
+}
+function inspectSceneContacts(){
+ try{
+  const result=sceneContacts([captureActiveSolid(),...storedSolids]);
+  const crossings=result.filter(r=>r.relation==='interseccion').length;
+  const touching=result.length-crossings;
+  const message=result.length?result.map(r=>'Pieza '+r.a+' y '+r.b+': '+(r.relation==='interseccion'?'INTERSECCIÓN':'contacto')).join(' · '):'No hay piezas que se toquen o se crucen';
+  const label=document.getElementById('contactInfo');if(label)label.textContent=message;
+  setStatus('Análisis: '+crossings+' intersecciones y '+touching+' contactos');
+  return result;
+ }catch(e){setStatus('Contactos: '+e.message);return [];}
+}
+function separateActiveSolid(clearance=10){
+ if(!storedSolids.length){setStatus('Añade otra pieza para separarla');return false;}
+ if(!Number.isFinite(clearance)||clearance<=0||clearance>100000)throw Error('Separación incorrecta');
+ const active=worldSolid(captureActiveSolid());
+ const maxOtherX=Math.max(...storedSolids.map(s=>worldSolid(s).maxX));
+ const distance=Math.max(0,maxOtherX+clearance-active.minX);
+ if(distance>0)moveActiveSolid(activeOffset[0]+distance,activeOffset[1],activeOffset[2]);
+ syncOffsetFields();fit();
+ const label=document.getElementById('contactInfo');if(label)label.textContent='Posición modificada · vuelve a comprobar contactos';
+ setStatus('Pieza '+activeSolidId+' separada en X · distancia mínima '+clearance+' mm');
+ return true;
 }
 
 function allSceneMeshes(){
