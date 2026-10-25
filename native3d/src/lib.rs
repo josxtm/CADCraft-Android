@@ -1,6 +1,8 @@
 //! Independent 3D geometry prototype for CADCraft Android.
 //! Does not modify upstream CADCraft or its document model.
 
+pub mod workspace;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec3 { pub x:f64, pub y:f64, pub z:f64 }
 impl Vec3 {
