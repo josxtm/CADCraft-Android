@@ -70,30 +70,33 @@ function createSceneSolid(){
   const next=extrude([[0,0],[100,0],[100,60],[0,60]],25);
   const farthestX=Math.max(...allSceneMeshes().flatMap(item=>item.v.map(p=>p[0])));
   storedSolids.push(captureActiveSolid());invalidateSceneContacts();
-  activeSolidId=nextSolidId++;activeOffset=[farthestX+20,0,0];
+  activeSolidId=nextSolidId++;selectedDerivedId=null;activeOffset=[farthestX+20,0,0];
   poly=[[0,0],[100,0],[100,60],[0,60]];height=25;model=next;sourceHandle=null;profileFromDXF=true;selectedFace=-1;
   document.getElementById('height').value='25';syncOffsetFields();
   fit();setStatus('Nueva pieza '+activeSolidId+' · '+(storedSolids.length+1)+' en escena');return true;
  }catch(e){setStatus('Nueva pieza: '+e.message);return false;}
 }
 function duplicateSceneSolid(){
+ if(selectedDerived()){setStatus('Para duplicar una malla usa Duplicar resultado');return false;}
  if(!model||storedSolids.length+derivedSolids.length>=23){setStatus('Límite de 24 piezas');return false;}
  try{
   const xs=model.v.map(p=>p[0]),width=Math.max(...xs)-Math.min(...xs);
   const copy=captureActiveSolid();copy.id=nextSolidId++;
   copy.offset=[activeOffset[0]+width+20,activeOffset[1],activeOffset[2]];
   copy.profile=copy.profile.map(p=>p.slice());
-  copy.mesh=extrude(copy.profile,copy.height);storedSolids.push(copy);invalidateSceneContacts();
+  copy.mesh=extrude(copy.profile,copy.height);storedSolids.push(copy);selectedDerivedId=null;syncOffsetFields();invalidateSceneContacts();
   fit();setStatus('Duplicada como pieza '+copy.id);return true;
  }catch(e){setStatus('Duplicar: '+e.message);return false;}
 }
 function cycleSceneSolid(){
+ if(selectedDerivedId)selectedDerivedId=null;
  if(!storedSolids.length)return false;
  const current=captureActiveSolid();
  const next=storedSolids.shift();storedSolids.push(current);
  restoreActiveSolid(next);selectedDerivedId=null;invalidateSceneContacts();fit();setStatus('Pieza activa '+activeSolidId);return true;
 }
 function deleteSceneSolid(){
+ if(selectedDerived()){setStatus('Pulsa Eliminar resultado para borrar la malla booleana');return false;}
  if(!storedSolids.length){setStatus('Debe quedar al menos una pieza');return false;}
  const next=storedSolids.pop();restoreActiveSolid(next);selectedDerivedId=null;invalidateSceneContacts();
  fit();setStatus('Pieza eliminada · '+(storedSolids.length+1)+' restantes');return true;
@@ -357,6 +360,7 @@ function inspectSceneContacts(){
  }catch(e){setStatus('Contactos: '+e.message);return [];}
 }
 function separateActiveSolid(clearance=10){
+ if(selectedDerived()){setStatus('Para separar un resultado booleano usa Mover pieza activa (XYZ)');return false;}
  if(!storedSolids.length){setStatus('Añade otra pieza para separarla');return false;}
  if(!Number.isFinite(clearance)||clearance<=0||clearance>100000)throw Error('Separación incorrecta');
  const active=worldSolid(captureActiveSolid());
@@ -450,6 +454,7 @@ function combinedScene(){
 }
 
 function extrudeForm(){
+ if(selectedDerived()){setStatus('Resultado booleano: solo se puede mover o duplicar. Pulsa Volver a extrusión.');return false;}
  try{
   const w=number('width'),l=number('length'),h=number('height');
   if(!profileFromDXF&&!(Number.isFinite(w)&&Number.isFinite(l)&&w>0&&l>0))throw Error('Medidas incorrectas');
@@ -461,6 +466,7 @@ function extrudeForm(){
  }catch(e){setStatus('Error: '+e.message);return false;}
 }
 function changeHeight(delta){
+ if(selectedDerived()){setStatus('Selecciona una extrusión para cambiar altura');return false;}
  const old=height,next=old+Number(delta);
  if(!Number.isFinite(next)||Math.abs(next)<1e-8){setStatus('Altura no válida');return false;}
  try{
@@ -775,6 +781,7 @@ function setSketchProfile(points){
  return next;
 }
 function openSketch(){
+ if(selectedDerived()){setStatus('El perfil del resultado booleano no es editable; vuelve a la extrusión');return false;}
  sketchPoints=cloneSketch(poly);sketchActive=true;sketchHistory=[];sketchRedoHistory=[];selectedSketchVertex=-1;sketchDragId=null;
  const panel=document.getElementById('sketchPanel');panel.classList.add('open');
  const sc=document.getElementById('sketchCanvas');
