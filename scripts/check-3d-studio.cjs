@@ -314,4 +314,23 @@ assert.equal(evaluate('activeOffset[0]'),modeCancelOrigin[0],'interrupted drag r
 assert.equal(evaluate('activeOffset[1]'),modeCancelOrigin[1],'interrupted drag restores Y');
 assert.equal(evaluate('moveHistory.length'),2,'interrupted drag does not create extra undo');
 
+
+// Regression for the on-screen XYZ manipulator (CI must support drawing arcs).
+const gizmoTrial=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[100,0],[100,60],[0,60]],height:25}));snap('iso');if(moveMode)toggleMoveMode();toggleMoveMode();const g=gizmoGeometry(),axes=Object.keys(g.axes),[x,y]=g.axes.X.point,hit=hitGizmoAxis(x,y,g),centerHit=hitGizmoAxis(g.center[0],g.center[1],g),camera=cameraCenter.slice(),az0=az,el0=el;canvas.listeners.pointerdown({pointerId:75,clientX:x,clientY:y});const locked=moveGesture?.axis;canvas.listeners.pointermove({pointerId:75,clientX:x+20,clientY:y+20});const moved=activeOffset.slice(),cameraStable=az===az0&&el===el0&&camera.every((value,i)=>value===cameraCenter[i]);canvas.listeners.pointerup({pointerId:75,clientX:x+20,clientY:y+20});const count=moveHistory.length,undo=undoMove(),previous=activeOffset.slice(),redo=redoMove(),restored=activeOffset.slice();return {axes,hit,centerHit,locked,moved,cameraStable,count,undo,previous,redo,restored};})()");
+assert.equal(gizmoTrial.axes.includes('X'),true,'X axis handle is visible');
+assert.equal(gizmoTrial.axes.includes('Y'),true,'Y axis handle is visible');
+assert.equal(gizmoTrial.axes.includes('Z'),true,'Z axis handle is visible');
+assert.equal(gizmoTrial.hit,'X','X handle hit-test detects finger');
+assert.equal(gizmoTrial.centerHit,'XY','yellow center hit-test selects planar move');
+assert.equal(gizmoTrial.locked,'X','drag is locked to handle axis');
+assert.equal(gizmoTrial.moved[0]>0,true,'gizmo moves object along X');
+assert.equal(gizmoTrial.moved[1],0,'X handle does not move Y');
+assert.equal(gizmoTrial.moved[2],0,'X handle does not move Z');
+assert.equal(gizmoTrial.cameraStable,true,'gizmo movement keeps camera pivot and angles fixed');
+assert.equal(gizmoTrial.count,1,'handle drag saves exactly one undo step');
+assert.equal(gizmoTrial.undo,true,'gizmo movement can be undone');
+assert.equal(gizmoTrial.previous[0],0,'undo gizmo restores X');
+assert.equal(gizmoTrial.redo,true,'gizmo movement can be redone');
+assert.equal(gizmoTrial.restored[0],gizmoTrial.moved[0],'redo restores gizmo displacement');
+
 console.log('3D studio tests passed');
