@@ -39,6 +39,7 @@ jobs:
           node --check app/src/main/assets/bridge/selection.js
           node scripts/check-selection-bridge.cjs app/src/main/assets/bridge/selection.js
           python3 -m py_compile scripts/patch-upstream-selection.py
+          python3 scripts/check-upstream-selection-patch.py
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify Rust 3D unit tests
         working-directory: native3d
