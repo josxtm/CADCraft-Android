@@ -1,0 +1,10 @@
+[package]
+name = "cadcraft-android-3d"
+version = "0.1.0"
+edition = "2021"
+description = "3D camera and polygon extrusion prototype for CADCraft Android"
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "cadcraft_android_3d"
+path = "src/lib.rs"
