@@ -74,6 +74,19 @@ No instalar otra APK todavía. Cuando se anuncie la próxima versión para móvi
 | R6 | Exportar OBJ y STL de la escena | Los archivos incluyen extrusiones y resultados booleanos |
 | R7 | Seleccionar un resultado e intentar cambiar su altura | Se rechaza la edición paramétrica sin modificar geometría |
 
+## Comprobaciones pendientes: selección táctil y edición de planos (futura APK)
+
+| N.º | Operación | Resultado esperado |
+|---|---|---|
+| F1 | Crear dos extrusiones separadas; activar `Seleccionar cara` y tocar la pieza que no está activa | La pieza tocada pasa a estar activa y la cara se resalta |
+| F2 | Añadir una resta booleana a escena, tocar una cara superior y pulsar `Mover plano +` con 5 mm | Cambia la geometría del resultado booleana y aumenta su volumen, sin modificar las piezas de origen |
+| F3 | Usar `Deshacer cara` y `Rehacer cara` | Recupera los volúmenes anteriores y posteriores |
+| F4 | Intentar mover una cara más allá del plano opuesto | Rechaza el cambio y mantiene la malla anterior |
+| F5 | Guardar JSON y volver a abrirlo | La malla modificada y sus coordenadas XYZ se conservan; el historial de deshacer se reinicia |
+| F6 | Seleccionar una cara de una extrusión normal y pulsar las herramientas de plano booleano | Rechaza la operación; la extrusión sigue intacta |
+
+Este guion se ejecutará únicamente cuando se acuerde compilar una APK importante.
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
