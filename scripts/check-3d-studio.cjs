@@ -7,7 +7,7 @@ const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},stat
 const canvas={clientWidth:900,clientHeight:600,width:900,height:600,getContext(){return draw},addEventListener(){},setPointerCapture(){}};
 const file={addEventListener(){},click(){}};
 const document={
- getElementById(id){return id==='scene'?canvas:id==='file'?file:controls[id]},
+ getElementById(id){return id==='scene'?canvas:(id==='file'||id==='projectFile')?file:controls[id]},
  createElement(){return {click(){},style:{}}},
 };
 const window={addEventListener(){}};
@@ -34,4 +34,7 @@ assert.equal(evaluate("importDxfText('0\\nLWPOLYLINE\\n70\\n1\\n10\\n0\\n20\\n0\
 sessionStorage.setItem('cadcraft.android.dxf.handoff','0\\nLWPOLYLINE\\n70\\n1\\n10\\n0\\n20\\n0\\n10\\n20\\n20\\n0\\n10\\n20\\n20\\n10\\n10\\n0\\n20\\n10\\n0\\nENDSEC');
 assert.equal(evaluate('receive2dHandoff(); model.faces.length'),12,'2D handoff builds a solid');
 assert.equal(sessionStorage.getItem('cadcraft.android.dxf.handoff'),null,'handoff consumed exactly once');
+assert.equal(evaluate("JSON.parse(serializeProject()).format"),'cadcraft-android-3d','project format');
+assert.equal(evaluate("loadProjectText(serializeProject()).faces.length"),12,'project JSON roundtrip');
+assert.equal(evaluate("(()=>{try{loadProjectText('{\"format\":\"invalid\"}');return false}catch(e){return true}})()"),true,'invalid project rejected');
 console.log('3D studio tests passed');
