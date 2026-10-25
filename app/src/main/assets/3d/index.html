@@ -258,7 +258,7 @@ function moveSketchVertex(index,x,y){
 function setSketchProfile(points){
  const candidate=points.map(p=>[Number(p[0]),Number(p[1])]);
  const next=extrude(candidate,number('height')); // validate BEFORE changing the live model
- poly=candidate;height=number('height');model=next;profileFromDXF=true;
+ poly=candidate;height=number('height');model=next;profileFromDXF=true;sourceHandle=null;
  fit();setStatus('Perfil 2D extruido · '+candidate.length+' vértices');
  return next;
 }
