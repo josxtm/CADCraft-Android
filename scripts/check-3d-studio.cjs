@@ -333,4 +333,46 @@ assert.equal(gizmoTrial.previous[0],0,'undo gizmo restores X');
 assert.equal(gizmoTrial.redo,true,'gizmo movement can be redone');
 assert.equal(gizmoTrial.restored[0],gizmoTrial.moved[0],'redo restores gizmo displacement');
 
+
+// Visual feedback and camera control: geometry stays fixed during gizmo drags,
+// selected piece bounds highlight and XY handle is disabled edge-on.
+assert.equal(evaluate("loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[100,0],[100,60],[0,60]],height:25})).faces.length"),12,'focus tests use a fresh scene');
+if(evaluate('faceMode'))evaluate('toggleFaceMode()');
+if(evaluate('moveMode'))evaluate('toggleMoveMode()');
+assert.equal(evaluate('focusSelectedSolid()'),true,'focus selected solid works');
+const firstFocus=evaluate('cameraCenter.slice()');
+assert.equal(firstFocus[0],50,'focus centers source block X');
+assert.equal(firstFocus[1],30,'focus centers source block Y');
+assert.equal(firstFocus[2],12.5,'focus centers source block Z');
+assert.equal(evaluate('createSceneSolid()'),true,'add another piece to focus');
+const currentId=evaluate('activeSolidId');
+assert.equal(evaluate('focusSelectedSolid()'),true,'focus independent solid');
+const secondFocus=evaluate('cameraCenter.slice()');
+assert.equal(secondFocus[0]>firstFocus[0],true,'focus follows other mesh to the right');
+assert.equal(evaluate('gizmoGeometry()'),null,'gizmo unavailable when move mode is disabled');
+assert.equal(evaluate('toggleMoveMode()'),true,'enable move mode and render manipulator');
+const visual=evaluate("(()=>{const g=gizmoGeometry(),scene=combinedScene(),p=scene.v.map(makeProjection(scene));return {id:g.owner,bounds:drawActiveObjectBounds(ctx,scene,p,zoom),axes:Object.keys(g.axes)}})()");
+assert.equal(visual.id,currentId,'manipulator follows active object');
+assert.equal(visual.bounds.owner,currentId,'orange selection box follows active object');
+assert.equal(visual.bounds.left<visual.bounds.right,true,'object selection box has positive width');
+assert.equal(visual.bounds.top<visual.bounds.bottom,true,'object selection box has positive height');
+assert.equal(visual.axes.includes('X'),true,'gizmo X handle exists');
+assert.equal(visual.axes.includes('Y'),true,'gizmo Y handle exists');
+assert.equal(visual.axes.includes('Z'),true,'gizmo Z handle exists');
+assert.equal(evaluate("snap('front');gizmoGeometry().xyAvailable"),false,'unsafe XY handle disabled edge-on');
+assert.equal(evaluate("hitGizmoAxis(...gizmoGeometry().center)"),null,'edge-on XY center cannot start a bad drag');
+assert.equal(evaluate("snap('top');gizmoGeometry().xyAvailable"),true,'XY available from superior view');
+assert.equal(evaluate("hitGizmoAxis(...gizmoGeometry().center)"),'XY','XY center activates in superior view');
+assert.equal(evaluate("(()=>{const g=gizmoGeometry(),p=g.axes.Y.point;return movePointerDown(84,p[0],p[1],p[0],p[1])})()"),true,'grab visible Y axis handle');
+assert.equal(evaluate('moveGesture.axis'),'Y','axis locked when finger grabs gizmo');
+assert.equal(evaluate("(()=>{const g=moveGesture;updateMoveGesture(84,g.startX+30,g.startY+10,'X',0,1);return activeOffset[0]})()"),0,'locked Y gesture ignores changed X toolbar setting');
+assert.equal(evaluate("displacementDisplay().includes('Y:')"),true,'HUD reports selected Y axis');
+assert.equal(evaluate("displacementDisplay().includes('mm')"),true,'HUD includes millimetre units');
+assert.equal(evaluate('finishMoveGesture(84)'),true,'finish constrained gizmo drag');
+assert.equal(evaluate('displacementDisplay()'),'','HUD clears after pointerup');
+assert.equal(evaluate('undoMove()'),true,'new gizmo drag undo works');
+assert.equal(evaluate('redoMove()'),true,'new gizmo drag redo works');
+assert.equal(evaluate('toggleMoveMode()'),false,'exit move mode');
+assert.equal(evaluate('gizmoGeometry()'),null,'no phantom gizmo when returning to camera mode');
+
 console.log('3D studio tests passed');
