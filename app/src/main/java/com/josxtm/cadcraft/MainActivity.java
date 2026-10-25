@@ -84,6 +84,12 @@ public class MainActivity extends Activity {
                         "var b=document.createElement('button');b.id='cadcraft3dlaunch';b.textContent='3D EXTRUIR';" +
                         "b.style.cssText='position:fixed;right:12px;bottom:48px;z-index:2147483647;background:#215da8;color:white;border:1px solid #adc3dd;border-radius:9px;padding:12px;font:600 15px sans-serif;box-shadow:0 3px 12px #0008';" +
                         "b.addEventListener('click',function(){location.href='../3d/index.html'});" +
+                        "var d=document.createElement('button');d.id='cadcraftdxfhandoff';d.textContent='DXF A 3D';" +
+                        "d.style.cssText='position:fixed;right:12px;bottom:104px;z-index:2147483647;background:#176b62;color:white;border:1px solid #a8ded6;border-radius:9px;padding:12px;font:600 15px sans-serif';" +
+                        "var f=document.createElement('input');f.type='file';f.accept='.dxf,application/dxf';f.style.display='none';" +
+                        "d.addEventListener('click',function(){f.click()});" +
+                        "f.addEventListener('change',async function(){if(!f.files||!f.files[0])return;try{var t=await f.files[0].text();if(t.length>5000000)throw Error('DXF demasiado grande');sessionStorage.setItem('cadcraft.android.dxf.handoff',t);location.href='../3d/index.html'}catch(e){alert('DXF: '+e.message)}finally{f.value=''}});" +
+                        "document.body.appendChild(f);document.body.appendChild(d);" +
                         "document.body.appendChild(b);})()", null);
                 }
             }
