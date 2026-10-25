@@ -365,7 +365,7 @@ assert.equal(evaluate("snap('top');gizmoGeometry().xyAvailable"),true,'XY availa
 assert.equal(evaluate("hitGizmoAxis(...gizmoGeometry().center)"),'XY','XY center activates in superior view');
 assert.equal(evaluate("(()=>{const g=gizmoGeometry(),p=g.axes.Y.point;return movePointerDown(84,p[0],p[1],p[0],p[1])})()"),true,'grab visible Y axis handle');
 assert.equal(evaluate('moveGesture.axis'),'Y','axis locked when finger grabs gizmo');
-assert.equal(evaluate("(()=>{const g=moveGesture;updateMoveGesture(84,g.startX+30,g.startY+10,'X',0,1);return activeOffset[0]})()"),0,'locked Y gesture ignores changed X toolbar setting');
+assert.equal(evaluate("(()=>{const before=moveGesture.origin[0],g=moveGesture;updateMoveGesture(84,g.startX+30,g.startY+10,'X',0,1);return activeOffset[0]-before})()"),0,'locked Y gesture ignores changed X toolbar setting');
 assert.equal(evaluate("displacementDisplay().includes('Y:')"),true,'HUD reports selected Y axis');
 assert.equal(evaluate("displacementDisplay().includes('mm')"),true,'HUD includes millimetre units');
 assert.equal(evaluate('finishMoveGesture(84)'),true,'finish constrained gizmo drag');
