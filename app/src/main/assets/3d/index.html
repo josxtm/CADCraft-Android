@@ -369,6 +369,72 @@ function separateActiveSolid(clearance=10){
  return true;
 }
 
+/* Boolean results are independent triangle-mesh objects in the scene.
+ * They can be selected, translated, duplicated and deleted, but they do NOT
+ * pretend to have an editable extrusion sketch or parametric feature tree. */
+function validateDerivedMesh(mesh){
+ if(!mesh||!Array.isArray(mesh.v)||!Array.isArray(mesh.faces)||
+   mesh.v.length<4||mesh.v.length>8000||mesh.faces.length<4||mesh.faces.length>16000)
+  throw Error('Malla booleana incompatible o demasiado grande');
+ if(!mesh.v.every(p=>Array.isArray(p)&&p.length===3&&p.every(n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<=1e8)))
+  throw Error('Vértices 3D inválidos');
+ if(!mesh.faces.every(f=>Array.isArray(f)&&f.length===3&&f.every(i=>Number.isInteger(i)&&i>=0&&i<mesh.v.length)&&new Set(f).size===3))
+  throw Error('Caras 3D inválidas');
+ const edges=new Map();
+ for(const [a,b,c] of mesh.faces){
+  const u=mesh.v[b].map((v,i)=>v-mesh.v[a][i]),w=mesh.v[c].map((v,i)=>v-mesh.v[a][i]);
+  const cross=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];
+  if(Math.hypot(...cross)<1e-10)throw Error('Triángulo degenerado');
+  for(const [i,j] of [[a,b],[b,c],[c,a]]){
+   const key=i<j?i+':'+j:j+':'+i;
+   edges.set(key,(edges.get(key)||0)+1);
+  }
+ }
+ if([...edges.values()].some(n=>n!==2))throw Error('Malla abierta o no manifold');
+ if(!(meshOrientedVolume(mesh)>1e-8))throw Error('Malla vacía o invertida');
+ return {v:mesh.v.map(p=>p.slice()),faces:mesh.faces.map(f=>f.slice())};
+}
+function addBooleanToScene(mode){
+ try{
+  if(!storedSolids.length)throw Error('Falta una segunda pieza');
+  if(storedSolids.length+derivedSolids.length>=23)throw Error('Límite de 24 piezas');
+  const mesh=validateDerivedMesh(booleanBoxMesh(captureActiveSolid(),storedSolids[0],mode));
+  const item={id:nextSolidId,mode,parents:[activeSolidId,storedSolids[0].id],offset:[0,0,0],mesh};
+  derivedSolids.push(item);nextSolidId++;
+  selectedDerivedId=item.id;selectedFace=-1;syncOffsetFields();invalidateSceneContacts();fit();
+  setStatus('Resultado '+item.id+' creado y seleccionado · '+mode);
+  return item.id;
+ }catch(e){setStatus('Crear booleana: '+e.message);return null;}
+}
+function cycleDerivedSolid(){
+ if(!derivedSolids.length){setStatus('No hay resultados booleanos');return false;}
+ const idx=derivedSolids.findIndex(item=>item.id===selectedDerivedId);
+ selectedDerivedId=derivedSolids[(idx+1)%derivedSolids.length].id;
+ selectedFace=-1;syncOffsetFields();render();
+ setStatus('Resultado booleano seleccionado: '+selectedDerivedId+' (solo malla)');
+ return true;
+}
+function selectExtrudedSolid(){
+ selectedDerivedId=null;selectedFace=-1;syncOffsetFields();render();
+ setStatus('Extrusión '+activeSolidId+' activa');return true;
+}
+function duplicateDerivedSolid(){
+ const item=selectedDerived();
+ if(!item||storedSolids.length+derivedSolids.length>=23){setStatus('Selecciona un resultado; máximo 24 piezas');return false;}
+ const copy={id:nextSolidId++,mode:item.mode,parents:item.parents.slice(),
+  offset:[item.offset[0]+20,item.offset[1],item.offset[2]],
+  mesh:validateDerivedMesh(item.mesh)};
+ derivedSolids.push(copy);selectedDerivedId=copy.id;selectedFace=-1;
+ syncOffsetFields();invalidateSceneContacts();fit();setStatus('Resultado duplicado: '+copy.id);
+ return true;
+}
+function deleteDerivedSolid(){
+ if(!selectedDerived()){setStatus('Selecciona un resultado booleano');return false;}
+ derivedSolids=derivedSolids.filter(item=>item.id!==selectedDerivedId);
+ selectedDerivedId=null;selectedFace=-1;syncOffsetFields();invalidateSceneContacts();fit();
+ setStatus('Resultado eliminado; extrusión '+activeSolidId+' activa');return true;
+}
+
 function allSceneMeshes(){
  const records=[captureActiveSolid(),...storedSolids];
  return [...records.map(record=>({id:record.id,...offsetMesh(record.mesh||extrude(record.profile,record.height),record.offset)})),
