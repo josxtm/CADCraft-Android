@@ -27,4 +27,6 @@ assert.equal(evaluate("setSketchProfile([[0,0],[40,0],[40,20],[0,20]]).faces.len
 assert.equal(evaluate("poly[1][0]"),40,'sketch and 3D model share the same profile');
 assert.equal(evaluate("(()=>{try{setSketchProfile([[0,0],[10,10],[0,10],[10,0]]);return false}catch(e){return true}})()"),true,'invalid sketch rejected');
 assert.equal(evaluate("poly[1][0]"),40,'invalid sketch cannot replace the active model');
+assert.equal(evaluate("parseDxfProfile('0\\nLWPOLYLINE\\n70\\n1\\n10\\n0\\n20\\n0\\n10\\n40\\n20\\n0\\n10\\n40\\n20\\n20\\n10\\n0\\n20\\n20\\n0\\nENDSEC').length"),4,'DXF closed polyline parsing');
+assert.equal(evaluate("importDxfText('0\\nLWPOLYLINE\\n70\\n1\\n10\\n0\\n20\\n0\\n10\\n40\\n20\\n0\\n10\\n40\\n20\\n20\\n10\\n0\\n20\\n20\\n0\\nENDSEC').faces.length"),12,'DXF 2D-to-3D extrusion');
 console.log('3D studio tests passed');
