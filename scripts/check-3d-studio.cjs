@@ -37,4 +37,5 @@ assert.equal(sessionStorage.getItem('cadcraft.android.dxf.handoff'),null,'handof
 assert.equal(evaluate("JSON.parse(serializeProject()).format"),'cadcraft-android-3d','project format');
 assert.equal(evaluate("loadProjectText(serializeProject()).faces.length"),12,'project JSON roundtrip');
 assert.equal(evaluate("(()=>{try{loadProjectText('{\"format\":\"invalid\"}');return false}catch(e){return true}})()"),true,'invalid project rejected');
+assert.equal(typeof evaluate('addPrecisePoint'),'function','precise XY input is wired');
 console.log('3D studio tests passed');
