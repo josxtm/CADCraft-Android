@@ -79,6 +79,10 @@ public class MainActivity extends Activity {
             @Override public void onPageFinished(WebView v,String url){
                 v.evaluateJavascript(SAVE_BRIDGE,null);
                 if(url.endsWith("/assets/web/index.html")){
+                    // Loads the Android-side selection UI after the patched CADCraft WASM starts.
+                    v.evaluateJavascript("if(!document.getElementById('cadcraftSelectionScript')){" +
+                        "var s=document.createElement('script');s.id='cadcraftSelectionScript';" +
+                        "s.src='../bridge/selection.js';document.head.appendChild(s);}",null);
                     v.evaluateJavascript(
                         "(function(){if(document.getElementById('cadcraft3dlaunch'))return;" +
                         "var b=document.createElement('button');b.id='cadcraft3dlaunch';b.textContent='3D EXTRUIR';" +
