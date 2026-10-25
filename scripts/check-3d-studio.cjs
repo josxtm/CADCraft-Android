@@ -3,7 +3,7 @@ const vm=require('node:vm');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(process.argv[2],'utf8');
 const draw={beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){},stroke(){},clearRect(){},fillRect(){}};
-const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},faceDistance:{value:'5'},moveAxis:{value:'XY'},moveSnap:{value:'0'},toolsPanel:{classList:{toggle(){}}},toolsToggle:{textContent:''},moveModeButton:{textContent:''},selectFaceButton:{textContent:''},offsetX:{value:'0'},offsetY:{value:'0'},offsetZ:{value:'0'},status:{textContent:''}};
+const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},faceDistance:{value:'5'},moveAxis:{value:'XY'},moveSnap:{value:'0'},moveSensitivity:{value:'1'},toolsPanel:{classList:{toggle(){}}},toolsToggle:{textContent:''},moveModeButton:{textContent:''},selectFaceButton:{textContent:''},offsetX:{value:'0'},offsetY:{value:'0'},offsetZ:{value:'0'},status:{textContent:''}};
 const canvas={clientWidth:900,clientHeight:600,width:900,height:600,getContext(){return draw},getBoundingClientRect(){return {left:0,top:0,width:900,height:600}},listeners:{},addEventListener(name,fn){this.listeners[name]=fn},setPointerCapture(){}};
 const file={addEventListener(){},click(){}};
 const document={
@@ -292,5 +292,26 @@ assert.equal(evaluate('toggleFaceMode()'),true,'face selection mode can be enabl
 assert.equal(evaluate('moveMode'),false,'enabling face selection disables object move mode');
 assert.equal(evaluate('loadProjectText(serializeProject()).faces.length'),12,'moving scene survives JSON save/load');
 assert.equal(evaluate('moveHistory.length'),0,'load clears gesture history to prevent unrelated undo');
+
+
+// Sensitivity, snapping and cancellation must not corrupt a solid or its history.
+assert.equal(evaluate("loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[100,0],[100,60],[0,60]],height:25})).faces.length"),12,'reset for sensitivity tests');
+assert.equal(evaluate("(()=>{snap('top');captureMoveGesture(55,100,100,activeSolidId);const normal=projectedDragDelta(10,0,'XY',az,el,zoom);updateMoveGesture(55,110,100,'XY',0,2);return Math.abs(activeOffset[0]-normal[0]*2)<1e-7&&Math.abs(activeOffset[1]-normal[1]*2)<1e-7})()"),true,'sensitivity doubles displacement on XY plane');
+assert.equal(evaluate('finishMoveGesture(55)'),true,'sensitivity gesture saves one move');
+assert.equal(evaluate('moveHistory.length'),1,'sensitivity gesture stored once');
+assert.equal(evaluate("(()=>{const before=activeOffset.slice();captureMoveGesture(56,200,200,activeSolidId);return (()=>{try{updateMoveGesture(56,220,220,'XY',0,0.01);return false}catch(e){return activeOffset.every((x,i)=>Math.abs(x-before[i])<1e-9)}})()})()"),true,'out of range sensitivity rejected without moving');
+assert.equal(evaluate('finishMoveGesture(56,true)'),false,'invalid move canceled without adding history');
+assert.equal(evaluate('moveHistory.length'),1,'invalid gesture leaves undo history intact');
+assert.equal(evaluate("(()=>{captureMoveGesture(57,100,100,activeSolidId);updateMoveGesture(57,120,100,'XY',5,1);return activeOffset.every(v=>Math.abs(v/5-Math.round(v/5))<1e-9)})()"),true,'5mm snapping locks moved XY coordinates to grid');
+assert.equal(evaluate('finishMoveGesture(57)'),true,'snapped gesture confirmed');
+assert.equal(evaluate('moveHistory.length'),2,'snapped gesture recorded once');
+assert.equal(evaluate('toggleMoveMode()'),true,'enable move mode for interruption test');
+assert.equal(evaluate("(()=>{captureMoveGesture(58,100,100,activeSolidId);updateMoveGesture(58,130,100,'XY',0,1);return !!moveGesture})()"),true,'unfinished drag exists before mode toggle');
+const modeCancelOrigin=evaluate('moveGesture.origin.slice()');
+assert.equal(evaluate('toggleMoveMode()'),false,'exit move mode');
+assert.equal(evaluate('moveGesture'),null,'leaving move mode cancels ongoing drag');
+assert.equal(evaluate('activeOffset[0]'),modeCancelOrigin[0],'interrupted drag restores X');
+assert.equal(evaluate('activeOffset[1]'),modeCancelOrigin[1],'interrupted drag restores Y');
+assert.equal(evaluate('moveHistory.length'),2,'interrupted drag does not create extra undo');
 
 console.log('3D studio tests passed');
