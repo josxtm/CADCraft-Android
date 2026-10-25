@@ -22,6 +22,8 @@ jobs:
           test -s scripts/check-3d-studio.cjs
           test -s app/src/main/assets/3d/index.html
           test -s app/src/main/java/com/josxtm/cadcraft/MainActivity.java
+          test -s app/src/main/assets/bridge/selection.js
+          test -s scripts/patch-upstream-selection.py
       - name: Extract 3D script
         run: |
           python3 - <<'PY'
@@ -34,6 +36,9 @@ jobs:
         run: |
           node --check /tmp/cadcraft-3d.js
           node scripts/check-3d-studio.cjs /tmp/cadcraft-3d.js
+          node --check app/src/main/assets/bridge/selection.js
+          node scripts/check-selection-bridge.cjs app/src/main/assets/bridge/selection.js
+          python3 -m py_compile scripts/patch-upstream-selection.py
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify Rust 3D unit tests
         working-directory: native3d
@@ -51,6 +56,8 @@ jobs:
         run: cargo install trunk --locked
       - name: Get CADCraft upstream
         run: git clone --depth 1 --branch v0.13.0 https://github.com/storytold/cadcraft.git upstream
+      - name: Patch upstream to expose selected entities
+        run: python3 scripts/patch-upstream-selection.py
       - name: Compile CADCraft WebAssembly
         working-directory: upstream/apps/cadcraft-web
         run: trunk build --release
