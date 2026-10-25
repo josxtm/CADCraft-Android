@@ -41,4 +41,4 @@ window.__cadcraftSelected2D=JSON.stringify(pl);
 elements.cadcraftSelectedExtrude.click();
 assert.equal(page.href,'../3d/index.html');
 assert.equal(alertText,'');
-console.log('CADCraft selection bridge tests passed (13 assertions)');
+console.log('CADCraft selection bridge tests passed (15 assertions)');
