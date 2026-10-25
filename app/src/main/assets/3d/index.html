@@ -3,7 +3,7 @@
 <body><header><button onclick="location.href='../web/index.html'">CAD 2D</button><strong>CADCraft · 3D</strong><button onclick="exportSTL()">Exportar STL</button></header>
 <main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">EXTRUIR</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
 <div id="cube"><span></span><button onclick="snap('top')">SUP</button><span></span><button onclick="snap('left')">IZQ</button><button onclick="snap('iso')">3D</button><button onclick="snap('right')">DER</button><span></span><button onclick="snap('front')">FTE</button><span></span></div>
-<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button><button onclick="updateSelectedPoint()">Mover seleccionado</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="redoSketch()">Rehacer</button><button onclick="makeRectangleSketch()">Rectángulo exacto</button><button id="sketchSnapButton" onclick="toggleSketchSnap()">Rejilla ON</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
+<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button><button onclick="updateSelectedPoint()">Mover seleccionado</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="redoSketch()">Rehacer</button><button onclick="makeRectangleSketch()">Rectángulo exacto</button><label>Ø mm <input id="sketchDiameter" type="number" min="0.01" value="40" step="1"></label><button onclick="makeCircleSketch()">Círculo exacto</button><button onclick="deleteSelectedVertex()">Borrar vértice</button><button id="sketchSnapButton" onclick="toggleSketchSnap()">Rejilla ON</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
 <script>
 'use strict';
 const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
@@ -186,6 +186,15 @@ function pushSketchHistory(){sketchHistory.push(cloneSketch(sketchPoints));if(sk
 function undoSketchState(){if(!sketchHistory.length)return false;sketchRedoHistory.push(cloneSketch(sketchPoints));sketchPoints=sketchHistory.pop();selectedSketchVertex=-1;return true;}
 function redoSketchState(){if(!sketchRedoHistory.length)return false;sketchHistory.push(cloneSketch(sketchPoints));sketchPoints=sketchRedoHistory.pop();selectedSketchVertex=-1;return true;}
 function rectangleSketch(w,l){if(!Number.isFinite(w)||!Number.isFinite(l)||w<=0||l<=0)throw Error('Ancho y largo deben ser positivos');return [[0,0],[w,0],[w,l],[0,l]];}
+function circleSketch(diameter,segments=48){
+ if(!Number.isFinite(diameter)||diameter<=0||!Number.isInteger(segments)||segments<12||segments>128)throw Error('Diámetro o resolución no válidos');
+ const r=diameter/2;
+ return Array.from({length:segments},(_,i)=>[Math.cos(i*Math.PI*2/segments)*r,Math.sin(i*Math.PI*2/segments)*r]);
+}
+function removeSketchVertex(index){
+ if(!Number.isInteger(index)||index<0||index>=sketchPoints.length)return false;
+ pushSketchHistory();sketchPoints.splice(index,1);selectedSketchVertex=-1;return true;
+}
 function snapSketchPoint(x,y){return sketchSnapping?[Math.round(x/sketchStep)*sketchStep,Math.round(y/sketchStep)*sketchStep]:[x,y];}
 function moveSketchVertex(index,x,y){
  if(!Number.isInteger(index)||index<0||index>=sketchPoints.length||!Number.isFinite(x)||!Number.isFinite(y))throw Error('Vértice o coordenadas incorrectos');
@@ -267,6 +276,16 @@ function updateSelectedPoint(){
 function makeRectangleSketch(){
  try{const p=rectangleSketch(number('width'),number('length'));pushSketchHistory();sketchPoints=p;selectedSketchVertex=-1;drawSketch();return true;}
  catch(e){document.getElementById('sketchInfo').textContent=e.message;return false;}
+}
+function makeCircleSketch(){
+ try{
+  const p=circleSketch(Number(document.getElementById('sketchDiameter').value));
+  pushSketchHistory();sketchPoints=p;selectedSketchVertex=-1;drawSketch();return true;
+ }catch(e){document.getElementById('sketchInfo').textContent=e.message;return false;}
+}
+function deleteSelectedVertex(){
+ if(!removeSketchVertex(selectedSketchVertex))return false;
+ drawSketch();return true;
 }
 function toggleSketchSnap(){sketchSnapping=!sketchSnapping;document.getElementById('sketchSnapButton').textContent=sketchSnapping?'Rejilla ON':'Rejilla OFF';drawSketch();}
 function undoSketch(){if(undoSketchState())drawSketch();}
