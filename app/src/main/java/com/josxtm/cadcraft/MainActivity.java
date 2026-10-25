@@ -78,6 +78,14 @@ public class MainActivity extends Activity {
             }
             @Override public void onPageFinished(WebView v,String url){
                 v.evaluateJavascript(SAVE_BRIDGE,null);
+                if(url.endsWith("/assets/web/index.html")){
+                    v.evaluateJavascript(
+                        "(function(){if(document.getElementById('cadcraft3dlaunch'))return;" +
+                        "var b=document.createElement('button');b.id='cadcraft3dlaunch';b.textContent='3D EXTRUIR';" +
+                        "b.style.cssText='position:fixed;right:12px;bottom:48px;z-index:2147483647;background:#215da8;color:white;border:1px solid #adc3dd;border-radius:9px;padding:12px;font:600 15px sans-serif;box-shadow:0 3px 12px #0008';" +
+                        "b.addEventListener('click',function(){location.href='../3d/index.html'});" +
+                        "document.body.appendChild(b);})()", null);
+                }
             }
         });
         view.loadUrl("https://appassets.androidplatform.net/assets/web/index.html");
