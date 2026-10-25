@@ -135,12 +135,22 @@ El estudio 3D incorpora ahora un flujo de resultados booleanos **persistentes**:
 - La visualización, el encuadre y la exportación de la **escena completa a STL/OBJ** incluyen las mallas booleanas.
 - El formato de proyecto propio pasa a **JSON v3** e incluye mallas, IDs, operaciones, referencias de las piezas origen, desplazamientos y selección actual. Abre los formatos v1 y v2 anteriores.
 - Antes de importar una malla, se comprueban coordenadas, índices, caras degeneradas, bordes abiertos, volumen y límites de tamaño. Un error no reemplaza la escena en memoria.
-- Se separan explícitamente los controles de extrusión paramétrica y de malla booleana: las mallas resultantes pueden **moverse, seleccionarse, duplicarse y borrarse**, pero **no pueden editarse mediante croquis, altura de extrusión o modificación directa de caras**. No hay todavía historial de operaciones reconstruible ni recomputación automática al cambiar sus fuentes.
+- Se separan explícitamente los controles de extrusión paramétrica y de malla booleana: las mallas resultantes pueden **moverse, seleccionarse, duplicarse y borrarse**. Además, ahora admiten un desplazamiento geométrico **limitado de un plano de caras**, con deshacer/rehacer, pero siguen sin admitir croquis paramétricos, extrusión paramétrica ni edición B-Rep general. No hay todavía historial de operaciones reconstruible ni recomputación automática al cambiar sus fuentes.
 - Máximo de **24 piezas totales** entre extrusiones y resultados booleanos.
 - Las operaciones booleanas de creación de malla se limitan a **dos prismas rectangulares alineados a XYZ**. El volumen de intersección sí puede calcularse para perfiles extruidos más generales, pero eso no genera una malla booleana editable.
 - Para evitar proyectos imposibles de reabrir, el guardado JSON rechaza un archivo demasiado grande (límite de 2 MB).
 
 El control JavaScript alcanza **180 pruebas de regresión**, incluidas creación, desplazamiento, exportación, duplicación, persistencia y rechazo de proyectos corruptos. Este bloque **no modifica la versión APK (0.5.0)**. GitHub Actions mantiene el trabajo de compilación Android reservado al disparo manual.
+
+### Selección táctil y desplazamiento de planos en mallas — desarrollo posterior a 0.5.0
+
+- En modo **Seleccionar cara**, tocar cualquier sólido visible de la escena activa su pieza, incluso si previamente estaba seleccionada otra extrusión o una malla booleana. La referencia del triángulo seleccionado se actualiza después del cambio de objeto.
+- Los resultados booleanos admiten **Mover plano + / Mover plano −** introduciendo una distancia en milímetros. La herramienta mueve **todos los vértices situados en el plano coordenado de la cara elegida**; no desplaza únicamente una cara aislada ni realiza una operación B-Rep.
+- Solo admite caras planas alineadas con X/Y/Z. Se rechazan pasos nulos, demasiado grandes, caras oblicuas, mallas abiertas, degeneradas y movimientos que crucen otro plano paralelo de la misma malla.
+- **Deshacer cara / Rehacer cara** proporciona hasta 20 pasos por resultado booleano seleccionado. El historial de deshacer es temporal: al cambiar de resultado o abrir un proyecto se reinicia.
+- Los cambios geométricos se guardan en **JSON v3** y se exportan en **STL y OBJ**, pero **no se recalculan automáticamente** si se modifica una de las piezas que dio origen al resultado.
+- La detección de contactos sigue evaluando únicamente las **extrusiones**; no analiza todavía colisiones entre mallas booleanas de geometría general.
+- Regresión JavaScript ampliada a más de 200 casos sin generar ninguna nueva APK. La validez del APK continúa sin verificarse para este bloque.
 
 ## Hoja de ruta
 
