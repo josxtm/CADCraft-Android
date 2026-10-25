@@ -1,0 +1,32 @@
+name: Verify 3D studio (no APK)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/src/main/assets/3d/**'
+      - '.github/workflows/verify-3d-web.yml'
+permissions:
+  contents: read
+jobs:
+  check-studio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Extract embedded 3D JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('app/src/main/assets/3d/index.html').read_text()
+          assert html.count('<script>') == 1 and html.count('</script>') == 1
+          code = html.split('<script>', 1)[1].split('</script>', 1)[0]
+          Path('/tmp/cadcraft-3d.js').write_text(code)
+          assert len(code) > 3000
+          PY
+      - name: Verify JavaScript syntax
+        run: node --check /tmp/cadcraft-3d.js
+      - name: Verify extrusion geometry and ViewCube controls
+        run: node scripts/check-3d-studio.cjs /tmp/cadcraft-3d.js
