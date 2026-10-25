@@ -42,7 +42,7 @@ bridge = """    /// Expose exactly one selected, potentially extrudable entity t
         });
 
         if let Some(window) = web_sys::window() {
-            let value = payload.map(JsValue::from_str).unwrap_or(JsValue::NULL);
+            let value = payload.as_deref().map(JsValue::from_str).unwrap_or(JsValue::NULL);
             let _ = web_sys::js_sys::Reflect::set(
                 window.as_ref(),
                 &JsValue::from_str("__cadcraftSelected2D"),
