@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'app/src/main/assets/3d/**'
+      - 'scripts/check-3d-studio.cjs'
       - '.github/workflows/verify-3d-web.yml'
 permissions:
   contents: read
@@ -26,6 +27,10 @@ jobs:
           Path('/tmp/cadcraft-3d.js').write_text(code)
           assert len(code) > 3000
           PY
+      - name: Verify test harness is present
+        run: |
+          test -s scripts/check-3d-studio.cjs
+          test -s /tmp/cadcraft-3d.js
       - name: Verify JavaScript syntax
         run: node --check /tmp/cadcraft-3d.js
       - name: Verify extrusion geometry and ViewCube controls
