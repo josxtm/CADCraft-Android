@@ -4,6 +4,16 @@ Adaptación experimental de [CADCraft](https://github.com/storytold/cadcraft) pa
 
 > **Estado:** la APK 2D v0.1.0 fue probada en Nothing Phone 2a. Se ha añadido un estudio 3D independiente aún no validado en móvil.
 
+## Flujo de desarrollo y APK (desde octubre de 2026)
+
+**No se compila una APK en cada cambio de código.** Los envíos a `main` ejecutan únicamente el control automático `preflight` (JavaScript, Rust y validaciones), sin construir Android ni subir ningún APK.
+
+Solo al completar **una mejora importante** y cuando haya un guion de pruebas útil, propondremos generar una nueva APK. La compilación Android requiere ir a **Actions → CADCraft · Verificación continua / APK manual → Run workflow**, marcar **GENERAR APK** e indicar en el campo de objetivo qué se desea comprobar. La casilla está desactivada de forma predeterminada. Si no se marca, se ejecutan pruebas pero no se crea el APK.
+
+La versión en `app/build.gradle` se reserva para las compilaciones de prueba de una versión importante; corregir código entre versiones no implica distribuir una APK nueva. Antes de recomendar una APK se explicarán las novedades y se facilitará una lista concreta de pruebas para el Nothing Phone 2a. El guion completo y los criterios para decidir cuándo compilar están en [Protocolo de pruebas en móvil](docs/MOBILE_TESTING.md).
+
+**Importante:** una compilación solo está confirmada cuando el trabajo `android` de GitHub Actions finaliza correctamente y publica un artefacto instalable. Pasar `preflight` no implica que exista una APK.
+
 ## Objetivo
 
 Disponer de una aplicación CAD para Android que aproveche el código abierto de CADCraft y permita trabajar con dibujos desde una pantalla táctil. Las prioridades son dibujo 2D, precisión, cotas, apertura/guardado de archivos y evolución posterior de las herramientas 3D.
@@ -108,15 +118,16 @@ La regresión JavaScript de esta fase suma **98 comprobaciones**, incluida compa
 
 **Nota:** esto es un diseño de integración, no una garantía de compatibilidad. Debemos comprobar el renderizado y el almacenamiento de CADCraft en Android WebView.
 
-## Compilación prevista desde GitHub Actions
+## Generación manual de APK solo para hitos importantes
 
 Una vez incorporado el proyecto y el archivo `.github/workflows/android-apk.yml`:
 
-1. Ir a **Actions** en este repositorio.
-2. Seleccionar **Build CADCraft Android APK**.
-3. Pulsar **Run workflow**.
-4. Si termina correctamente, descargar el *artifact* de la ejecución.
-5. Extraer el ZIP e instalar el archivo `app-debug.apk` en el teléfono Android.
+1. Esperar a que se indique que una versión contiene mejoras importantes y qué debemos probar en el teléfono.
+2. Entrar en **Actions** y seleccionar **CADCraft · Verificación continua / APK manual**.
+3. Pulsar **Run workflow** y marcar la casilla **GENERAR APK**. Añadir el objetivo de las pruebas.
+4. Comprobar que terminan correctamente los trabajos **preflight** y **android**.
+5. Descargar el artefacto de la ejecución, extraer el ZIP e instalar `app-debug.apk` en el teléfono Android.
+6. Seguir las pruebas indicadas en [Protocolo de pruebas en móvil](docs/MOBILE_TESTING.md) y comunicar los resultados.
 
 El APK *debug* es únicamente para pruebas. La compilación necesita además revisión de licencias, permisos Android, manejo de archivos y pruebas reales.
 
