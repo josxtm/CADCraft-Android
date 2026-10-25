@@ -72,4 +72,8 @@ sessionStorage.setItem('cadcraft.android.profile.handoff',JSON.stringify({
 }));
 assert.equal(evaluate('receiveSelectedProfile()'),false,'invalid CADCraft selection rejected');
 assert.equal(evaluate('model.v.length'),8,'invalid selection leaves previous solid unchanged');
+assert.equal(evaluate("setSketchProfile([[0,0],[25,0],[25,25],[0,25]]).faces.length"),12,'replacement profile extrudes');
+assert.equal(evaluate('sourceHandle'),null,'new manually edited profile clears previous CADCraft selection handle');
+assert.equal(evaluate('JSON.parse(serializeProject()).sourceHandle'),null,'new project cannot retain stale origin');
+
 console.log('3D studio tests passed');
