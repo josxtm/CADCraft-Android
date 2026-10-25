@@ -17,6 +17,17 @@ function inside(p,a,b,c){return cross2(a,b,p)>=-1e-8&&cross2(b,c,p)>=-1e-8&&cros
 function triangulate(points){
  const p=points.slice();let area=0;for(let i=0;i<p.length;i++){let j=(i+1)%p.length;area+=p[i][0]*p[j][1]-p[j][0]*p[i][1];}
  if(Math.abs(area)<1e-9)throw Error('Área cero');if(area<0)p.reverse();
+ // Reject self-intersecting profiles instead of producing invalid exported solids.
+ function seg(a,b,c,d){
+   const cr=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);
+   const o=[cr(a,b,c),cr(a,b,d),cr(c,d,a),cr(c,d,b)];
+   const on=(p,q,r)=>r[0]>=Math.min(p[0],q[0])-1e-9&&r[0]<=Math.max(p[0],q[0])+1e-9&&r[1]>=Math.min(p[1],q[1])-1e-9&&r[1]<=Math.max(p[1],q[1])+1e-9;
+   return (o[0]*o[1]<0&&o[2]*o[3]<0)||(Math.abs(o[0])<1e-9&&on(a,b,c))||(Math.abs(o[1])<1e-9&&on(a,b,d))||(Math.abs(o[2])<1e-9&&on(c,d,a))||(Math.abs(o[3])<1e-9&&on(c,d,b));
+ }
+ for(let i=0;i<p.length;i++)for(let j=i+1;j<p.length;j++){
+   if((i+1)%p.length===j||(j+1)%p.length===i)continue;
+   if(seg(p[i],p[(i+1)%p.length],p[j],p[(j+1)%p.length]))throw Error('El perfil se cruza consigo mismo');
+ }
  const ids=p.map((_,i)=>i),tri=[];let guard=0;
  while(ids.length>3&&guard++<p.length*p.length){let found=false;for(let k=0;k<ids.length;k++){
  const a=ids[(k+ids.length-1)%ids.length],b=ids[k],c=ids[(k+1)%ids.length];
@@ -56,7 +67,8 @@ function render(){if(!canvas.width||!model)return;const c=ctx,w=canvas.width,h=c
  }
 }
 function snap(name){({top:()=>{az=-.75;el=Math.PI/2},front:()=>{az=-Math.PI/2;el=0},left:()=>{az=Math.PI;el=0},right:()=>{az=0;el=0},iso:()=>{az=-.75;el=0.61548}}[name]||(()=>{}))();render();}
-function fit(){if(!model)return;const min=model.v[0].map((_,i)=>Math.min(...model.v.map(v=>v[i]))),max=model.v[0].map((_,i)=>Math.max(...model.v.map(v=>v[i])));zoom=Math.max(.1,Math.min(canvas.clientWidth,canvas.clientHeight)*.7/(Math.hypot(...max.map((v,i)=>v-min[i]))||1));render();}
+function fit(){if(!model)return;const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+ for(const vertex of model.v)for(let i=0;i<3;i++){min[i]=Math.min(min[i],vertex[i]);max[i]=Math.max(max[i],vertex[i]);}zoom=Math.max(.1,Math.min(canvas.clientWidth,canvas.clientHeight)*.7/(Math.hypot(...max.map((v,i)=>v-min[i]))||1));render();}
 let pointers=new Map(),lastDist=0;
 canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);});
 canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;const prev=pointers.get(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);
