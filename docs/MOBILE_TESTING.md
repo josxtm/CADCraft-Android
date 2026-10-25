@@ -60,6 +60,20 @@ Estas comprobaciones **no requieren generar una APK ahora**. Se incorporarán a 
 
 Esta lista se usará **solo cuando se recomiende una nueva APK**, no ahora.
 
+## Comprobaciones pendientes: resultados booleanos persistentes (próximo hito)
+
+No instalar otra APK todavía. Cuando se anuncie la próxima versión para móvil, añadir al guion:
+
+| N.º | Operación | Resultado esperado |
+|---|---|---|
+| R1 | Crear dos bloques parcialmente superpuestos y pulsar `Añadir resta a escena` | Aparece una pieza nueva de malla booleana |
+| R2 | Pulsar `Seleccionar resultado`, mover XYZ y volver a `Volver a extrusión` | Solo se desplaza la malla booleana seleccionada; las fuentes conservan su posición |
+| R3 | Duplicar y eliminar resultados booleanos | Solo cambian las piezas elegidas |
+| R4 | Guardar JSON, cerrar y abrir proyecto | Se conservan todas las piezas, resultados y posiciones |
+| R5 | Importar un proyecto anterior v1/v2 | Se abre sin perder sus extrusiones |
+| R6 | Exportar OBJ y STL de la escena | Los archivos incluyen extrusiones y resultados booleanos |
+| R7 | Seleccionar un resultado e intentar cambiar su altura | Se rechaza la edición paramétrica sin modificar geometría |
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
