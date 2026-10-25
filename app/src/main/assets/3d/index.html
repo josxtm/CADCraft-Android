@@ -263,18 +263,44 @@ function exportProfileDxf(){
 }
 
 
-function projectData(){return {format:'cadcraft-android-3d',version:1,profile:poly.map(p=>p.slice()),height:height,sourceHandle:sourceHandle};}
+function plainSolidRecord(record){
+ return {id:record.id,profile:record.profile.map(p=>p.slice()),height:record.height,offset:record.offset.slice(),sourceHandle:record.sourceHandle||null};
+}
+function projectData(){
+ return {
+  format:'cadcraft-android-3d',version:2,
+  profile:poly.map(p=>p.slice()),height,sourceHandle,
+  activeSolidId,activeOffset:activeOffset.slice(),
+  solids:storedSolids.map(plainSolidRecord)
+ };
+}
 function serializeProject(){return JSON.stringify(projectData(),null,2);}
+function validateProjectSolid(data,id,offset){
+ if(!data||!Array.isArray(data.profile)||data.profile.length<3||data.profile.length>10000)throw Error('Perfil de pieza inválido');
+ if(!data.profile.every(p=>Array.isArray(p)&&p.length===2&&p.every(n=>typeof n==='number'&&Number.isFinite(n))))throw Error('Coordenadas incorrectas');
+ if(typeof data.height!=='number'||!Number.isFinite(data.height)||Math.abs(data.height)<1e-8)throw Error('Altura incorrecta');
+ if(!Number.isSafeInteger(id)||id<1)throw Error('ID de pieza no válido');
+ const mesh=extrude(data.profile,data.height);
+ return {id,profile:data.profile.map(p=>p.slice()),height:data.height,
+  sourceHandle:typeof data.sourceHandle==='string'?data.sourceHandle:null,
+  offset:validateOffset(offset),mesh};
+}
 function loadProjectText(text){
+ if(typeof text!=='string'||text.length>2000000)throw Error('Proyecto demasiado grande');
  const parsed=JSON.parse(text);
- if(parsed.format!=='cadcraft-android-3d'||parsed.version!==1||!Array.isArray(parsed.profile)||parsed.profile.length>10000)throw Error('Formato de proyecto no compatible');
- const p=parsed.profile;
- if(!p.every(a=>Array.isArray(a)&&a.length===2&&a.every(n=>typeof n==='number'&&Number.isFinite(n))))throw Error('Coordenadas incorrectas');
- if(typeof parsed.height!=='number'||!Number.isFinite(parsed.height))throw Error('Altura incorrecta');
- const next=extrude(p,parsed.height);
- poly=p.map(a=>a.slice());height=parsed.height;model=next;profileFromDXF=true;sourceHandle=typeof parsed.sourceHandle==='string'?parsed.sourceHandle:null;
- document.getElementById('height').value=String(height);
- fit();setStatus('Proyecto cargado · '+poly.length+' vértices');
+ if(!parsed||parsed.format!=='cadcraft-android-3d'||![1,2].includes(parsed.version))throw Error('Formato de proyecto no compatible');
+ const legacy=parsed.version===1;
+ const main=validateProjectSolid(parsed,legacy?1:parsed.activeSolidId,legacy?[0,0,0]:parsed.activeOffset);
+ const others=legacy?[]:parsed.solids;
+ if(!Array.isArray(others)||others.length>23)throw Error('Demasiadas piezas en el proyecto');
+ const records=others.map(r=>validateProjectSolid(r,r.id,r.offset));
+ const ids=[main.id,...records.map(p=>p.id)];
+ if(new Set(ids).size!==ids.length)throw Error('ID de pieza duplicado');
+ // Commit after validation: an invalid imported project never damages the scene.
+ storedSolids=records;
+ nextSolidId=Math.max(...ids)+1;
+ restoreActiveSolid(main);
+ fit();setStatus('Proyecto cargado · '+ids.length+' pieza(s)');
  return model;
 }
 function saveProject(){
@@ -287,7 +313,7 @@ function saveProject(){
 function pickProject(){document.getElementById('projectFile').click();}
 document.getElementById('projectFile').addEventListener('change',async e=>{
  const f=e.target.files[0];if(!f)return;
- try{if(f.size>1000000)throw Error('Proyecto demasiado grande');loadProjectText(await f.text());}
+ try{if(f.size>2000000)throw Error('Proyecto demasiado grande');loadProjectText(await f.text());}
  catch(err){setStatus('Proyecto: '+err.message);}
  e.target.value='';
 });
