@@ -145,4 +145,20 @@ assert.equal(evaluate('inspectSceneContacts().length'),0,'pieces do not touch af
 assert.equal(evaluate('loadProjectText(serializeProject()).faces.length'),12,'save and reload auto-separated scene');
 assert.equal(evaluate('inspectSceneContacts().length'),0,'saved positions preserve separation');
 
+
+// Exact intersection volumes using triangle clipping (prism extrusion shapes).
+const volumes=evaluate("(()=>{const rect=[[0,0],[10,0],[10,10],[0,10]];const r=(p,h=10,x=0,y=0,z=0)=>({id:1,profile:p,height:h,offset:[x,y,z],mesh:extrude(p,h)});const a=r(rect);return {same:prismOverlapMetrics(a,a),quarter:prismOverlapMetrics(a,r(rect,10,5,5)),side:prismOverlapMetrics(a,r(rect,10,10,0)),gap:prismOverlapMetrics(a,r(rect,10,0,0,11)),nested:prismOverlapMetrics(a,r([[2,2],[4,2],[4,4],[2,4]])),concave:prismOverlapMetrics(r([[0,0],[20,0],[20,5],[5,5],[5,20],[0,20]]),r([[10,10],[13,10],[13,13],[10,13]])),negative:prismOverlapMetrics(r(rect,-10),r(rect,10,0,0,-5)),diamond:prismOverlapMetrics(r([[0,5],[5,0],[10,5],[5,10]]),r(rect))};})()");
+assert.equal(volumes.same.intersectionVolume,1000,'identical volumes completely intersect');
+assert.equal(volumes.same.differenceA,0,'identical shapes subtract to no volume');
+assert.equal(volumes.quarter.intersectionVolume,250,'partially intersecting boxes are 250 mm3');
+assert.equal(volumes.quarter.unionVolume,1750,'union volume removes double counting');
+assert.equal(volumes.quarter.differenceA,750,'subtraction volume is original less overlap');
+assert.equal(volumes.side.intersectionVolume,0,'touching faces have zero overlap');
+assert.equal(volumes.gap.intersectionVolume,0,'separated Z intervals have zero overlap');
+assert.equal(volumes.nested.intersectionVolume,40,'contained smaller extruded profile');
+assert.equal(volumes.nested.differenceB,0,'full containment subtracts all smaller volume');
+assert.equal(volumes.concave.intersectionVolume,0,'concave open area has no overlap');
+assert.equal(volumes.negative.intersectionVolume,500,'negative height prisms have correct overlap');
+assert.equal(volumes.diamond.intersectionVolume,500,'rotated profile overlap');
+
 console.log('3D studio tests passed');
