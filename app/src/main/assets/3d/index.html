@@ -1,0 +1,78 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>CADCraft 3D</title>
+<style>html,body{height:100%;margin:0;background:#1c222d;color:#e7edf5;font:14px Arial,sans-serif}header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px;background:#303a49}button,input{background:#39485d;color:#fff;border:1px solid #647287;border-radius:7px;padding:10px;font-size:15px}button:active{background:#627895}main{position:relative;height:calc(100% - 102px)}canvas{width:100%;height:100%;display:block;touch-action:none}aside{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:7px;max-width:50%}aside label{display:flex;gap:6px;align-items:center;background:#303a49e9;border-radius:6px;padding:4px}aside input{width:65px}#cube{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:repeat(3,40px);gap:3px;background:#263244d9;padding:6px;border-radius:8px}#cube button{padding:6px 0;font-size:12px}#status{position:absolute;bottom:8px;left:8px;background:#141c2dd9;padding:6px;border-radius:5px}footer{height:40px;display:flex;justify-content:space-around;align-items:center;background:#303a49}footer button{padding:5px 9px;font-size:13px}</style></head>
+<body><header><button onclick="location.href='../web/index.html'">CAD 2D</button><strong>CADCraft · 3D</strong><button onclick="exportSTL()">Exportar STL</button></header>
+<main><canvas id="scene"></canvas><aside><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">EXTRUIR</button><button onclick="pickDxf()">Abrir DXF</button><input type="file" id="file" accept=".dxf" hidden></aside>
+<div id="cube"><span></span><button onclick="snap('top')">SUP</button><span></span><button onclick="snap('left')">IZQ</button><button onclick="snap('iso')">3D</button><button onclick="snap('right')">DER</button><span></span><button onclick="snap('front')">FTE</button><span></span></div>
+<div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
+<script>
+'use strict';
+const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
+let poly=[[0,0],[100,0],[100,60],[0,60]], height=25, az=-0.75, el=0.5, zoom=2.6;
+let model=null; const status=document.getElementById('status');
+function number(id){return Number(document.getElementById(id).value);}
+function setStatus(t){status.textContent=t;}
+function validate(p,h){if(p.length<3||!p.every(q=>q.every(Number.isFinite))||!Number.isFinite(h)||Math.abs(h)<1e-8)throw Error('Perfil o altura no válidos');}
+function cross2(a,b,c){return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);}
+function inside(p,a,b,c){return cross2(a,b,p)>=-1e-8&&cross2(b,c,p)>=-1e-8&&cross2(c,a,p)>=-1e-8;}
+function triangulate(points){
+ const p=points.slice();let area=0;for(let i=0;i<p.length;i++){let j=(i+1)%p.length;area+=p[i][0]*p[j][1]-p[j][0]*p[i][1];}
+ if(Math.abs(area)<1e-9)throw Error('Área cero');if(area<0)p.reverse();
+ const ids=p.map((_,i)=>i),tri=[];let guard=0;
+ while(ids.length>3&&guard++<p.length*p.length){let found=false;for(let k=0;k<ids.length;k++){
+ const a=ids[(k+ids.length-1)%ids.length],b=ids[k],c=ids[(k+1)%ids.length];
+ if(cross2(p[a],p[b],p[c])<=1e-9)continue;
+ if(ids.some(v=>v!==a&&v!==b&&v!==c&&inside(p[v],p[a],p[b],p[c])))continue;
+ tri.push([a,b,c]);ids.splice(k,1);found=true;break;
+ }if(!found)throw Error('Perfil no válido o autointersección');}
+ if(ids.length!==3)throw Error('No se pudo triangular');tri.push(ids.slice());return {p,tri};
+}
+function extrude(points,h){
+ validate(points,h);let clean=points.filter((a,i)=>i===0||Math.hypot(a[0]-points[i-1][0],a[1]-points[i-1][1])>1e-8);
+ if(clean.length>1&&Math.hypot(clean[0][0]-clean.at(-1)[0],clean[0][1]-clean.at(-1)[1])<1e-8)clean.pop();
+ const {p,tri}=triangulate(clean),n=p.length,v=[...p.map(a=>[...a,0]),...p.map(a=>[...a,h])],faces=[];
+ for(const t of tri){if(h>0){faces.push([t[2],t[1],t[0]],[t[0]+n,t[1]+n,t[2]+n]);}else{faces.push(t,[t[2]+n,t[1]+n,t[0]+n]);}}
+ for(let i=0;i<n;i++){const j=(i+1)%n;if(h>0)faces.push([i,j,j+n],[i,j+n,i+n]);else faces.push([j+n,j,i],[i+n,j+n,i]);}
+ return {v,faces,outline:p,h};
+}
+function extrudeForm(){try{const w=number('width'),l=number('length'),h=number('height');if(!model||!model.fromDXF){if(!(w>0&&l>0))throw Error('Medidas incorrectas');poly=[[0,0],[w,0],[w,l],[0,l]];} height=h;model=extrude(poly,height);render();setStatus('Sólido generado · '+model.faces.length+' triángulos');}catch(e){setStatus('Error: '+e.message);}}
+function makeProjection(){
+ const ca=Math.cos(az),sa=Math.sin(az),ce=Math.cos(el),se=Math.sin(el);
+ const right=[-sa,ca,0],up=[-ca*se,-sa*se,ce],depth=[ca*ce,sa*ce,se];
+ const mid=model?model.v.reduce((a,p)=>a.map((v,i)=>v+p[i]/model.v.length),[0,0,0]):[0,0,0];
+ return p=>{let d=p.map((v,i)=>v-mid[i]);return {x:d.reduce((s,v,i)=>s+v*right[i],0),y:d.reduce((s,v,i)=>s+v*up[i],0),z:d.reduce((s,v,i)=>s+v*depth[i],0)};};
+}
+function resize(){const d=devicePixelRatio||1;canvas.width=Math.round(canvas.clientWidth*d);canvas.height=Math.round(canvas.clientHeight*d);render();}
+function render(){if(!canvas.width||!model)return;const c=ctx,w=canvas.width,h=canvas.height,d=devicePixelRatio||1;c.clearRect(0,0,w,h);c.fillStyle='#202b3a';c.fillRect(0,0,w,h);
+ const pr=makeProjection(),verts=model.v.map(pr);const sc=zoom*d; const to=p=>[w/2+p.x*sc,h/2-p.y*sc];
+ let sorted=model.faces.map(face=>({face,z:face.reduce((s,i)=>s+verts[i].z,0)/3})).sort((a,b)=>a.z-b.z);
+ for(const {face} of sorted){let a=to(verts[face[0]]),b=to(verts[face[1]]),cc=to(verts[face[2]]);
+ const va=model.v[face[0]],vb=model.v[face[1]],vc=model.v[face[2]];
+ const u=vb.map((v,i)=>v-va[i]),v=vc.map((x,i)=>x-va[i]);
+ const normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+ const mag=Math.hypot(...normal)||1,lit=Math.max(0.12,Math.min(1,0.55+0.45*(normal[0]*0.3+normal[1]*-0.5+normal[2]*0.8)/mag));
+ c.beginPath();c.moveTo(...a);c.lineTo(...b);c.lineTo(...cc);c.closePath();
+ c.fillStyle='rgb('+Math.round(85+82*lit)+','+Math.round(111+98*lit)+','+Math.round(147+88*lit)+')';c.fill();
+ c.strokeStyle='#16283a';c.lineWidth=0.6*d;c.stroke();
+ }
+}
+function snap(name){({top:()=>{az=-.75;el=Math.PI/2},front:()=>{az=-Math.PI/2;el=0},left:()=>{az=Math.PI;el=0},right:()=>{az=0;el=0},iso:()=>{az=-.75;el=0.61548}}[name]||(()=>{}))();render();}
+function fit(){if(!model)return;const min=model.v[0].map((_,i)=>Math.min(...model.v.map(v=>v[i]))),max=model.v[0].map((_,i)=>Math.max(...model.v.map(v=>v[i])));zoom=Math.max(.1,Math.min(canvas.clientWidth,canvas.clientHeight)*.7/(Math.hypot(...max.map((v,i)=>v-min[i]))||1));render();}
+let pointers=new Map(),lastDist=0;
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);});
+canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;const prev=pointers.get(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);
+if(pointers.size===1){az+=(e.clientX-prev[0])*.009;el=Math.max(-1.56,Math.min(1.56,el-(e.clientY-prev[1])*.009));render();}
+else if(pointers.size===2){let q=[...pointers.values()],dist=Math.hypot(q[0][0]-q[1][0],q[0][1]-q[1][1]);if(lastDist)zoom=Math.max(.01,zoom*dist/lastDist);lastDist=dist;render();}});
+for(const ev of ['pointerup','pointercancel'])canvas.addEventListener(ev,e=>{pointers.delete(e.pointerId);lastDist=0;});
+canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.01,zoom*Math.exp(-e.deltaY*.001));render();},{passive:false});
+function exportSTL(){if(!model)return;let out='solid cadcraft_android\n';
+ for(const f of model.faces){const a=model.v[f[0]],b=model.v[f[1]],c=model.v[f[2]],u=b.map((v,i)=>v-a[i]),v=c.map((x,i)=>x-a[i]),n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],mag=Math.hypot(...n)||1;
+ out+='facet normal '+n.map(x=>x/mag).join(' ')+'\n outer loop\n';
+ for(const p of [a,b,c])out+=' vertex '+p.join(' ')+'\n';out+=' endloop\nendfacet\n';}
+ out+='endsolid cadcraft_android\n';let a=document.createElement('a');a.download='CADCraft_3D.stl';a.href=URL.createObjectURL(new Blob([out],{type:'model/stl'}));a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);setStatus('STL preparado para guardar');}
+function pickDxf(){document.getElementById('file').click();}
+document.getElementById('file').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const text=await f.text(),lines=text.replace(/\r/g,'').split('\n'),pairs=[];for(let i=0;i<lines.length-1;i+=2)pairs.push([lines[i].trim(),lines[i+1].trim()]);
+ let profiles=[];for(let i=0;i<pairs.length;i++){if(pairs[i][0]==='0'&&pairs[i][1]==='LWPOLYLINE'){let pts=[],closed=false,bulge=false;for(i++;i<pairs.length&&pairs[i][0]!=='0';i++){let [code,value]=pairs[i];if(code==='10')pts.push([+value,0]);else if(code==='20'&&pts.length)pts.at(-1)[1]=+value;else if(code==='70')closed=(+value&1)!==0;else if(code==='42'&&Math.abs(+value)>1e-9)bulge=true;}i--;if(closed&&pts.length>=3&&!bulge)profiles.push(pts);}}
+ if(!profiles.length)throw Error('No hay polilíneas cerradas rectas LWPOLYLINE');poly=profiles[0];height=number('height');model=extrude(poly,height);model.fromDXF=true;fit();setStatus('Perfil DXF cargado · '+poly.length+' vértices');}
+ catch(err){setStatus('DXF: '+err.message);}e.target.value='';});
+window.addEventListener('resize',resize);extrudeForm();resize();fit();
+</script></body></html>
