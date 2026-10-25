@@ -124,4 +124,25 @@ assert.equal(evaluate("(()=>{try{loadProjectText(JSON.stringify({format:'cadcraf
 assert.equal(evaluate('combinedScene().faces.length'),24,'invalid project preserves active scene');
 assert.equal(evaluate("loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[20,0],[20,10],[0,10]],height:8})).faces.length"),12,'legacy project v1 supported');
 assert.equal(evaluate('storedSolids.length'),0,'legacy project removes new scene extras');
+
+// Solid-to-solid contact detection (simple vertical prisms, not boolean B-Rep).
+const pairResults=evaluate("(()=>{const rect=[[0,0],[10,0],[10,10],[0,10]];const r=(p,z=0,h=10,x=0,y=0)=>({id:1,profile:p,height:h,offset:[x,y,z],mesh:extrude(p,h)});const a=r(rect);return {overlap:relationBetweenSolids(a,r(rect,0,10,5,5)),touch:relationBetweenSolids(a,r(rect,0,10,10,0)),clear:relationBetweenSolids(a,r(rect,0,10,11,0)),same:relationBetweenSolids(a,r(rect)),ztouch:relationBetweenSolids(a,r(rect,10,10,0,0)),zgap:relationBetweenSolids(a,r(rect,11,10,0,0)),contained:relationBetweenSolids(a,r([[2,2],[4,2],[4,4],[2,4]])),concaveHole:relationBetweenSolids(r([[0,0],[20,0],[20,5],[5,5],[5,20],[0,20]]),r([[10,10],[13,10],[13,13],[10,13]])),negContact:relationBetweenSolids(r(rect,0,-10),r(rect,-20,10)),pairCount:sceneContacts([a,r(rect,0,10,5,5),r(rect,0,10,10,0)]).length};})()");
+assert.equal(pairResults.overlap,'interseccion','overlapping prisms have interfering volume');
+assert.equal(pairResults.touch,'contacto','touching side faces are not a volume intersection');
+assert.equal(pairResults.clear,'separadas','separated XY bounds');
+assert.equal(pairResults.same,'interseccion','identical footprints are volumetric intersections');
+assert.equal(pairResults.ztouch,'contacto','contact across Z-facing planes');
+assert.equal(pairResults.zgap,'separadas','vertical Z gap');
+assert.equal(pairResults.contained,'interseccion','contained profile intersecting 3D volume');
+assert.equal(pairResults.concaveHole,'separadas','concave cutout must not give bounding-box false positive');
+assert.equal(pairResults.negContact,'contacto','negative-height extrusion face contact');
+assert.equal(pairResults.pairCount,3,'all scene pairs are evaluated');
+assert.equal(evaluate('createSceneSolid()'),true,'create second prism for collision test');
+assert.equal(evaluate('moveActiveSolid(0,0,0)'),true,'overlap prisms deliberately');
+assert.equal(evaluate("inspectSceneContacts()[0].relation"),'interseccion','collision analyser detects active overlapping piece');
+assert.equal(evaluate('separateActiveSolid(10)'),true,'auto-separate active piece with 10 mm margin');
+assert.equal(evaluate('inspectSceneContacts().length'),0,'pieces do not touch after automatic separation');
+assert.equal(evaluate('loadProjectText(serializeProject()).faces.length'),12,'save and reload auto-separated scene');
+assert.equal(evaluate('inspectSceneContacts().length'),0,'saved positions preserve separation');
+
 console.log('3D studio tests passed');
