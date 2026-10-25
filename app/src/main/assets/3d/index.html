@@ -8,7 +8,7 @@
 'use strict';
 const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
 let poly=[[0,0],[100,0],[100,60],[0,60]], height=25, az=-0.75, el=0.5, zoom=2.6;
-let model=null; const status=document.getElementById('status');
+let model=null,profileFromDXF=false; const status=document.getElementById('status');
 function number(id){return Number(document.getElementById(id).value);}
 function setStatus(t){status.textContent=t;}
 function validate(p,h){if(p.length<3||!p.every(q=>q.every(Number.isFinite))||!Number.isFinite(h)||Math.abs(h)<1e-8)throw Error('Perfil o altura no válidos');}
@@ -34,7 +34,7 @@ function extrude(points,h){
  for(let i=0;i<n;i++){const j=(i+1)%n;if(h>0)faces.push([i,j,j+n],[i,j+n,i+n]);else faces.push([j+n,j,i],[i+n,j+n,i]);}
  return {v,faces,outline:p,h};
 }
-function extrudeForm(){try{const w=number('width'),l=number('length'),h=number('height');if(!model||!model.fromDXF){if(!(w>0&&l>0))throw Error('Medidas incorrectas');poly=[[0,0],[w,0],[w,l],[0,l]];} height=h;model=extrude(poly,height);render();setStatus('Sólido generado · '+model.faces.length+' triángulos');}catch(e){setStatus('Error: '+e.message);}}
+function extrudeForm(){try{const w=number('width'),l=number('length'),h=number('height');if(!profileFromDXF){if(!(w>0&&l>0))throw Error('Medidas incorrectas');poly=[[0,0],[w,0],[w,l],[0,l]];} height=h;model=extrude(poly,height);render();setStatus('Sólido generado · '+model.faces.length+' triángulos');}catch(e){setStatus('Error: '+e.message);}}
 function makeProjection(){
  const ca=Math.cos(az),sa=Math.sin(az),ce=Math.cos(el),se=Math.sin(el);
  const right=[-sa,ca,0],up=[-ca*se,-sa*se,ce],depth=[ca*ce,sa*ce,se];
@@ -72,7 +72,7 @@ function exportSTL(){if(!model)return;let out='solid cadcraft_android\n';
 function pickDxf(){document.getElementById('file').click();}
 document.getElementById('file').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const text=await f.text(),lines=text.replace(/\r/g,'').split('\n'),pairs=[];for(let i=0;i<lines.length-1;i+=2)pairs.push([lines[i].trim(),lines[i+1].trim()]);
  let profiles=[];for(let i=0;i<pairs.length;i++){if(pairs[i][0]==='0'&&pairs[i][1]==='LWPOLYLINE'){let pts=[],closed=false,bulge=false;for(i++;i<pairs.length&&pairs[i][0]!=='0';i++){let [code,value]=pairs[i];if(code==='10')pts.push([+value,0]);else if(code==='20'&&pts.length)pts.at(-1)[1]=+value;else if(code==='70')closed=(+value&1)!==0;else if(code==='42'&&Math.abs(+value)>1e-9)bulge=true;}i--;if(closed&&pts.length>=3&&!bulge)profiles.push(pts);}}
- if(!profiles.length)throw Error('No hay polilíneas cerradas rectas LWPOLYLINE');poly=profiles[0];height=number('height');model=extrude(poly,height);model.fromDXF=true;fit();setStatus('Perfil DXF cargado · '+poly.length+' vértices');}
+ if(!profiles.length)throw Error('No hay polilíneas cerradas rectas LWPOLYLINE');poly=profiles[0];height=number('height');model=extrude(poly,height);profileFromDXF=true;fit();setStatus('Perfil DXF cargado · '+poly.length+' vértices');}
  catch(err){setStatus('DXF: '+err.message);}e.target.value='';});
 window.addEventListener('resize',resize);extrudeForm();resize();fit();
 </script></body></html>
