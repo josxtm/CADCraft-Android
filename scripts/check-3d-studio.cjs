@@ -183,4 +183,10 @@ assert.equal(booleanResults.refusesInvalidMode,true,'reject unsupported boolean 
 assert.equal(booleanResults.triangles>12,true,'partially merged box mesh has triangulated surface');
 assert.equal(booleanResults.vertices>8,true,'partially merged mesh has additional boundary vertices');
 
+
+// Boolean OBJ meshes must be watertight: every undirected triangle edge is shared twice.
+const manifoldChecks=evaluate("(()=>{const p=[[0,0],[10,0],[10,10],[0,10]],make=(v,h=10,x=0,y=0,z=0)=>({id:1,profile:v,height:h,offset:[x,y,z],mesh:extrude(v,h)});const a=make(p),cases=[make(p,10,5,5),make(p,10,20,20),make([[2,2],[8,2],[8,8],[2,8]]),make(p),make(p,10,10,0)];return cases.flatMap(b=>['union','subtract','intersect'].map(op=>{const m=booleanBoxMesh(a,b,op),edges=new Map();for(const face of m.faces)for(let j=0;j<3;j++){const p=face[j],q=face[(j+1)%3],key=[Math.min(p,q),Math.max(p,q)].join('-');edges.set(key,(edges.get(key)||0)+1);}return [...edges.values()].every(count=>count===2)}));})()");
+assert.equal(manifoldChecks.length,15,'all boolean shape scenarios checked for manifold edges');
+assert.equal(manifoldChecks.every(Boolean),true,'boolean meshes have no open triangle edges');
+
 console.log('3D studio tests passed');
