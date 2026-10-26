@@ -3,7 +3,7 @@ const vm=require('node:vm');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(process.argv[2],'utf8');
 const draw={highlightCount:0,beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){if(this.fillStyle==='rgba(255,152,47,0.55)')this.highlightCount++;},stroke(){},clearRect(){},fillRect(){},arc(){},fillText(){}};
-const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},faceDistance:{value:'5'},moveAxis:{value:'XY'},moveSnap:{value:'0'},moveSensitivity:{value:'1'},dragFaceButton:{textContent:''},toolsPanel:{classList:{toggle(){}}},toolsToggle:{textContent:''},moveModeButton:{textContent:''},selectFaceButton:{textContent:''},offsetX:{value:'0'},offsetY:{value:'0'},offsetZ:{value:'0'},status:{textContent:''}};
+const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},faceDistance:{value:'5'},moveAxis:{value:'XY'},moveSnap:{value:'0'},moveSensitivity:{value:'1'},featureAxis:{value:'X'},featureDistance:{value:'5'},vertexModeButton:{textContent:''},edgeModeButton:{textContent:''},dragFaceButton:{textContent:''},toolsPanel:{classList:{toggle(){}}},toolsToggle:{textContent:''},moveModeButton:{textContent:''},selectFaceButton:{textContent:''},offsetX:{value:'0'},offsetY:{value:'0'},offsetZ:{value:'0'},status:{textContent:''}};
 const canvas={clientWidth:900,clientHeight:600,width:900,height:600,getContext(){return draw},getBoundingClientRect(){return {left:0,top:0,width:900,height:600}},listeners:{},addEventListener(name,fn){this.listeners[name]=fn},setPointerCapture(){}};
 const file={addEventListener(){},click(){}};
 const document={
@@ -426,5 +426,54 @@ assert.equal(evaluate('derivedUndo.length'),1,'mode change does not create false
 assert.equal(evaluate('loadProjectText(serializeProject()).faces.length'),12,'modified boolean persists through JSON v3');
 assert.equal(evaluate('Math.round(meshOrientedVolume(derivedSolids[0].mesh))'),90000,'saved result retains face geometry');
 assert.equal(evaluate('derivedUndo.length'),0,'loading project clears temporary undo history');
+
+
+// Mesh vertex/edge inspection, constrained cuboid cotas, rejection and undo.
+assert.equal(evaluate("loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[100,0],[100,60],[0,60]],height:25})).faces.length"),12,"reset studio before feature editing");
+assert.equal(evaluate("createSceneSolid()"),true,"create second source piece");
+assert.equal(evaluate("moveActiveSolid(0,0,0)"),true,"overlap two identical blocks");
+assert.equal(evaluate("Number.isInteger(addBooleanToScene('union'))"),true,"boolean result is editable derived mesh");
+assert.equal(evaluate("axisAlignedCuboid(selectedDerived().mesh)!=null"),true,"union is validated as a rectangular solid");
+assert.equal(evaluate("meshFeatureEdges(selectedDerived().mesh).length"),12,"ignore six internal triangle diagonals");
+assert.equal(evaluate("toggleGeometryMode('vertex')"),"vertex","turn on vertex mode");
+assert.equal(evaluate("document.getElementById('vertexModeButton').textContent"),"Vértices: ON","visible vertex mode state");
+assert.equal(evaluate("moveMode"),false,"vertex mode does not move objects");
+assert.equal(evaluate("(()=>{const p=geometryFeatureProjection(selectedDerived().mesh,selectedDerived().offset)[0];canvas.listeners.pointerdown({pointerId:60,clientX:p[0],clientY:p[1]});return selectedGeometryFeature?.kind})()"),"vertex","pointer event selects mesh vertex");
+assert.equal(evaluate("selectedGeometryFeature.indices.length"),1,"vertex selects a single vertex index");
+assert.equal(evaluate("meshOrientedVolume(selectedDerived().mesh)"),150000,"starting derived volume");
+assert.equal(evaluate("editSelectedGeometryFeature(1)"),true,"move vertex-associated exterior plane along X");
+assert.equal(evaluate("meshOrientedVolume(selectedDerived().mesh)"),142500,"X slab change updates volume");
+assert.equal(evaluate("meshOrientedVolume(model)"),150000,"original source extrusion is untouched");
+assert.equal(evaluate("undoDerivedEdit()"),true,"undo vertex-guided dimension");
+assert.equal(evaluate("meshOrientedVolume(selectedDerived().mesh)"),150000,"undo restores prior geometry");
+assert.equal(evaluate("redoDerivedEdit()"),true,"redo vertex-guided dimension");
+assert.equal(evaluate("meshOrientedVolume(selectedDerived().mesh)"),142500,"redo restores geometry");
+assert.equal(evaluate("axisAlignedCuboid(selectedDerived().mesh)!=null"),true,"edited mesh is still a cuboid");
+assert.equal(evaluate("loadProjectText(serializeProject()).faces.length"),12,"persist modified mesh in JSON v3");
+assert.equal(evaluate("meshOrientedVolume(selectedDerived().mesh)"),142500,"JSON preserves vertex-guided dimension");
+assert.equal(evaluate("geometryMode"),null,"loading clears transient selection mode");
+assert.equal(evaluate("toggleGeometryMode('edge')"),"edge","enable edge mode");
+assert.equal(evaluate("document.getElementById('edgeModeButton').textContent"),"Aristas: ON","edge mode button is updated");
+assert.equal(evaluate("(()=>{const e=meshFeatureEdges(selectedDerived().mesh)[0],p=geometryFeatureProjection(selectedDerived().mesh,selectedDerived().offset);canvas.listeners.pointerdown({pointerId:61,clientX:(p[e[0]][0]+p[e[1]][0])/2,clientY:(p[e[0]][1]+p[e[1]][1])/2});return selectedGeometryFeature?.kind})()"),"edge","pointer event selects physical mesh edge");
+assert.equal(evaluate("selectedGeometryFeature.indices.length"),2,"edge selection has two endpoints");
+assert.equal(evaluate("(()=>{const v=selectedGeometryFeature.indices.map(i=>selectedDerived().mesh.v[i]),axis=document.getElementById('featureAxis').value;return ['X','Y','Z'].includes(axis)&&v.every(p=>Math.abs(p[['X','Y','Z'].indexOf(axis)]-v[0][['X','Y','Z'].indexOf(axis)])<1e-8)})()"),true,"edge selection chooses a compatible axis");
+assert.equal(evaluate("editSelectedGeometryFeature(-1)"),true,"edge-associated exterior slab can move");
+assert.equal(evaluate("axisAlignedCuboid(selectedDerived().mesh)!=null"),true,"edge edit preserves cuboid");
+assert.equal(evaluate("(()=>{document.getElementById('featureDistance').value='200001';const volume=meshOrientedVolume(selectedDerived().mesh);return !editSelectedGeometryFeature(1)&&volume===meshOrientedVolume(selectedDerived().mesh)})()"),true,"too-large dimension edit rejected atomically");
+assert.equal(evaluate("(()=>{document.getElementById('featureDistance').value='5';const v=selectedGeometryFeature.indices.map(i=>selectedDerived().mesh.v[i]);const axis=['X','Y','Z'].find((a,j)=>Math.abs(v[0][j]-v[1][j])>1e-8);document.getElementById('featureAxis').value=axis;const volume=meshOrientedVolume(selectedDerived().mesh);return !editSelectedGeometryFeature(1)&&volume===meshOrientedVolume(selectedDerived().mesh)})()"),true,"edge cannot be dragged along its own length");
+assert.equal(evaluate("undoDerivedEdit()"),true,"undo edge-guided dimension");
+assert.equal(evaluate("redoDerivedEdit()"),true,"redo edge-guided dimension");
+assert.equal(evaluate("toggleMoveMode()"),true,"can switch back to object movement");
+assert.equal(evaluate("geometryMode"),null,"mode switch clears topology selection");
+assert.equal(evaluate("selectedGeometryFeature"),null,"no stale selected feature after mode change");
+assert.equal(evaluate("loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[100,0],[100,60],[0,60]],height:25})).faces.length"),12,"reset studio for complex-mesh restrictions");
+assert.equal(evaluate("createSceneSolid()"),true,"create second solid for L-shaped remainder");
+assert.equal(evaluate("moveActiveSolid(50,25,0)"),true,"create partially overlapping XY footprint");
+assert.equal(evaluate("Number.isInteger(addBooleanToScene('subtract'))"),true,"create nonrectangular boolean mesh");
+assert.equal(evaluate("axisAlignedCuboid(selectedDerived().mesh)"),null,"noncuboid is correctly detected");
+assert.equal(evaluate("toggleGeometryMode('vertex')"),"vertex","complex mesh can be inspected");
+assert.equal(evaluate("(()=>{const p=geometryFeatureProjection(selectedDerived().mesh,selectedDerived().offset)[0];return selectGeometryFeatureAt(p[0],p[1])})()"),true,"vertex remains selectable on noncuboid");
+assert.equal(evaluate("(()=>{document.getElementById('featureAxis').value='X';const volume=meshOrientedVolume(selectedDerived().mesh);return !editSelectedGeometryFeature(1)&&meshOrientedVolume(selectedDerived().mesh)===volume})()"),true,"noncuboid edit refused without damage");
+assert.equal(evaluate("loadProjectText(serializeProject()).faces.length"),12,"complex derived mesh remains saveable");
 
 console.log('3D studio tests passed');
