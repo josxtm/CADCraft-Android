@@ -54,6 +54,30 @@ impl PreviewState {
         self.solids.push(Solid{id,source_handle:self.selected_handle,height,outline:points.clone(),mesh});
         Ok(id)
     }
+    /// Rebuild every preview solid linked to an edited 2D source profile.
+    /// All meshes are checked first: invalid input leaves solids, IDs and
+    /// the current selection untouched. Existing extrusion heights remain.
+    /// This prototype is not yet connected to the Android document model.
+    pub fn refresh_source_profile(&mut self,source_handle:u64,outline:Vec<Point2>)
+        ->Result<usize,WorkspaceError> {
+        let mut rebuilt=Vec::new();
+        for (index,solid) in self.solids.iter().enumerate() {
+            if solid.source_handle==Some(source_handle) {
+                let mesh=extrude(&outline,solid.height).map_err(WorkspaceError::Geometry)?;
+                rebuilt.push((index,mesh));
+            }
+        }
+        if rebuilt.is_empty(){return Ok(0)}
+        let count=rebuilt.len();
+        for (index,mesh) in rebuilt {
+            self.solids[index].mesh=mesh;
+            self.solids[index].outline=outline.clone();
+        }
+        if self.selected_handle==Some(source_handle) {
+            self.selected_outline=Some(outline);
+        }
+        Ok(count)
+    }
     pub fn remove_solid(&mut self,id:u64)->bool {
         let before=self.solids.len();
         self.solids.retain(|solid|solid.id!=id);
@@ -128,4 +152,40 @@ mod tests{
         state.select_profile(9,square);
         assert_eq!(state.extrude_selected(2.0).unwrap(),2);
     }
+    #[test]fn refreshing_a_2d_source_is_atomic_and_keeps_solid_identity(){
+        let mut state=PreviewState::default();
+        let square=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                        Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile(7,square.clone());
+        assert_eq!(state.extrude_selected(2.0).unwrap(),1);
+        assert_eq!(state.extrude_selected(5.0).unwrap(),2);
+        state.select_profile(8,square.clone());
+        assert_eq!(state.extrude_selected(3.0).unwrap(),3);
+        state.select_profile(7,square.clone());
+        let before=state.solids.clone();
+        let invalid=vec![Point2::new(100_000_001.0,0.0),
+                         Point2::new(100_000_011.0,0.0),
+                         Point2::new(100_000_011.0,10.0),
+                         Point2::new(100_000_001.0,10.0)];
+        assert_eq!(state.refresh_source_profile(7,invalid),
+                   Err(WorkspaceError::Geometry(ExtrudeError::OutOfBounds)));
+        assert_eq!(state.solids,before);
+        assert_eq!(state.selected_outline,Some(square));
+        let rectangle=vec![Point2::new(0.0,0.0),Point2::new(20.0,0.0),
+                           Point2::new(20.0,10.0),Point2::new(0.0,10.0)];
+        assert_eq!(state.refresh_source_profile(7,rectangle.clone()),Ok(2));
+        assert_eq!(state.solids.iter().map(|s|s.id).collect::<Vec<_>>(),vec![1,2,3]);
+        assert_eq!(state.solids[0].source_handle,Some(7));
+        assert_eq!(state.solids[1].source_handle,Some(7));
+        assert_eq!(state.solids[0].height,2.0);
+        assert_eq!(state.solids[1].height,5.0);
+        assert_eq!(state.solids[0].mesh.vertices[1].x,20.0);
+        assert_eq!(state.solids[1].mesh.vertices[5].z,5.0);
+        assert_eq!(state.solids[0].outline,rectangle);
+        assert_eq!(state.solids[2],before[2]);
+        assert_eq!(state.selected_outline,Some(rectangle));
+        assert_eq!(state.refresh_source_profile(999,vec![]),Ok(0));
+        assert_eq!(state.extrude_selected(1.0).unwrap(),4);
+    }
+
 }

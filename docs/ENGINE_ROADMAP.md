@@ -118,3 +118,5 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 2. Abordar A2 (autointersección y contacto de triángulos no adyacentes) con pruebas unitarias pequeñas.
 3. Elegir un algoritmo/representación robusta para A4; la descomposición en celdas ortogonales no es suficiente para un motor CAD general.
 4. Unir el modelo del boceto y el sólido antes de desarrollar muchas más herramientas visuales.
+
+**C1/A5 — actualización transaccional de perfiles 2D en el prototipo Rust (26-10-2026):** `PreviewState::refresh_source_profile(handle, outline)` regenera primero todas las extrusiones vinculadas al mismo `source_handle` y solo las sustituye si todas son válidas. Conserva los ID, las alturas individuales, los sólidos ajenos y la selección actual; un perfil inválido no modifica nada. Regresiones para dos extrusiones de una fuente, una pieza independiente, rechazo por coordenadas fuera de rango y continuidad de los ID. Esta API **todavía no está conectada al editor Android/WebAssembly**: es una base verificable para C1/A5, no una actualización automática de sólidos en la APK. Sin generación de APK.
