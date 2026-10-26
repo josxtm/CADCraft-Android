@@ -216,6 +216,25 @@ La edición geométrica incorpora **Escalar eje + / Escalar eje −**, para modi
 
 **Limitación:** esto es un **escalado afín global por eje**, no un editor libre de vértices y aristas ni un motor B-Rep paramétrico. Las piezas creadas a partir de mallas ya inválidas no pueden considerarse reparadas mediante esta operación. No se ha generado una nueva APK.
 
+### Integridad geométrica y planificación del motor
+
+La hoja de ruta completa —funciones existentes, prioridades, limitaciones del motor actual y criterios para aprobar cada hito— está en **[Hoja de ruta del motor 3D](docs/ENGINE_ROADMAP.md)**.
+
+El primer bloque de integridad incorpora el botón **Diagnóstico malla** para revisar un resultado booleano seleccionado: número de vértices, aristas y triángulos, cantidad de superficies cerradas, cavidades orientadas, característica de Euler y volumen firmado.
+
+La validación previa al guardado/carga y a las operaciones de malla ahora rechaza:
+
+- Triángulos repetidos o degenerados, vértices aislados, bordes sin la pareja de triángulos y bordes con más de dos caras.
+- Caras vecinas con el mismo sentido de recorrido, incompatibles con una superficie orientable.
+- Superficies que se tocan únicamente en un vértice (*bow-tie*) sin un abanico local conectado.
+- Cascarones cerrados sin volumen y mallas cuyo volumen global no sea positivo.
+
+Se permiten explícitamente **varios cascarones cerrados**, incluidas **cavidades internas con orientación opuesta**. Se añadieron regresiones con una caja hueca, piezas disjuntas y ejemplos dañados; un proyecto JSON con malla defectuosa se rechaza **sin sobrescribir la escena válida**.
+
+La batería local suma **445 comprobaciones JavaScript**, pero estas pruebas **no prueban la compilación Android ni garantizan ausencia de autointersecciones**. El siguiente bloque pendiente es precisamente detectar autointersecciones entre triángulos no vecinos, seguido de booleanas generales.
+
+El trabajo `android` sigue bloqueado en cambios ordinarios y solo se ejecuta mediante lanzamiento manual de una APK de hito.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
