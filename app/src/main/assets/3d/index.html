@@ -2054,7 +2054,9 @@ function profileAsDxf(points){
  if(!Array.isArray(points)||points.length<3||points.length>10000)throw Error('Perfil inválido');
  // Validate shape using the same 3D kernel, avoiding export of non-closed geometry.
  extrude(points,1);
- const lines=['0','SECTION','2','ENTITIES','0','LWPOLYLINE','90',String(points.length),'70','1'];
+ // Declare millimetres explicitly for round-trips with other CAD systems.
+ const lines=['0','SECTION','2','HEADER','9','$INSUNITS','70','4','0','ENDSEC',
+  '0','SECTION','2','ENTITIES','0','LWPOLYLINE','90',String(points.length),'70','1'];
  for(const p of points)lines.push('10',String(p[0]),'20',String(p[1]));
  lines.push('0','ENDSEC','0','EOF');
  return lines.join('\n')+'\n';
@@ -2252,11 +2254,39 @@ document.getElementById('projectFile').addEventListener('change',async e=>{
 /* DXF LWPOLYLINE import is intentionally single-loop. Treating the
  * first loop of a multi-loop sketch as a solid silently loses holes/islands,
  * so refuse ambiguous profiles until true multi-loop extrusion exists. */
+
+/* C4: DXF $INSUNITS is defined in the HEADER section. Never silently
+ * reinterpret an inch/foot/metre drawing as millimetres. Legacy CADCraft
+ * handoffs without HEADER retain their established millimetre assumption.
+ * Other unit codes are rejected rather than guessed. */
+function dxfMillimetreScale(pairs){
+ let section=null,scale=1,declared=false;
+ const scales={0:1,1:25.4,2:304.8,4:1,5:10,6:1000,14:100};
+ for(let i=0;i<pairs.length;i++){
+  const [code,value]=pairs[i];
+  if(code==='0'&&value==='SECTION'){
+   if(!pairs[i+1]||pairs[i+1][0]!=='2')throw Error('Sección DXF incompleta');
+   section=pairs[++i][1];continue;
+  }
+  if(code==='0'&&value==='ENDSEC'){section=null;continue;}
+  if(section!=='HEADER'||code!=='9'||value!=='$INSUNITS')continue;
+  if(declared)throw Error('DXF con unidades declaradas varias veces');
+  declared=true;
+  const unit=pairs[i+1];
+  if(!unit||unit[0]!=='70'||!/^\\d+$/.test(unit[1]))throw Error('DXF con $INSUNITS inválido');
+  const id=Number(unit[1]);
+  if(!Object.prototype.hasOwnProperty.call(scales,id))
+   throw Error('Unidades DXF no compatibles ($INSUNITS='+id+')');
+  scale=scales[id];
+ }
+ return scale;
+}
 function parseDxfProfile(text){
  if(typeof text!=='string'||text.length>2000000)throw Error('DXF demasiado grande');
  const lines=text.replace(/\r/g,'').split('\n'),pairs=[];
  if(lines.length>200001)throw Error('DXF con demasiados registros');
  for(let i=0;i<lines.length-1;i+=2)pairs.push([lines[i].trim(),lines[i+1].trim()]);
+ const unitScale=dxfMillimetreScale(pairs);
  const profiles=[];
  const numeric=value=>{
   if(value===''||!Number.isFinite(Number(value)))throw Error('Coordenada o parámetro DXF inválido');
@@ -2298,7 +2328,12 @@ function parseDxfProfile(text){
   if(bulge)throw Error('DXF con arcos bulge: conversión no compatible');
   if(elevation!==0||thickness!==0||normal.some((n,k)=>Math.abs(n-[0,0,1][k])>1e-12))
    throw Error('DXF con elevación, espesor o plano inclinado no compatible');
-  profiles.push(pts);
+  // Convert only after the complete entity has passed OCS, bulge and
+  // vertex-count checks. The existing extrusion gate checks world limits.
+  const millimetres=pts.map(p=>p.map(value=>value*unitScale));
+  if(millimetres.some(p=>p.some(value=>!Number.isFinite(value))))
+   throw Error('Coordenadas DXF fuera del rango numérico');
+  profiles.push(millimetres);
   if(profiles.length>1)throw Error('DXF con varios perfiles cerrados: agujeros/islas aún no compatibles');
  }
  if(!profiles.length)throw Error('No hay LWPOLYLINE cerradas con segmentos rectos');
@@ -2307,7 +2342,7 @@ function parseDxfProfile(text){
 function importDxfText(text){
  const points=parseDxfProfile(text);
  setSketchProfile(points);
- setStatus('Perfil DXF importado · '+points.length+' vértices');
+ setStatus('Perfil DXF importado en mm · '+points.length+' vértices');
  return model;
 }
 document.getElementById('file').addEventListener('change',async e=>{
