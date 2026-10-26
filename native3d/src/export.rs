@@ -248,4 +248,17 @@ mod tests {
         assert_eq!(state.export_obj(&[valid]).unwrap(),baseline);
     }
 
+    #[test]fn export_preserves_negative_zero_free_coordinates_and_world_offsets() {
+        let mut state=PreviewState::default();
+        state.select_profile_checked(51,square(0.0,0.0,2.0)).unwrap();
+        let id=state.extrude_selected(1.0).unwrap();
+        state.set_solid_offset(id,Vec3::new(10.0,20.0,30.0)).unwrap();
+        let obj=state.export_obj(&[id]).unwrap();
+        assert!(obj.contains("v 10.00000000000000000 20.00000000000000000 30.00000000000000000"));
+        assert_eq!(obj.lines().filter(|line|line.starts_with("v ")).count(),8);
+        let stl=state.export_ascii_stl(&[id]).unwrap();
+        assert!(stl.contains("vertex 10.00000000000000000 20.00000000000000000 30.00000000000000000"));
+        assert_eq!(stl.matches("facet normal").count(),12);
+    }
+
 }
