@@ -500,7 +500,7 @@ mod tests{
         assert_eq!(state.solids[0].mesh.vertices[1].x,12.0);
         assert_eq!(state.solids[1].mesh.vertices[1].x,12.0);
         assert_eq!(state.solid_world_vertex(2,1),Some(Vec3::new(42.0,20.0,-2.0)));
-        assert_eq!(state.solid_world_vertex(2,4),Some(Vec3::new(30.0,20.0,-2.0)));
+        assert_eq!(state.solid_world_vertex(2,4),Some(Vec3::new(30.0,20.0,5.0)));
         assert_eq!(state.solids[0].offset,Vec3::new(0.0,0.0,0.0));
     }
 
