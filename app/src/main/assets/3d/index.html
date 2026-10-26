@@ -519,9 +519,12 @@ function booleanBoxMesh(first,second,mode){
  return {v,faces};
 }
 function meshOrientedVolume(solid){
- // Signed divergence-theorem volume; requires a closed consistently wound surface.
+ // Signed volume around a local origin (translation-invariant with far less
+ // floating-point cancellation than using world coordinate determinants).
+ if(!solid||!solid.faces||!solid.faces.length)return 0;
+ const origin=solid.v[solid.faces[0][0]];
  return solid.faces.reduce((sum,face)=>{
-  const [a,b,c]=face.map(i=>solid.v[i]);
+  const [a,b,c]=face.map(index=>solid.v[index].map((v,i)=>v-origin[i]));
   return sum+(a[0]*(b[1]*c[2]-b[2]*c[1])+
     a[1]*(b[2]*c[0]-b[0]*c[2])+
     a[2]*(b[0]*c[1]-b[1]*c[0]))/6;
@@ -809,10 +812,11 @@ function inspectMeshTopology(mesh){
  for(let start=0;start<mesh.faces.length;start++){
   if(visited.has(start))continue;
   const queue=[start];visited.add(start);let shellVolume=0;
+  const shellOrigin=mesh.v[mesh.faces[start][0]];
   const shellIndex=shells.length;
   for(let q=0;q<queue.length;q++){
    const index=queue[q],face=mesh.faces[index];faceShells[index]=shellIndex;
-   const [a,b,c]=face.map(i=>mesh.v[i]);
+   const [a,b,c]=face.map(i=>mesh.v[i].map((v,k)=>v-shellOrigin[k]));
    shellVolume+=(a[0]*(b[1]*c[2]-b[2]*c[1])+
     a[1]*(b[2]*c[0]-b[0]*c[2])+
     a[2]*(b[0]*c[1]-b[1]*c[0]))/6;
