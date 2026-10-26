@@ -530,13 +530,14 @@ function meshOrientedVolume(solid){
 function exportBooleanOBJ(mode){
  try{
   if(!storedSolids.length)throw Error('Falta una segunda pieza');
-  const mesh=booleanBoxMesh(captureActiveSolid(),storedSolids[0],mode);
-  if(!mesh.faces.length)throw Error('La operación no produce volumen');
+  const result=booleanBoxMesh(captureActiveSolid(),storedSolids[0],mode);
+  if(!result.faces.length)throw Error('La operación no produce volumen');
+  const mesh=validateDerivedMesh(result);
   const a=document.createElement('a');
   a.download='CADCraft_boolean_'+mode+'.obj';
   a.href=URL.createObjectURL(new Blob([meshAsObj(mesh)],{type:'text/plain'}));a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-  setStatus('Malla booleana '+mode+' exportada · '+mesh.faces.length+' triángulos (solo bloques)');
+  setStatus('Malla booleana validada y exportada · '+mesh.faces.length+' triángulos (solo bloques)');
   return true;
  }catch(e){setStatus('Booleana OBJ: '+e.message);return false;}
 }
