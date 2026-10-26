@@ -69,6 +69,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 | B5 | Revolución, barrido, chaflán, redondeo, vaciado, patrón y simetría | Pendiente | Geometría validada, deshacer/rehacer y pruebas volumétricas |
 | B6 | Ensamblajes básicos y organización de piezas | Parcial | Árbol de objetos con nombres, visibilidad, selección y transformaciones por pieza |
 
+**B3/C3 — revalidación espacial de CSG (26-10-2026):** la regeneración individual y por lotes comprueba ahora la malla reconstruida **después de aplicar el desplazamiento propio del resultado**, antes de modificar el proyecto. Una booleana que se sale de ±100 millones de mm cancela el cambio sin tocar mallas, huellas o IDs; un lote mantiene intactos todos sus resultados. La lectura y el guardado JSON v3 aplican la misma validación a las mallas derivadas. Regresiones cubren fallo atómico, recuperación tras corregir el desplazamiento, y volumen correcto; no implica soporte B-Rep general ni compilación APK.
+
 **B3 — duplicado seguro:** duplicar una malla derivada valida primero topología y desplazamiento, y solo después reserva un nuevo ID. Si la malla de origen está dañada no se crea ninguna pieza, no cambia la selección y se muestra un error; la copia válida preserva las referencias CSG y queda independiente.
 
 **B3 — integridad del origen:** la orden «Eliminar pieza» rechaza borrar una extrusión utilizada por cualquier resultado booleano, incluido uno heredado. El aviso identifica los resultados dependientes; la escena no cambia. Una vez eliminados los resultados que la referencian, permite borrar la fuente. Esto impide nuevas referencias huérfanas durante la edición, sin modificar proyectos anteriores que ya estén incompletos.

@@ -1019,4 +1019,24 @@ assert.equal(linkedRefreshRollback.meshesSame,true,'failed update preserves orig
 assert.match(linkedRefreshRollback.rejectedMessage,/Selección 2D:/,'handoff reports rejection');
 assert.equal(linkedRefreshRollback.invalidRejected,true,'self-intersecting linked profile rejected');
 
+
+/* A3/B3/C3: regenerating CSG must validate the candidate AFTER applying its
+ * preserved offset. Save and load use the same world-space placement gate. */
+const worldRegeneration=evaluate("(()=>{const square=[[0,0],[10,0],[10,10],[0,10]];loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:square,height:10}));duplicateSceneSolid();const first=addBooleanToScene('union');moveActiveSolid(0,0,99999990);const second=addBooleanToScene('union');selectExtrudedSolid();const edited=changeHeight(10);cycleDerivedSolid();const snapshot=serializeProject(),ids=derivedSolids.map(x=>x.id),before=derivedSolids.map(x=>x.mesh.v.map(p=>p.slice())),stale=derivedSolids.map(x=>derivedSourceStatus(x));const single=regenerateSelectedBoolean(),singleSafe=serializeProject()===snapshot,batched=regenerateStaleBooleans(),batchSafe=serializeProject()===snapshot;const bad=JSON.parse(snapshot);bad.derivedSolids[0].offset=[0,0,99999995];let refused=false;try{loadProjectText(JSON.stringify(bad))}catch(e){refused=e.message.includes('límites')}const loadSafe=serializeProject()===snapshot;derivedSolids[0].offset=[0,0,99999995];const saved=saveProject(),warning=status.textContent;derivedSolids[0].offset=[0,0,99999990];const saveSafe=serializeProject()===snapshot;moveActiveSolid(0,0,0);const refreshed=regenerateStaleBooleans(),current=derivedSolids.every(x=>derivedSourceStatus(x)==='current'),volume=derivedSolids.map(x=>inspectMeshTopology(offsetMesh(x.mesh,x.offset)).signedVolume);return {first,second,edited,ids,before,stale,single,singleSafe,batched,batchSafe,refused,loadSafe,saved,warning,saveSafe,refreshed,current,volume}})()");
+assert.equal(Number.isInteger(worldRegeneration.first)&&Number.isInteger(worldRegeneration.second),true,'two derived sources ready for world-space tests');
+assert.equal(worldRegeneration.edited,true,'source height increases after results are created');
+assert.equal(worldRegeneration.stale.every(s=>s==='stale'),true,'both CSG snapshots become stale');
+assert.equal(worldRegeneration.single,false,'single refresh rejects newly out-of-bounds world geometry');
+assert.equal(worldRegeneration.singleSafe,true,'failed individual refresh preserves meshes and fingerprints');
+assert.equal(worldRegeneration.batched,false,'batch refresh rejects at least one invalid world mesh');
+assert.equal(worldRegeneration.batchSafe,true,'rejected batch remains atomic across both results');
+assert.equal(worldRegeneration.refused,true,'project loader rejects translated CSG beyond world limits');
+assert.equal(worldRegeneration.loadSafe,true,'invalid world-space load leaves current scene unchanged');
+assert.equal(worldRegeneration.saved,false,'project saver rejects out-of-bounds CSG translation');
+assert.equal(worldRegeneration.warning.includes('Guardar:'),true,'unsafe save displays an actionable message');
+assert.equal(worldRegeneration.saveSafe,true,'restoring translation recovers original project');
+assert.equal(worldRegeneration.refreshed,2,'regeneration succeeds for both snapshots once invalid translation is fixed');
+assert.equal(worldRegeneration.current,true,'both results regain correct source fingerprints');
+assert.equal(worldRegeneration.volume.every(v=>Math.abs(v-4000)<1e-6),true,'both regenerated unions reflect updated 20 mm source height');
+
 console.log('3D studio tests passed');

@@ -1082,6 +1082,9 @@ function regenerateSelectedBoolean(){
   const result=booleanBoxMesh(first,second,item.mode);
   if(!result.faces.length)throw Error('El resultado regenerado no tiene volumen');
   const mesh=validateDerivedMesh(result);
+  // Regeneration preserves its own transform; validate the NEW world mesh
+  // before replacing a safe snapshot with an out-of-bounds result.
+  validateWorldPlacement(mesh,item.offset,true);
   // Atomic commit after volume, topology, source and empty-result checks.
   item.mesh=mesh;item.sourceFingerprints=[sourceFingerprint(first),sourceFingerprint(second)];
   derivedUndo=[];derivedRedo=[];selectedGeometryFeature=null;selectedFace=-1;
@@ -1119,7 +1122,9 @@ function regenerateStaleBooleans(){
    if(!first||!second)throw Error('Origen no encontrado para resultado '+id);
    const computed=booleanBoxMesh(first,second,item.mode);
    if(!computed.faces.length)throw Error('El resultado '+id+' quedaría vacío');
-   return {item,mesh:validateDerivedMesh(computed),
+   const mesh=validateDerivedMesh(computed);
+   validateWorldPlacement(mesh,item.offset,true);
+   return {item,mesh,
     fingerprints:[sourceFingerprint(first),sourceFingerprint(second)]};
   });
   for(const candidate of candidates){
@@ -2001,9 +2006,13 @@ function validateProjectDerived(data){
  if(fingerprints!==null&&(!Array.isArray(fingerprints)||fingerprints.length!==2||
      !fingerprints.every(hash=>typeof hash==='string'&&/^[0-9a-f]{8}$/.test(hash))))
   throw Error('Metadatos de procedencia no válidos');
+ const mesh=validateDerivedMesh(data.mesh);
+ // Reject a locally valid CSG mesh whose saved translation pushes vertices
+ // beyond the same world-space limits enforced for editable source solids.
+ const offset=validateWorldPlacement(mesh,data.offset,true);
  return {id:data.id,mode:data.mode,parents:data.parents.slice(),
   sourceFingerprints:fingerprints?fingerprints.slice():null,
-  offset:validateOffset(data.offset),mesh:validateDerivedMesh(data.mesh)};
+  offset,mesh};
 }
 function loadProjectText(text){
  // Validate the complete candidate before touching an in-progress face edit.
