@@ -476,4 +476,43 @@ assert.equal(evaluate("(()=>{const p=geometryFeatureProjection(selectedDerived()
 assert.equal(evaluate("(()=>{document.getElementById('featureAxis').value='X';const volume=meshOrientedVolume(selectedDerived().mesh);return !editSelectedGeometryFeature(1)&&meshOrientedVolume(selectedDerived().mesh)===volume})()"),true,"noncuboid edit refused without damage");
 assert.equal(evaluate("loadProjectText(serializeProject()).faces.length"),12,"complex derived mesh remains saveable");
 
+
+// Safe affine X/Y/Z scaling for nonrectangular closed boolean meshes.
+assert.equal(evaluate("loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[100,0],[100,60],[0,60]],height:25})).faces.length"),12,"reset studio for affine dimension test");
+assert.equal(evaluate("createSceneSolid()"),true,"create a second source for complex boolean");
+assert.equal(evaluate("moveActiveSolid(50,25,0)"),true,"create partially overlapped source profiles");
+assert.equal(evaluate("Number.isInteger(addBooleanToScene('subtract'))"),true,"derive concave L-shaped solid");
+assert.equal(evaluate("axisAlignedCuboid(selectedDerived().mesh)"),null,"complex L-shaped result is not a rectangular block");
+assert.equal(evaluate("toggleGeometryMode('vertex')"),"vertex","activate vertex selection on complex mesh");
+assert.equal(evaluate("(()=>{const m=selectedDerived().mesh,b=meshAxisBounds(m);const idx=m.v.findIndex(p=>Math.abs(p[0]-b.min[0])<1e-8);selectedGeometryFeature={kind:'vertex',owner:selectedDerivedId,indices:[idx]};return idx>=0})()"),true,"select an exterior minimum X vertex");
+assert.equal(evaluate("Math.abs(meshOrientedVolume(selectedDerived().mesh)-106250)<1e-6"),true,"concave initial solid has exact expected volume");
+assert.equal(evaluate("Math.abs(scaledFeatureMesh(selectedDerived().mesh,selectedGeometryFeature,'X',5).factor-0.95)<1e-9"),true,"min X change scales all X coordinates by 0.95");
+assert.equal(evaluate("scaleSelectedGeometryFeature(1)"),true,"extend selected minimum coordinate inward via positive affine scale");
+assert.equal(evaluate("Math.abs(meshOrientedVolume(selectedDerived().mesh)-100937.5)<1e-6"),true,"L-shaped volume scales by known factor");
+assert.equal(evaluate("Math.abs(meshAxisBounds(selectedDerived().mesh).span[0]-95)<1e-7"),true,"X dimension becomes 95 mm");
+assert.equal(evaluate("axisAlignedCuboid(selectedDerived().mesh)"),null,"scaled L remains nonrectangular");
+assert.equal(evaluate("meshOrientedVolume(model)"),150000,"source extrusion remains untouched after scaling");
+assert.equal(evaluate("undoDerivedEdit()"),true,"undo affine scaling");
+assert.equal(evaluate("Math.abs(meshOrientedVolume(selectedDerived().mesh)-106250)<1e-6"),true,"undo restores original L volume");
+assert.equal(evaluate("redoDerivedEdit()"),true,"redo affine scaling");
+assert.equal(evaluate("Math.abs(meshOrientedVolume(selectedDerived().mesh)-100937.5)<1e-6"),true,"redo restores previous scaling");
+assert.equal(evaluate("(()=>{const m=selectedDerived().mesh,b=meshAxisBounds(m);const idx=m.v.findIndex(p=>Math.abs(p[2]-b.min[2])<1e-8);selectedGeometryFeature={kind:'vertex',owner:selectedDerivedId,indices:[idx]};document.getElementById('featureAxis').value='Z';return idx>=0})()"),true,"choose minimum Z vertex for second axis");
+assert.equal(evaluate("scaleSelectedGeometryFeature(-1)"),true,"scale entire complex mesh along Z anchored to far end");
+assert.equal(evaluate("Math.abs(meshOrientedVolume(selectedDerived().mesh)-121125)<1e-5"),true,"multi-axis scaling preserves expected volume");
+assert.equal(evaluate("Math.abs(meshAxisBounds(selectedDerived().mesh).span[2]-30)<1e-7"),true,"Z thickness becomes 30 mm");
+assert.equal(evaluate("loadProjectText(serializeProject()).faces.length"),12,"JSON v3 reload after affine scaling");
+assert.equal(evaluate("Math.abs(meshOrientedVolume(derivedSolids[0].mesh)-121125)<1e-5"),true,"complex edited solid survives JSON roundtrip");
+assert.equal(evaluate("derivedUndo.length"),0,"undo history cleared after project load");
+assert.equal(evaluate("toggleGeometryMode('vertex')"),"vertex","reenter vertex mode for rejected operations");
+assert.equal(evaluate("(()=>{const m=selectedDerived().mesh,b=meshAxisBounds(m);const idx=m.v.findIndex(p=>p[0]>b.min[0]+1&&p[0]<b.max[0]-1);selectedGeometryFeature={kind:'vertex',owner:selectedDerivedId,indices:[idx]};document.getElementById('featureAxis').value='X';return idx>=0})()"),true,"locate interior X step vertex on L-shaped mesh");
+assert.equal(evaluate("(()=>{const old=meshOrientedVolume(selectedDerived().mesh);return !scaleSelectedGeometryFeature(1)&&Math.abs(meshOrientedVolume(selectedDerived().mesh)-old)<1e-7})()"),true,"non-boundary feature cannot trigger global scale");
+assert.equal(evaluate("(()=>{const m=selectedDerived().mesh,b=meshAxisBounds(m);const idx=m.v.findIndex(p=>Math.abs(p[0]-b.min[0])<1e-8);selectedGeometryFeature={kind:'vertex',owner:selectedDerivedId,indices:[idx]};return idx>=0})()"),true,"reselect exterior min X to test collapse prevention");
+assert.equal(evaluate("(()=>{const b=meshAxisBounds(selectedDerived().mesh),m=meshOrientedVolume(selectedDerived().mesh);document.getElementById('featureDistance').value=String(b.span[0]);return !scaleSelectedGeometryFeature(1)&&Math.abs(meshOrientedVolume(selectedDerived().mesh)-m)<1e-7})()"),true,"refuse a dimension that collapses to zero");
+assert.equal(evaluate("(()=>{const m=meshOrientedVolume(selectedDerived().mesh);document.getElementById('featureDistance').value='100001';return !scaleSelectedGeometryFeature(1)&&Math.abs(meshOrientedVolume(selectedDerived().mesh)-m)<1e-7})()"),true,"refuse oversized scaling input without replacing geometry");
+assert.equal(evaluate("(()=>{const m=selectedDerived().mesh,e=meshFeatureEdges(m).find(edge=>Math.abs(m.v[edge[0]][0]-m.v[edge[1]][0])>1e-6);selectedGeometryFeature={kind:'edge',owner:selectedDerivedId,indices:e};document.getElementById('featureAxis').value='X';document.getElementById('featureDistance').value='5';return Array.isArray(e)})()"),true,"select an X-longitudinal edge for invalid axis test");
+assert.equal(evaluate("(()=>{const m=meshOrientedVolume(selectedDerived().mesh);return !scaleSelectedGeometryFeature(1)&&Math.abs(meshOrientedVolume(selectedDerived().mesh)-m)<1e-7})()"),true,"reject scaling along selected edge's own direction");
+assert.equal(evaluate("toggleMoveMode()"),true,"move mode can be enabled after topology editing");
+assert.equal(evaluate("geometryMode"),null,"mode exit clears vertex/edge inspection");
+assert.equal(evaluate("selectedGeometryFeature"),null,"no stale vertex references after changing tools");
+
 console.log('3D studio tests passed');
