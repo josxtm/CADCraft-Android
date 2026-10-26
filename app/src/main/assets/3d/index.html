@@ -2582,13 +2582,13 @@ function parseDxfProfile(text){
    continue;
   }
   const pts=[],bulges=[],normal=[0,0,1];let closed=false,count=null,elevation=0,thickness=0;
-  let bulgeSet=false;
+  let bulgeSet=false,constantWidthSeen=false,vertexWidths=new Set();
   let paperSpace=false,layout=null;
   for(i++;i<pairs.length&&pairs[i][0]!=='0';i++){
    const [code,value]=pairs[i];
    if(code==='10'){
     if(pts.length>=10000)throw Error('DXF con demasiados vértices');
-    pts.push([numeric(value),NaN]);bulges.push(0);bulgeSet=false;
+    pts.push([numeric(value),NaN]);bulges.push(0);bulgeSet=false;vertexWidths=new Set();
    }else if(code==='20'){
     if(!pts.length||Number.isFinite(pts[pts.length-1][1]))
      throw Error('Orden de coordenadas DXF inválido');
@@ -2605,6 +2605,22 @@ function parseDxfProfile(text){
     if(!pts.length||!Number.isFinite(pts[pts.length-1][1])||bulgeSet)
      throw Error('Orden o repetición de bulge DXF inválido');
     bulges[bulges.length-1]=numeric(value);bulgeSet=true;
+   }else if(code==='43'||code==='40'||code==='41'){
+    // A LWPOLYLINE can describe a visible thick strip using constant
+    // width (43) or per-vertex start/end widths (40/41). Treating it as
+    // a zero-width outline would silently change its manufactured shape.
+    // This importer only accepts truly zero-width closed profiles.
+    const width=numeric(value);
+    if(width<0)throw Error('Anchura LWPOLYLINE DXF negativa');
+    if(code==='43'){
+     if(constantWidthSeen)throw Error('Anchura LWPOLYLINE DXF duplicada');
+     constantWidthSeen=true;
+    }else{
+     if(!pts.length||vertexWidths.has(code))
+      throw Error('Anchura LWPOLYLINE DXF sin vértice o duplicada');
+     vertexWidths.add(code);
+    }
+    if(width!==0)throw Error('Anchura LWPOLYLINE DXF no compatible: usa contorno sin grosor');
    }else if(code==='67'){
     const space=numeric(value);
     if(!Number.isInteger(space)||![0,1].includes(space))
