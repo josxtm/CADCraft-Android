@@ -147,6 +147,21 @@ Este guion se reservará para la próxima APK importante, sin generar una ahora.
 | V6 | Crear una resta que forme una L, seleccionar un vértice y pulsar `Cota +` | Se permite inspeccionar pero se rechaza deformar la malla compleja |
 | V7 | Cambiar entre `Mover`, `Seleccionar cara`, `Vértices` y `Aristas` | Los modos son excluyentes y no cambian accidentalmente ni la cámara ni la pieza |
 
+## Pruebas pendientes: cambiar cotas de una pieza no rectangular
+
+Reservadas para la siguiente APK de hito, **no para cada commit**.
+
+| Código | Operación en Nothing Phone 2a | Resultado esperado |
+|---|---|---|
+| E1 | Crear una resta de dos bloques que deje un resultado con forma de L | Se conserva una malla compleja independiente |
+| E2 | Activar Vértices, elegir una esquina exterior y el eje X; pulsar `Escalar eje +` con 5 mm | Se mueve ese extremo, el opuesto queda fijo y el resto de la pieza se escala proporcionalmente |
+| E3 | Cambiar al eje Z desde un vértice superior o inferior y aplicar otra escala | Cambia la altura global manteniendo el contorno en L |
+| E4 | Deshacer y rehacer ambas escalas | Se recuperan correctamente cotas y volúmenes |
+| E5 | Guardar y volver a abrir JSON v3 | Las escalas se conservan y las extrusiones originales siguen intactas |
+| E6 | Intentar colapsar toda una dimensión hasta cero | Se rechaza y se conserva la última geometría válida |
+| E7 | Seleccionar un vértice interior o una arista longitudinal en el eje que se intenta escalar | Se muestra aviso y no se altera el volumen |
+| E8 | Comparar `Cota` en bloque rectangular frente a `Escalar eje` en pieza en L | La primera mueve un plano exterior; la segunda modifica proporcionalmente toda la pieza |
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
