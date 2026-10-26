@@ -907,9 +907,12 @@ function selectGeometryFeatureAt(px,py){
  if(!selected){setStatus('No se encontró un '+(geometryMode==='vertex'?'vértice':'borde')+' próximo');return false;}
  const mesh=selectedDerived().mesh;
  const points=selected.indices.map(i=>mesh.v[i]),fmt=x=>Number(x.toFixed(2)).toLocaleString('es-ES');
+ const available=['X','Y','Z'].filter((axis,i)=>points.every(p=>Math.abs(p[i]-points[0][i])<1e-8));
+ const axisInput=document.getElementById('featureAxis');
+ if(axisInput&&available.length&&!available.includes(axisInput.value))axisInput.value=available[0];
  const middle=[0,1,2].map(i=>points.reduce((sum,p)=>sum+p[i],0)/points.length+selectedDerived().offset[i]);
  setStatus((selected.kind==='vertex'?'Vértice ':'Arista ')+selected.indices.map(i=>i+1).join('–')+
-  ' · X '+fmt(middle[0])+' Y '+fmt(middle[1])+' Z '+fmt(middle[2])+' mm');
+  ' · X '+fmt(middle[0])+' Y '+fmt(middle[1])+' Z '+fmt(middle[2])+' mm · planos '+available.join('/'));
  return true;
 }
 function drawGeometryFeatures(ctx){
