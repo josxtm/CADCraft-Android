@@ -120,6 +120,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **C1/A5 — refresco de extrusiones vinculadas desde la selección WASM (26-10-2026):** al recibir un perfil 2D con `sourceHandle` conocido, el estudio 3D JavaScript regenera todas las extrusiones vinculadas (activas e inactivas), conservando alturas, desplazamientos XYZ e IDs. Todas las mallas se validan topológicamente en coordenadas mundiales antes de modificar el modelo; un contorno inválido o fuera del límite provoca rechazo transaccional sin cambios parciales. Los sólidos de otras fuentes permanecen intactos. Las booleanas dependientes conservan su huella anterior y el diagnóstico existente las detecta como obsoletas. Pruebas JavaScript cubren múltiples vínculos, límite espacial y rollback. **Integración parcial:** usa la transferencia de selección WASM existente, sin edición bidireccional continua ni pruebas de APK Android. No se genera APK por este incremento.
 
+**B3/C1 — duplicación vinculada en el prototipo Rust (26-10-2026):** `PreviewState::duplicate_solid(id, offset)` copia una extrusión con nuevo identificador y desplazamiento XYZ independiente, conservando su vínculo con el mismo boceto 2D. Al modificar el boceto, ambas copias se recalculan, pero cada una mantiene su propia altura y traslación. Las validaciones de ID, coordenadas no finitas y límites mundiales se realizan antes de crear la copia: los rechazos no modifican piezas, cámara ni secuencia de IDs. Incluye regresiones de actualización vinculada, alturas independientes y agotamiento de IDs. **Solo prototipo Rust; todavía no integrado en la APK.**
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.

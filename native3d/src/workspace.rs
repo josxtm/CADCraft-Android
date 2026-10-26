@@ -151,6 +151,23 @@ impl PreviewState {
         self.solids[index].offset=offset;
         Ok(())
     }
+    /// Clone an existing extrusion into a new, independently movable solid.
+    /// The 2D source link is intentionally shared: later sketch updates
+    /// regenerate both copies, but dimensions and XYZ offsets remain per-solid.
+    /// Validate placement and ID space before touching the live preview.
+    pub fn duplicate_solid(&mut self,id:u64,offset:Vec3)->Result<u64,WorkspaceError> {
+        let original=self.solids.iter().find(|solid|solid.id==id)
+            .ok_or(WorkspaceError::SolidNotFound)?;
+        Self::validate_world_mesh(&original.mesh,offset)?;
+        let new_id=self.next_id;
+        let following_id=new_id.checked_add(1).ok_or(WorkspaceError::IdExhausted)?;
+        let mut copy=original.clone();
+        copy.id=new_id;
+        copy.offset=offset;
+        self.solids.push(copy);
+        self.next_id=following_id;
+        Ok(new_id)
+    }
     /// Get a source mesh vertex with its current world XYZ translation.
     pub fn solid_world_vertex(&self,id:u64,vertex_index:usize)->Option<Vec3> {
         let solid=self.solids.iter().find(|solid|solid.id==id)?;
@@ -454,6 +471,67 @@ mod tests{
         state.set_solid_offset(1,Vec3::new(20.0,30.0,2.0)).unwrap();
         assert_eq!(state.set_solid_height(1,6.0),Ok(()));
         assert_eq!(state.solid_world_vertex(1,4),Some(Vec3::new(20.0,30.0,8.0)));
+    }
+
+    #[test]fn duplicated_linked_extrusion_preserves_independent_offset_and_height() {
+        let mut state=PreviewState::default();
+        let original_profile=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                                  Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile_checked(77,original_profile).unwrap();
+        assert_eq!(state.extrude_selected(5.0),Ok(1));
+        let initial=state.solids[0].clone();
+        let camera=state.camera;
+        assert_eq!(state.duplicate_solid(1,Vec3::new(30.0,20.0,-2.0)),Ok(2));
+        assert_eq!(state.solids.len(),2);
+        assert_eq!(state.solids[0],initial);
+        assert_eq!(state.solids[1].source_handle,Some(77));
+        assert_eq!(state.solids[1].mesh,initial.mesh);
+        assert_eq!(state.solids[1].height,5.0);
+        assert_eq!(state.solids[1].offset,Vec3::new(30.0,20.0,-2.0));
+        assert_eq!(state.solid_world_vertex(2,0),Some(Vec3::new(30.0,20.0,-2.0)));
+        assert_eq!(state.camera,camera);
+        // Two linked copies share sketch updates, not their height or placement.
+        state.set_solid_height(2,7.0).unwrap();
+        let wider=vec![Point2::new(0.0,0.0),Point2::new(12.0,0.0),
+                       Point2::new(12.0,10.0),Point2::new(0.0,10.0)];
+        assert_eq!(state.refresh_source_profile(77,wider),Ok(2));
+        assert_eq!(state.solids[0].height,5.0);
+        assert_eq!(state.solids[1].height,7.0);
+        assert_eq!(state.solids[0].mesh.vertices[1].x,12.0);
+        assert_eq!(state.solids[1].mesh.vertices[1].x,12.0);
+        assert_eq!(state.solid_world_vertex(2,1),Some(Vec3::new(42.0,20.0,-2.0)));
+        assert_eq!(state.solid_world_vertex(2,4),Some(Vec3::new(30.0,20.0,-2.0)));
+        assert_eq!(state.solids[0].offset,Vec3::new(0.0,0.0,0.0));
+    }
+
+    #[test]fn duplicate_rejection_never_consumes_ids_or_modifies_camera() {
+        let mut state=PreviewState::default();
+        let outline=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                         Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile_checked(9,outline).unwrap();
+        assert_eq!(state.extrude_selected(10.0),Ok(1));
+        let camera=state.camera;
+        let initial=state.solids.clone();
+        let next=state.next_id;
+        assert_eq!(state.duplicate_solid(999,Vec3::new(30.0,0.0,0.0)),
+                   Err(WorkspaceError::SolidNotFound));
+        assert_eq!(state.duplicate_solid(1,Vec3::new(f64::NAN,0.0,0.0)),
+                   Err(WorkspaceError::InvalidOffset));
+        assert_eq!(state.duplicate_solid(1,Vec3::new(MAX_WORLD_COORD-5.0,0.0,0.0)),
+                   Err(WorkspaceError::Geometry(ExtrudeError::OutOfBounds)));
+        assert_eq!(state.solids,initial);
+        assert_eq!(state.next_id,next);
+        assert_eq!(state.camera,camera);
+        // Exhaustion must fail before any insertion or changed selection.
+        state.next_id=u64::MAX;
+        assert_eq!(state.duplicate_solid(1,Vec3::new(40.0,0.0,0.0)),
+                   Err(WorkspaceError::IdExhausted));
+        assert_eq!(state.solids,initial);
+        assert_eq!(state.camera,camera);
+        state.next_id=next;
+        assert_eq!(state.duplicate_solid(1,Vec3::new(40.0,0.0,0.0)),Ok(next));
+        assert_eq!(state.solids.len(),2);
+        assert_eq!(state.next_id,next+1);
     }
 
     #[test]fn focusing_one_translated_solid_does_not_move_any_scene_geometry() {
