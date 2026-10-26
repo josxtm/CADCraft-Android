@@ -2149,6 +2149,32 @@ function receive2dHandoff(){
 }
 
 
+/* C1/A5: Re-selecting a WASM source refreshes every linked 3D extrusion.
+ * Validate all meshes in world coordinates before mutating any scene state. */
+function refreshLinkedSourceProfile(handle,points){
+ if(typeof handle!=='string'||!handle)throw Error('Identificador 2D no válido');
+ if(!Array.isArray(points)||points.length<3||points.length>10000||
+    !points.every(p=>Array.isArray(p)&&p.length===2&&p.every(n=>typeof n==='number'&&Number.isFinite(n))))
+  throw Error('Contorno 2D no válido');
+ const linked=[captureActiveSolid(),...storedSolids].filter(item=>item.sourceHandle===handle);
+ if(!linked.length)return 0;
+ const replacements=new Map();
+ for(const item of linked){
+  const outline=points.map(p=>p.slice());
+  const candidate=extrude(outline,item.height);
+  inspectMeshTopology(offsetMesh(candidate,item.offset));
+  replacements.set(item.id,{...item,profile:outline,mesh:candidate});
+ }
+ const active=replacements.get(activeSolidId);
+ if(active){
+  poly=active.profile;height=active.height;model=active.mesh;
+  profileFromDXF=true;selectedFace=-1;
+ }
+ storedSolids=storedSolids.map(item=>replacements.get(item.id)||item);
+ invalidateSceneContacts();fit();
+ return linked.length;
+}
+
 /* A one-time same-origin handoff populated from the actual selection in
    CADCraft's WASM editor (not from a manually saved DXF). */
 function receiveSelectedProfile(){
@@ -2161,8 +2187,17 @@ function receiveSelectedProfile(){
   const data=JSON.parse(raw);
   if(!data||data.version!==1||!Array.isArray(data.points)||data.points.length>10000)
    throw Error('Perfil 2D incompatible');
+  const handle=typeof data.sourceHandle==='string'&&data.sourceHandle?data.sourceHandle:null;
+  if(handle){
+   const count=refreshLinkedSourceProfile(handle,data.points);
+   if(count){
+    setStatus('Boceto CADCraft actualizado · '+count+' extrusión(es) vinculada(s) · ID '+handle+
+     (selectedDerived()?' · resultado booleano: comprobar dependencias':''));
+    return true;
+   }
+  }
   const next=setSketchProfile(data.points);
-  sourceHandle=typeof data.sourceHandle==='string'?data.sourceHandle:null;
+  sourceHandle=handle;
   setStatus('Selección CADCraft extruida · '+next.outline.length+' vértices'+(sourceHandle?' · ID '+sourceHandle:''));
   return true;
  }catch(e){setStatus('Selección 2D: '+e.message);return false;}

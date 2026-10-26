@@ -116,6 +116,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **A3/C1 — límite espacial del prototipo Rust (26-10-2026):** `native3d::extrude` rechaza perfiles XY y alturas que excedan ±100 millones de mm, además de los valores no finitos, antes de crear una malla. El adaptador `PreviewState` no añade sólidos ni consume identificadores tras el rechazo; se incluyen regresiones de límite válido, exceso positivo/negativo y conservación del estado. **Este núcleo Rust sigue siendo experimental y no está conectado al APK ni sustituye la validación JavaScript existente.** No se solicita APK.
 
+**C1/A5 — refresco de extrusiones vinculadas desde la selección WASM (26-10-2026):** al recibir un perfil 2D con `sourceHandle` conocido, el estudio 3D JavaScript regenera todas las extrusiones vinculadas (activas e inactivas), conservando alturas, desplazamientos XYZ e IDs. Todas las mallas se validan topológicamente en coordenadas mundiales antes de modificar el modelo; un contorno inválido o fuera del límite provoca rechazo transaccional sin cambios parciales. Los sólidos de otras fuentes permanecen intactos. Las booleanas dependientes conservan su huella anterior y el diagnóstico existente las detecta como obsoletas. Pruebas JavaScript cubren múltiples vínculos, límite espacial y rollback. **Integración parcial:** usa la transferencia de selección WASM existente, sin edición bidireccional continua ni pruebas de APK Android. No se genera APK por este incremento.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.

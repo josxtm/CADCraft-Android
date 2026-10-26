@@ -998,4 +998,25 @@ assert.equal(placementSafety.undoneAt,0,'undo restores previous derived offset')
 assert.equal(placementSafety.redone,true,'valid derived move can be redone');
 assert.equal(placementSafety.redoneAt,99999900,'redo reapplies valid world-space derived offset');
 
+
+/* C1/A5: reselect a known 2D source; update active and inactive linked solids
+ * without affecting independent pieces or their individual extrusion heights. */
+const linkedSourceRefresh=evaluate("(()=>{const rect=[[0,0],[10,0],[10,10],[0,10]],p={format:'cadcraft-android-3d',version:2,profile:rect,height:5,sourceHandle:'AA',activeSolidId:1,activeOffset:[0,0,0],solids:[{id:2,profile:rect,height:8,sourceHandle:'AA',offset:[30,0,0]},{id:3,profile:rect,height:3,sourceHandle:'BB',offset:[60,0,0]}]};loadProjectText(JSON.stringify(p));const beforeOther=JSON.stringify(storedSolids[1]);sessionStorage.setItem('cadcraft.android.profile.handoff',JSON.stringify({version:1,sourceHandle:'AA',points:[[0,0],[20,0],[20,10],[0,10]]}));const ok=receiveSelectedProfile(),a=model.v[1][0],b=storedSolids[0].mesh.v[1][0],sameOther=JSON.stringify(storedSolids[1])===beforeOther,meta=JSON.parse(serializeProject());return {ok,a,b,sameOther,ids:[meta.activeSolidId,...meta.solids.map(x=>x.id)],heights:[meta.height,...meta.solids.map(x=>x.height)],offsets:[meta.activeOffset,...meta.solids.map(x=>x.offset)],handles:[meta.sourceHandle,...meta.solids.map(x=>x.sourceHandle)],consumed:sessionStorage.getItem('cadcraft.android.profile.handoff')===null}})()");
+assert.equal(linkedSourceRefresh.ok,true,'linked 2D handoff accepted');
+assert.equal(linkedSourceRefresh.a,20,'active linked extrusion refreshed');
+assert.equal(linkedSourceRefresh.b,20,'inactive linked extrusion refreshed');
+assert.equal(linkedSourceRefresh.sameOther,true,'unrelated source remains unchanged');
+assert.deepEqual(JSON.parse(JSON.stringify(linkedSourceRefresh.ids)),[1,2,3],'source refresh keeps solid IDs');
+assert.deepEqual(JSON.parse(JSON.stringify(linkedSourceRefresh.heights)),[5,8,3],'source refresh preserves heights');
+assert.deepEqual(JSON.parse(JSON.stringify(linkedSourceRefresh.handles)),['AA','AA','BB'],'source refresh preserves handles');
+assert.deepEqual(JSON.parse(JSON.stringify(linkedSourceRefresh.offsets)),[[0,0,0],[30,0,0],[60,0,0]],'source refresh preserves world placements');
+assert.equal(linkedSourceRefresh.consumed,true,'selection handoff consumed once');
+
+const linkedRefreshRollback=evaluate("(()=>{const rect=[[0,0],[10,0],[10,10],[0,10]],p={format:'cadcraft-android-3d',version:2,profile:rect,height:5,sourceHandle:'AA',activeSolidId:1,activeOffset:[0,0,0],solids:[{id:2,profile:rect,height:8,sourceHandle:'AA',offset:[99999990,0,0]}]};loadProjectText(JSON.stringify(p));const before=serializeProject(),activeMesh=model,storedMesh=storedSolids[0].mesh;sessionStorage.setItem('cadcraft.android.profile.handoff',JSON.stringify({version:1,sourceHandle:'AA',points:[[0,0],[20,0],[20,10],[0,10]]}));const ok=receiveSelectedProfile(),unchanged=serializeProject()===before,meshesSame=model===activeMesh&&storedSolids[0].mesh===storedMesh;const rejectedMessage=status.textContent;let invalidRejected=false;try{refreshLinkedSourceProfile('AA',[[0,0],[10,10],[0,10],[10,0]])}catch(e){invalidRejected=true}return {ok,unchanged,meshesSame,rejectedMessage,invalidRejected}})()");
+assert.equal(linkedRefreshRollback.ok,false,'out-of-bounds linked source handoff rejected');
+assert.equal(linkedRefreshRollback.unchanged,true,'failed update leaves every linked source untouched');
+assert.equal(linkedRefreshRollback.meshesSame,true,'failed update preserves original mesh references');
+assert.match(linkedRefreshRollback.rejectedMessage,/Selección 2D:/,'handoff reports rejection');
+assert.equal(linkedRefreshRollback.invalidRejected,true,'self-intersecting linked profile rejected');
+
 console.log('3D studio tests passed');
