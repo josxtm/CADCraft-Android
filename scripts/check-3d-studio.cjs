@@ -72,6 +72,13 @@ sessionStorage.setItem('cadcraft.android.profile.handoff',JSON.stringify({
 }));
 assert.equal(evaluate('receiveSelectedProfile()'),false,'invalid CADCraft selection rejected');
 assert.equal(evaluate('model.v.length'),8,'invalid selection leaves previous solid unchanged');
+/* C1/A1: 2D handoff must not replace the solid with a closed but
+ * topologically unusable extrusion (negligible volume). */
+const tinySketchPreflight=evaluate("(()=>{const input=document.getElementById('height'),oldInput=input.value,before=serializeProject(),oldMesh=model,oldHandle=sourceHandle,oldSelection=selectedDerivedId;let rejected=false,reason='';try{input.value='0.00001';setSketchProfile([[0,0],[0.01,0],[0.01,0.01],[0,0.01]])}catch(e){rejected=true;reason=e.message}finally{input.value=oldInput}return {rejected,reason,projectUnchanged:serializeProject()===before,meshUnchanged:model===oldMesh,handleUnchanged:sourceHandle===oldHandle,selectionUnchanged:selectedDerivedId===oldSelection}})()");
+assert.equal(tinySketchPreflight.rejected,true,'2D handoff rejects negligible-volume closed extrusion');
+assert.match(tinySketchPreflight.reason,/volumen|degenerado/i,'topology preflight explains why 2D sketch is unusable');
+assert.equal(tinySketchPreflight.projectUnchanged&&tinySketchPreflight.meshUnchanged&&tinySketchPreflight.handleUnchanged&&tinySketchPreflight.selectionUnchanged,true,'rejected 2D sketch preserves the complete active solid and its CADCraft source handle');
+
 assert.equal(evaluate("setSketchProfile([[0,0],[25,0],[25,25],[0,25]]).faces.length"),12,'replacement profile extrudes');
 assert.equal(evaluate('sourceHandle'),null,'new manually edited profile clears previous CADCraft selection handle');
 assert.equal(evaluate('JSON.parse(serializeProject()).sourceHandle'),null,'new project cannot retain stale origin');

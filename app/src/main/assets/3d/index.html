@@ -2107,6 +2107,9 @@ function moveSketchVertex(index,x,y){
 function setSketchProfile(points){
  const candidate=points.map(p=>[Number(p[0]),Number(p[1])]);
  const next=extrude(candidate,number('height')); // validate BEFORE changing the live model
+ // A closed sketch is not yet a valid solid: check the actual world-space
+ // candidate (including the active offset) before changing any live state.
+ inspectMeshTopology(offsetMesh(next,activeOffset));
  poly=candidate;height=number('height');model=next;profileFromDXF=true;sourceHandle=null;selectedDerivedId=null;selectedFace=-1;syncOffsetFields();invalidateSceneContacts();
  fit();setStatus('Perfil 2D extruido · '+candidate.length+' vértices');
  return next;
