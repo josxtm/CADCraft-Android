@@ -354,8 +354,11 @@ mod tests {
         assert_eq!(inspect_closed_mesh(&separate),Err(MeshTopologyError::NonManifoldVertex));
         let mut overused=first.clone();
         overused.triangles.push([0,1,2]);
-        // Duplicate canonical triangles are rejected before overused edges.
-        assert_eq!(inspect_closed_mesh(&overused),Err(MeshTopologyError::DuplicateFace));
+        // A new face through existing boundary vertices overuses some edges.
+        assert_eq!(inspect_closed_mesh(&overused),Err(MeshTopologyError::OpenOrNonManifoldEdge));
+        let mut duplicated=first.clone();
+        duplicated.triangles.push(first.triangles[0]);
+        assert_eq!(inspect_closed_mesh(&duplicated),Err(MeshTopologyError::DuplicateFace));
     }
 
     #[test]fn extrusion_respects_world_bounds() {
