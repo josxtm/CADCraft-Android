@@ -1596,4 +1596,25 @@ assert.equal(cameraTouchGestures.badInput,true,'invalid pan zoom values are reje
 assert.ok(cameraTouchGestures.pinchZoom>cameraTouchGestures.z0*1.49,'two-finger distance change still zooms');
 assert.equal(cameraTouchGestures.finalZoom,cameraTouchGestures.pinchZoom,'pinch release retains camera zoom');
 
+
+/* B3: three-finger short tap resets view to isometric without mutating the
+ * model; longer moving or four-finger gestures must never trigger it. */
+const isoThreeTap=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));moveMode=false;faceMode=false;faceDragMode=false;geometryMode=null;snap('front');const before=serializeProject();const pd=(id,x,y)=>canvas.listeners.pointerdown({pointerId:id,clientX:x,clientY:y});const pu=(id,x,y)=>canvas.listeners.pointerup({pointerId:id,clientX:x,clientY:y});const pm=(id,x,y)=>canvas.listeners.pointermove({pointerId:id,clientX:x,clientY:y});pd(801,100,100);pd(802,130,100);pd(803,160,100);const tracking=threeFingerTap!==null&&threeFingerTap.ids.size===3;pu(801,100,100);pu(802,130,100);const onlyLast=az===-Math.PI/2&&el===0;pu(803,160,100);const iso=Math.abs(az+0.75)<1e-8&&Math.abs(el-0.61548)<1e-8;const released=pointers.size===0&&!multitouchOrbitBlocked&&threeFingerTap===null;const preserved=serializeProject()===before;snap('front');pd(804,100,100);pd(805,130,100);pd(806,160,100);pm(806,185,100);pu(804,100,100);pu(805,130,100);pu(806,185,100);const movementIgnored=az===-Math.PI/2&&el===0;snap('front');pd(807,100,100);pd(808,130,100);pd(809,160,100);pd(810,190,100);pu(807,100,100);pu(808,130,100);pu(809,160,100);pu(810,190,100);const fourIgnored=az===-Math.PI/2&&el===0;const finalClean=pointers.size===0&&threeFingerTap===null;return {tracking,onlyLast,iso,released,preserved,movementIgnored,fourIgnored,finalClean}})()");
+assert.equal(isoThreeTap.tracking,true,'three fingers prepare one tap gesture');
+assert.equal(isoThreeTap.onlyLast,true,'first two finger releases do not reset view');
+assert.equal(isoThreeTap.iso,true,'three-finger tap returns camera to isometric view');
+assert.equal(isoThreeTap.released,true,'touch pointers and lock fully reset after tap');
+assert.equal(isoThreeTap.preserved,true,'three-finger reset changes camera only, not geometry');
+assert.equal(isoThreeTap.movementIgnored,true,'three-finger drag never counts as a tap');
+assert.equal(isoThreeTap.fourIgnored,true,'fourth finger cancels the reset gesture');
+assert.equal(isoThreeTap.finalClean,true,'canceled multi-touch gestures clear all transient state');
+
+/* Finger-centred zoom: compare world coordinates underneath the changing
+ * midpoint before and after sequential (not simultaneous) pointer events. */
+const pinchAnchor=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));moveMode=false;faceMode=false;faceDragMode=false;geometryMode=null;snap('iso');const before=serializeProject();const under=(mx,my)=>{const ca=Math.cos(az),sa=Math.sin(az),se=Math.sin(el),ce=Math.cos(el),right=[-sa,ca,0],up=[-ca*se,-sa*se,ce],u=(mx-canvas.width/2)/zoom,v=(canvas.height/2-my)/zoom;return cameraCenter.map((n,i)=>n+u*right[i]+v*up[i])};const original=under(150,100),zoomBefore=zoom;canvas.listeners.pointerdown({pointerId:811,clientX:100,clientY:100});canvas.listeners.pointerdown({pointerId:812,clientX:200,clientY:100});canvas.listeners.pointermove({pointerId:811,clientX:80,clientY:80});canvas.listeners.pointermove({pointerId:812,clientX:240,clientY:100});const final=under(160,90),zoomAfter=zoom;canvas.listeners.pointerup({pointerId:811});canvas.listeners.pointerup({pointerId:812});return {error:Math.hypot(...original.map((x,i)=>x-final[i])),zoomBefore,zoomAfter,unchanged:serializeProject()===before,clean:pointers.size===0}})()");
+assert.ok(pinchAnchor.error<1e-7,'world point remains fixed beneath moving pinch midpoint');
+assert.ok(pinchAnchor.zoomAfter>pinchAnchor.zoomBefore*1.5,'finger separation still enlarges canvas');
+assert.equal(pinchAnchor.unchanged,true,'anchored pinch has no side effects on the design');
+assert.equal(pinchAnchor.clean,true,'anchored pinch does not leak pointer state');
+
 console.log('3D studio tests passed');
