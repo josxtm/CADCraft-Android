@@ -1104,4 +1104,16 @@ assert.equal(sourceReferenceSelection.mode,'vertex','derived vertex mode remains
 assert.equal(sourceReferenceSelection.picked,true,'derived reference remains selectable');
 assert.equal(sourceReferenceSelection.owner,sourceReferenceSelection.recordId,'derived picking keeps its owner');
 
+
+/* B3/C2: mean triangle depth is NOT the depth at the tapped pixel.
+ * Two projected triangles can swap which one is frontmost across the screen. */
+const projectedDepthPicker=evaluate("(()=>{const vertices=[[0,0,0],[100,0,0],[0,100,100],[0,0,30],[100,0,30],[0,100,30]],faces=[[0,1,2],[3,4,5]],ids=[11,22];return {nearB:frontmostProjectedFace(10,10,vertices,faces,ids),nearA:frontmostProjectedFace(10,80,vertices,faces,ids),restrictedA:frontmostProjectedFace(10,10,vertices,faces,ids,11),restrictedB:frontmostProjectedFace(10,80,vertices,faces,ids,22),outside:frontmostProjectedFace(200,200,vertices,faces,ids),badX:frontmostProjectedFace(NaN,10,vertices,faces,ids),degenerate:frontmostProjectedFace(10,10,vertices,[[0,0,1],...faces],[33,...ids])}})()");
+assert.equal(projectedDepthPicker.nearB,1,'flat front triangle wins where sloped triangle is behind');
+assert.equal(projectedDepthPicker.nearA,0,'sloped triangle wins where actual camera depth is greater');
+assert.equal(projectedDepthPicker.restrictedA,0,'restrict-to-owner ignores visually nearer other part');
+assert.equal(projectedDepthPicker.restrictedB,1,'only active owner returns its own face');
+assert.equal(projectedDepthPicker.outside,-1,'touch outside geometry returns no face');
+assert.equal(projectedDepthPicker.badX,-1,'nonfinite screen coordinates are not allowed');
+assert.equal(projectedDepthPicker.degenerate,2,'degenerate projected triangles are skipped');
+
 console.log('3D studio tests passed');

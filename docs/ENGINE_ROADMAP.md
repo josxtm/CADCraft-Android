@@ -142,6 +142,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **B1/B3 — puntos de referencia de extrusiones fuente (26-10-2026):** el estudio 3D del WebView ahora permite tocar e inspeccionar vértices y aristas de las extrusiones editables, además de los resultados booleanos. Muestra el ID y la posición XYZ mundial, respetando la traslación. Las fuentes permanecen **solo de lectura** en esos modos: la geometría paramétrica sigue editándose en el boceto 2D, mientras que las herramientas de cotas sobre resultados booleanos se mantienen separadas. Regresiones JavaScript cubren selección, cambios de modo, protección ante edición inapropiada y selección de resultados. Pendiente de compilación y validación táctil Android.
 
+**B3/C2 — profundidad real bajo el dedo (26-10-2026):** la selección de caras de extrusiones y resultados booleanos calcula ahora la profundidad ortográfica del triángulo **en el punto tocado** por coordenadas baricéntricas, en vez de ordenar caras por profundidad media. Evita elegir una cara trasera cuando superficies inclinadas se solapan en pantalla. Conserva el filtro de pieza activa, rechaza triángulos proyectados degenerados y coordenadas no finitas. Regresiones cubren dos superficies cuyo orden se invierte al mover el toque, selección restringida y posiciones fuera del modelo. La visualización continúa con un algoritmo pintor básico (orden por promedio): la oclusión exacta de mallas arbitrarias permanece pendiente de un renderizador con búfer de profundidad; código WebView sin nueva APK.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.
