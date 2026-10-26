@@ -797,4 +797,39 @@ assert.equal(Math.abs(genusChecks.ring.signedVolume-840)<1e-5,true,'through-hole
 assert.equal(genusChecks.cavity.shells,2,'interior enclosed cavity has two distinct shells');
 assert.equal(genusChecks.cavity.shellGenus.every(x=>x.genus===0),true,'sealed interior cavity is not a through-hole');
 
+
+/* A1: a solid island enclosed by a cavity is material again, not another void.
+ * Three nested disjoint shells must alternate + / - / + orientation. */
+const nestedShellChecks=evaluate(`(()=>{
+ const square=(lo,hi)=>[[lo,lo],[hi,lo],[hi,hi],[lo,hi]];
+ const outer=extrude(square(0,10),10);
+ const positioned=(profile,height,z,reverse=false)=>{
+  const mesh=extrude(profile,height);
+  return {v:mesh.v.map(p=>[p[0],p[1],p[2]+z]),
+   faces:mesh.faces.map(f=>reverse?[f[0],f[2],f[1]]:f.slice())};
+ };
+ const cavity=positioned(square(3,7),6,2,true);
+ const island=positioned(square(4,6),4,3);
+ const assemble=(parts)=>{
+  const v=[],faces=[];
+  for(const part of parts){
+   const start=v.length;
+   v.push(...part.v);
+   faces.push(...part.faces.map(f=>f.map(i=>i+start)));
+  }
+  return {v,faces};
+ };
+ const valid=inspectMeshTopology(assemble([outer,cavity,island]));
+ let invertedRejected=false;
+ try{inspectMeshTopology(assemble([outer,cavity,positioned(square(4,6),4,3,true)]));}
+ catch(error){invertedRejected=error.message.includes('Orientación de cascarón');}
+ return {valid,invertedRejected};
+})()`);
+assert.equal(nestedShellChecks.valid.shells,3,'outer shell, enclosed cavity and material island are separate shells');
+assert.equal(nestedShellChecks.valid.cavities,1,'only the middle shell is a void');
+assert.deepEqual(Array.from(nestedShellChecks.valid.nestingDepths),[0,1,2],'shell containment alternates by depth');
+assert.equal(nestedShellChecks.valid.materialComponents,2,'nested material island is a second material component');
+assert.equal(Math.abs(nestedShellChecks.valid.signedVolume-920)<1e-5,true,'nested cavity and island have correct net volume');
+assert.equal(nestedShellChecks.invertedRejected,true,'incorrect island winding is rejected');
+
 console.log('3D studio tests passed');

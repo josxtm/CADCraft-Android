@@ -932,6 +932,7 @@ function inspectMeshTopology(mesh){
  return {vertices:mesh.v.length,edges:edges.size,triangles:mesh.faces.length,
   shells:shells.length,cavities:shells.filter(sh=>sh.signedVolume<0).length,
   nestingDepths,shellGenus,
+  materialComponents:nestingDepths.filter(depth=>depth%2===0).length,
   euler:mesh.v.length-edges.size+mesh.faces.length,signedVolume,
   intersectionCandidates:intersections.candidatePairs,intersectionPairs:intersections.intersectionPairs,
   bounds};
@@ -947,7 +948,8 @@ function diagnoseSelectedMesh(){
   const report=inspectMeshTopology(item.mesh),fmt=v=>Number(v.toFixed(3)).toLocaleString('es-ES');
   const message='Malla '+item.id+' · '+report.vertices+' vértices · '+report.edges+' aristas · '+
    report.triangles+' triángulos · '+report.shells+' cascarón(es) · '+report.cavities+
-   ' cavidad(es) orientada(s) · túneles '+report.shellGenus.reduce((n,s)=>n+s.genus,0)+
+   ' cavidad(es) orientada(s) · componentes sólidos '+report.materialComponents+
+   ' · túneles '+report.shellGenus.reduce((n,s)=>n+s.genus,0)+
    ' · volumen '+fmt(report.signedVolume)+' mm³';
   const label=document.getElementById('contactInfo');if(label)label.textContent=message;
   setStatus('Diagnóstico de malla correcto · Euler '+report.euler);

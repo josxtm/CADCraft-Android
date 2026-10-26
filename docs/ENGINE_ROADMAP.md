@@ -39,6 +39,9 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **Siguiente secuencia:** profundizar en contactos tangenciales, robustez de intersección coplanar, tolerancias numéricas y validación cruzada con mallas grandes antes de proponer booleanas generales.
 
+
+**A1 — tres niveles de anidamiento (26-10-2026):** el diagnóstico expone `materialComponents` (cascarones de profundidad par: sólido exterior e islas de material dentro de cavidades). Se añaden regresiones de tres cascarones anidados (+ exterior, − cavidad, + isla), profundidad `[0, 1, 2]`, volumen neto de 920 mm³ y rechazo de una isla con orientación invertida. Es un contador topológico de componentes materiales, no una validación B-Rep general ni una nueva operación de modelado. No se genera APK en este incremento.
+
 ## Bloque B — Modelado CAD
 
 | Paso | Capacidad | Estado | Criterio de aceptación |
