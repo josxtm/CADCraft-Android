@@ -257,7 +257,11 @@ La regresión comprueba cubos de 10 × 10 × 10 mm desplazados hasta **90 millon
 
 ### Dependencias de sólidos — avance B3
 
-Los resultados CSG conservan los IDs de sus dos piezas de origen y unas huellas de su boceto, altura y posición. Cuando una fuente cambia, la selección del resultado advierte que necesita regeneración. **Regenerar resultado** calcula una nueva malla, verifica su volumen y topología, y solo sustituye la anterior si toda la operación ha sido válida. La orden es manual para no perder silenciosamente ediciones hechas en el resultado. El JSON v3 guarda estas huellas y continúa leyendo proyectos antiguos sin ellas. Aún no existe un árbol de operaciones paramétricas completo.
+Los resultados CSG conservan los IDs de sus dos piezas de origen y unas huellas de su boceto, altura y posición. Cuando una fuente cambia, la selección del resultado advierte que necesita regeneración. **Regenerar resultado** calcula una nueva malla, verifica su volumen y topología, y solo sustituye la anterior si toda la operación ha sido válida. La orden es manual para no perder silenciosamente ediciones hechas en el resultado. El JSON v3 guarda estas huellas y continúa leyendo proyectos antiguos sin ellas.
+
+**Actualización B3 — regeneración por lotes:** el botón **Estado de dependencias** informa de piezas derivadas actualizadas, obsoletas, con fuentes perdidas o con procedencia antigua no verificada. **Regenerar obsoletos** vuelve a calcular en una sola acción todos los resultados con huellas obsoletas y aplica el lote únicamente si *todas* las nuevas mallas pasan las verificaciones geométricas; un fallo deja las mallas anteriores intactas. Los proyectos heredados sin huellas no se recalculan automáticamente; si su pieza de origen falta, el diagnóstico lo detecta y bloquea el lote. Es una fase previa, todavía sin árbol paramétrico general ni propagación automática.
+
+**Verificación:** pruebas JavaScript y Rust en GitHub Actions para cada cambio; la generación de APK sigue siendo manual, solamente para un hito importante.
 
 ## Hoja de ruta
 
