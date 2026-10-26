@@ -203,6 +203,19 @@ El control JavaScript alcanza **180 pruebas de regresión**, incluidas creación
 
 No se ha generado ninguna nueva APK. La experiencia táctil real se comprobará únicamente en el siguiente hito de pruebas aprobado.
 
+### Escalado dimensional de sólidos no rectangulares — fase posterior a v0.5.0
+
+La edición geométrica incorpora **Escalar eje + / Escalar eje −**, para modificar una dimensión global de un resultado booleano cerrado incluso si tiene contorno en L, entrantes u otras formas no rectangulares:
+
+- Se selecciona un vértice o arista de un **extremo exterior** y el eje X/Y/Z. Se introduce una distancia en milímetros. La aplicación conserva inmóvil el plano opuesto y **escala proporcionalmente toda la malla sobre ese eje**.
+- El volumen debe variar por el mismo factor lineal que la escala aplicada; el resultado se comprueba antes de sustituir el objeto. La transformación positiva e invertible preserva la conectividad de una malla previamente válida.
+- Se mantienen las herramientas **Cota + / Cota −** para trasladar solo el plano exterior de un bloque rectangular. Las herramientas **Escalar eje + / −** son distintas: *cambian proporcionalmente toda la geometría*, no desplazan libremente el vértice elegido.
+- El proceso rechaza selecciones internas, aristas que discurren en el mismo eje, distancias vacías o desmesuradas, inversión o colapso de la geometría y cualquier resultado que no supere la validación de malla cerrada y volumen.
+- Los cambios permiten **deshacer/rehacer**, exportar la nueva malla con la escena y guardarla como proyecto **JSON v3**. Las extrusiones originales no se modifican.
+- Verificación JavaScript ampliada a **422 comprobaciones**, con un caso real de resto booleano en L, escalas sucesivas en X y Z, pruebas del volumen esperado, historial, persistencia y rechazo sin pérdida de datos.
+
+**Limitación:** esto es un **escalado afín global por eje**, no un editor libre de vértices y aristas ni un motor B-Rep paramétrico. Las piezas creadas a partir de mallas ya inválidas no pueden considerarse reparadas mediante esta operación. No se ha generado una nueva APK.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
