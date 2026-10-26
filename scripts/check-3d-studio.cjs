@@ -587,6 +587,11 @@ assert.equal(nestedShells.island.report.shells,3,'island creates third shell');
 assert.equal(nestedShells.island.report.nestingDepths.join('/'),'0/1/2','shell containment reports parity 0,1,2');
 assert.equal(Math.round(nestedShells.island.report.signedVolume),792,'island contributes positive material volume');
 assert.equal(nestedShells.nestedWrongThree.accepted,false,'wrong internal shell winding rejected even with positive island');
+assert.deepEqual(Array.from(nestedShells.island.report.shellDiagnostics,x=>x.role),['material','cavity','material'],'shell diagnostics label material, cavity and nested island');
+assert.deepEqual(Array.from(nestedShells.island.report.shellDiagnostics,x=>x.depth),[0,1,2],'shell diagnostics preserve containment depth');
+assert.deepEqual(Array.from(nestedShells.island.report.shellDiagnostics,x=>Math.round(x.signedVolume)),[1000,-216,8],'per-shell signed volumes preserve cavity subtraction and island addition');
+assert.equal(nestedShells.island.report.shellDiagnostics.every(x=>x.genus===0&&x.euler===2),true,'nested cuboid shells each have genus zero');
+assert.equal(nestedShells.island.report.shellDiagnostics.reduce((sum,x)=>sum+x.signedVolume,0),nestedShells.island.report.signedVolume,'shell diagnostic volume sums to net solid volume');
 
 
 // 125 offsets x 3 boolean operations: accept exact valid solids, refuse

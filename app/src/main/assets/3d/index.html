@@ -953,9 +953,16 @@ function inspectMeshTopology(mesh){
    throw Error('Topología de cascarón no orientable o inconsistente ('+(shell+1)+')');
   return {shell,euler,genus};
  });
+ // Per-shell traceability for 2D→3D and CSG diagnostics. Volumes are signed:
+ // negative cavity shells subtract material; positive nested islands add it.
+ const shellDiagnostics=shells.map((part,index)=>({
+  index,depth:nestingDepths[index],role:nestingDepths[index]%2?'cavity':'material',
+  triangles:part.triangles,signedVolume:part.signedVolume,
+  euler:shellGenus[index].euler,genus:shellGenus[index].genus
+ }));
  return {vertices:mesh.v.length,edges:edges.size,triangles:mesh.faces.length,
   shells:shells.length,cavities:shells.filter(sh=>sh.signedVolume<0).length,
-  nestingDepths,shellGenus,
+  nestingDepths,shellGenus,shellDiagnostics,
   materialComponents:nestingDepths.filter(depth=>depth%2===0).length,
   euler:mesh.v.length-edges.size+mesh.faces.length,signedVolume,
   intersectionCandidates:intersections.candidatePairs,intersectionPairs:intersections.intersectionPairs,
