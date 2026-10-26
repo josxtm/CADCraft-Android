@@ -2495,8 +2495,11 @@ function saveProject(){
   const blob=new Blob([content],{type:'application/json'});
   const a=document.createElement('a');a.download='CADCraft_proyecto.json';
   a.href=URL.createObjectURL(blob);a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-  setStatus('Proyecto validado y preparado para guardar');return true;
+  setTimeout(()=>URL.revokeObjectURL(a.href),30000);
+  // Android WebView may ignore blob downloads without a native download bridge.
+  // Keep a validated recovery copy and never claim a file was saved to disk.
+  const recovered=saveRecoverySnapshot();
+  setStatus(recovered?'Proyecto validado · copia local conservada; comprueba la descarga JSON':'Proyecto validado · comprueba que Android haya descargado el JSON');return true;
  }catch(e){setStatus('Guardar: '+e.message);return false;}
 }
 function pickProject(){document.getElementById('projectFile').click();}
