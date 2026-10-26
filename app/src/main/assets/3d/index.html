@@ -939,6 +939,76 @@ function drawGeometryFeatures(ctx){
   }
  }
 }
+/* Editing a selected vertex/edge adjusts a whole exterior coordinate slab.
+ * This is deliberately restricted to cuboids: freeform vertex deformation
+ * requires stronger self-intersection and nonplanar-face validation. */
+function axisAlignedCuboid(mesh){
+ if(!mesh||!mesh.v.length||!mesh.faces.length)return null;
+ const mins=[Infinity,Infinity,Infinity],maxs=[-Infinity,-Infinity,-Infinity];
+ for(const p of mesh.v)for(let i=0;i<3;i++){
+  mins[i]=Math.min(mins[i],p[i]);maxs[i]=Math.max(maxs[i],p[i]);
+ }
+ const dims=mins.map((v,i)=>maxs[i]-v),volume=dims[0]*dims[1]*dims[2];
+ if(dims.some(v=>v<1e-7)||!Number.isFinite(volume))return null;
+ const eps=Math.max(1e-7,...dims.map(d=>d*1e-8));
+ if(mesh.v.some(p=>p.some((v,i)=>Math.abs(v-mins[i])>eps&&Math.abs(v-maxs[i])>eps)))return null;
+ for(const triangle of mesh.faces){
+  let planar=false;
+  for(let axis=0;axis<3;axis++){
+   const vals=triangle.map(index=>mesh.v[index][axis]);
+   if(vals.every(v=>Math.abs(v-vals[0])<eps) &&
+      (Math.abs(vals[0]-mins[axis])<eps||Math.abs(vals[0]-maxs[axis])<eps)){
+    planar=true;break;
+   }
+  }
+  if(!planar)return null;
+ }
+ if(Math.abs(meshOrientedVolume(mesh)-volume)>Math.max(1e-6,volume*1e-6))return null;
+ return {min:mins,max:maxs,dimensions:dims,volume,epsilon:eps};
+}
+function editingFeaturePlane(mesh,feature,axisName){
+ if(!feature||!['vertex','edge'].includes(feature.kind))throw Error('Selecciona primero un vértice o arista');
+ const axis={X:0,Y:1,Z:2}[axisName];
+ if(axis===undefined)throw Error('Eje de edición no válido');
+ const bounds=axisAlignedCuboid(mesh);
+ if(!bounds)throw Error('La edición de cotas solo admite bloques ortogonales sin cavidades');
+ const points=feature.indices.map(index=>mesh.v[index]);
+ if(points.some(p=>!p))throw Error('El elemento ya no existe');
+ if(points.some(p=>Math.abs(p[axis]-points[0][axis])>bounds.epsilon))
+  throw Error('Esta arista no pertenece a un plano de cota '+axisName);
+ const plane=points[0][axis];
+ const targetSign=Math.abs(plane-bounds.max[axis])<=bounds.epsilon?1:
+  Math.abs(plane-bounds.min[axis])<=bounds.epsilon?-1:0;
+ if(!targetSign)throw Error('La cota elegida no corresponde al exterior del bloque');
+ for(let i=0;i<mesh.faces.length;i++){
+  const info=facePlaneInfo(mesh,i);
+  if(info.axis===axis&&info.sign===targetSign&&Math.abs(info.plane-plane)<bounds.epsilon)
+   return {faceIndex:i,sign:targetSign,axis,bounds};
+ }
+ throw Error('No se encontró plano exterior para la cota');
+}
+function editSelectedGeometryFeature(direction){
+ if(faceGesture)finishFaceGesture(faceGesture.pointerId,true);
+ try{
+  const feature=selectedGeometryFeature,item=selectedDerived();
+  if(!geometryMode||!feature||!item||feature.owner!==item.id)throw Error('Selecciona primero un vértice o arista de resultado booleano');
+  const axisName=document.getElementById('featureAxis').value;
+  const field=document.getElementById('featureDistance');
+  const amount=field&&field.value.trim()!==''?Number(field.value):NaN;
+  if(!Number.isFinite(amount)||amount<=0||amount>100000||![1,-1].includes(direction))
+   throw Error('Introduce una distancia positiva y válida');
+  const plane=editingFeaturePlane(item.mesh,feature,axisName);
+  const change=direction*amount;
+  const candidate=translateMeshPlane(item.mesh,plane.faceIndex,change/plane.sign);
+  if(!axisAlignedCuboid(candidate))throw Error('La edición dejaría de producir un bloque ortogonal válido');
+  derivedUndo.push({id:item.id,mesh:item.mesh});
+  if(derivedUndo.length>20)derivedUndo.shift();
+  derivedRedo=[];item.mesh=candidate;invalidateSceneContacts();render();
+  setStatus('Cota '+axisName+' '+(change>0?'+':'')+change+' mm · pieza '+item.id+' · Deshacer disponible');
+  return true;
+ }catch(e){setStatus('Editar vértice/arista: '+e.message);return false;}
+}
+
 function exitGeometryMode(){
  if(!geometryMode)return;
  geometryMode=null;selectedGeometryFeature=null;
