@@ -166,6 +166,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **A3/B3 — edición segura en coordenadas mundiales (26-10-2026):** el estudio 3D del WebView vuelve a validar mallas booleanas **después de aplicar su traslación XYZ** y antes de aceptar el desplazamiento de una cara, la cota de vértice/arista, una escala afín o la vista previa/confirmación de un arrastre de plano. Deshacer/Rehacer comprueban también que una malla histórica siga siendo válida en la ubicación actual (la pieza puede haberse movido desde entonces). Las ediciones rechazadas no cambian la malla, sus pilas de deshacer ni el JSON. Pruebas próximas a ±100 millones de mm cubren rechazo, operaciones válidas, escala y deshacer histórico. La capacidad sigue limitada a mallas derivadas del motor WebView; **no equivale a integración del prototipo Rust o una APK probada**.
 
+**B3 — cancelar arrastres de caras inválidos (26-10-2026):** se ha corregido el caso en que el usuario desplazaba una cara a una posición válida, seguía arrastrando hasta traspasar el límite espacial y levantaba el dedo. Antes podía confirmarse por error la última malla intermedia válida; ahora cualquier vista previa inválida restaura la malla inicial y desarma el gesto, sin guardar historia de deshacer. Se ha añadido una regresión con una pieza booleana cerca del límite +100 millones de mm, incluyendo vista previa válida, rechazo posterior y liberación del puntero. **Código WebView, no APK nueva.**
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.

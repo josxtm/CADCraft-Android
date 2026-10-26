@@ -1557,4 +1557,21 @@ assert.equal(derivedEditWorldSafety.invalidUndo,false,'undo rejects old larger m
 assert.equal(derivedEditWorldSafety.undoSafe,true,'blocked undo keeps geometry and history intact');
 assert.equal(derivedEditWorldSafety.validUndo,true,'undo succeeds once world offset is made safe again');
 
+
+/* B3: an invalid finger position after a valid face-drag preview must
+ * cancel the whole gesture instead of silently committing its last good
+ * intermediate mesh when the pointer is released. */
+const faceDragBoundary=evaluate("(()=>{const p=[[0,0],[10,0],[10,10],[0,10]];loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:p,height:10}));duplicateSceneSolid();updateOffsetById(storedSolids[0].id,[0,0,0]);const id=addBooleanToScene('union');moveActiveSolid(99999980,0,0);const sc=combinedScene();selectedFace=sc.owners.findIndex((owner,i)=>owner===id&&facePlaneInfo(selectedDerived().mesh,faceLocalIndex(sc,i)).axis===0&&facePlaneInfo(selectedDerived().mesh,faceLocalIndex(sc,i)).sign===1);faceDragMode=true;const before=serializeProject(),undo=derivedUndo.length,started=beginFaceGesture(601,0,0),slope=faceDragWorldDistance(faceGesture,1,0),valid=previewFaceGesture(601,5/slope,0),validMesh=serializeProject()!==before;let invalid=false,reason='';try{previewFaceGesture(601,15/slope,0)}catch(e){invalid=true;reason=e.message;}const reset=serializeProject()===before,zero=faceGesture.distance===0,noHistory=derivedUndo.length===undo;const released=finishFaceGesture(601,false),done=faceGesture===null,unchanged=serializeProject()===before;faceDragMode=false;return {started,valid,validMesh,invalid,reason,reset,zero,noHistory,released,done,unchanged}})()");
+assert.equal(faceDragBoundary.started,true,'drag begins on valid positive X face');
+assert.equal(faceDragBoundary.valid,true,'near-border motion previews a safe mesh');
+assert.equal(faceDragBoundary.validMesh,true,'temporary mesh differs during a safe preview');
+assert.equal(faceDragBoundary.invalid,true,'out-of-bounds pointer position is rejected');
+assert.match(faceDragBoundary.reason,/límites 3D/i,'invalid drag reports world bounds');
+assert.equal(faceDragBoundary.reset,true,'unsafe preview restores mesh from gesture start');
+assert.equal(faceDragBoundary.zero,true,'unsafe preview disarms previous valid displacement');
+assert.equal(faceDragBoundary.noHistory,true,'rejection does not append an undo step');
+assert.equal(faceDragBoundary.released,false,'pointer release cannot commit stale safe preview');
+assert.equal(faceDragBoundary.done,true,'release clears the gesture state');
+assert.equal(faceDragBoundary.unchanged,true,'cancelled gesture preserves the original project');
+
 console.log('3D studio tests passed');
