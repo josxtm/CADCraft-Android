@@ -1827,10 +1827,36 @@ function assertSceneExportable(){
  }
  return parts.length;
 }
+/* OBJ has global vertex indices, but object boundaries preserve individual
+ * design parts for downstream CAD/mesh editors. Source/derived piece IDs
+ * remain stable and every face refers only to vertices of its own object. */
+function sceneAsMultiObjectOBJ(parts=allSceneMeshes()){
+ if(!parts.length)throw Error('Escena OBJ vacía');
+ const lines=['# CADCraft Android OBJ · piezas separadas'];
+ let base=0;
+ for(const part of parts){
+  if(!Number.isSafeInteger(part.id)||part.id<1)throw Error('ID de objeto OBJ inválido');
+  if(!Array.isArray(part.v)||!Array.isArray(part.faces))throw Error('Malla OBJ inválida');
+  lines.push('o CADCraft_pieza_'+part.id);
+  for(const point of part.v){
+   if(!Array.isArray(point)||point.length!==3||!point.every(Number.isFinite))
+    throw Error('Vértice OBJ inválido en pieza '+part.id);
+   lines.push('v '+point.join(' '));
+  }
+  for(const face of part.faces){
+   if(!Array.isArray(face)||face.length!==3||
+      !face.every(i=>Number.isInteger(i)&&i>=0&&i<part.v.length))
+    throw Error('Cara OBJ inválida en pieza '+part.id);
+   lines.push('f '+face.map(i=>i+base+1).join(' '));
+  }
+  base+=part.v.length;
+ }
+ return lines.join('\\n')+'\\n';
+}
 function exportOBJ(){
  try{
   assertSceneExportable();
-  const content=meshAsObj(combinedScene());
+  const content=sceneAsMultiObjectOBJ();
   const a=document.createElement('a');a.download='CADCraft_3D.obj';
   a.href=URL.createObjectURL(new Blob([content],{type:'text/plain'}));a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);setStatus('OBJ validado y preparado para guardar');

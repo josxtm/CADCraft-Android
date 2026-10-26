@@ -894,4 +894,18 @@ assert.equal(loadDuringFacePreview.invalidSyntax&&loadDuringFacePreview.invalidG
 assert.equal(loadDuringFacePreview.preservedSyntax&&loadDuringFacePreview.preservedGeometry,true,'rejected imports preserve face preview, scene and active gesture');
 assert.equal(loadDuringFacePreview.valid&&loadDuringFacePreview.cleared&&loadDuringFacePreview.clean,true,'valid import cancels previous preview and replaces scene');
 
+
+/* C4: OBJ export retains unique independent objects, including translated
+ * source pieces and independent derived CSG results. Index bases are global. */
+const multiBodyOBJ=evaluate("(()=>{const base={format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10};loadProjectText(JSON.stringify(base));duplicateSceneSolid();const moved=moveActiveSolid(40,20,5);const derived=addBooleanToScene('union');const parts=allSceneMeshes(),serialized=sceneAsMultiObjectOBJ(parts),lines=serialized.trim().split('\\n');const objects=lines.filter(line=>line.startsWith('o '));const positions=lines.filter(line=>line.startsWith('v '));const faces=lines.filter(line=>line.startsWith('f '));const expectedIds=parts.map(part=>part.id),expectedObjects=parts.map(part=>'o CADCraft_pieza_'+part.id);let index=0,groups=[];for(const part of parts){const start=index+1;index+=part.v.length;groups.push([start,index]);}const chunks=serialized.split(/(?=^o )/m).slice(1),within=chunks.every((chunk,i)=>chunk.split('\\n').filter(line=>line.startsWith('f ')).every(line=>line.slice(2).split(' ').map(Number).every(n=>n>=groups[i][0]&&n<=groups[i][1])));const first=parts[0],objFirst=sceneAsMultiObjectOBJ([first]);const invalid=(()=>{try{sceneAsMultiObjectOBJ([{...first,faces:[[0,1,999999]]}]);return false}catch(e){return e.message.includes('Cara OBJ inválida')}})();return {moved,derived,expectedIds,objects,expectedObjects,vertices:positions.length,expectedVertices:parts.reduce((n,p)=>n+p.v.length,0),triangles:faces.length,expectedTriangles:parts.reduce((n,p)=>n+p.faces.length,0),within,translated:serialized.includes('v 40 20 5'),sameGeometry:objFirst.includes('f 1 2 3'),invalid,exported:exportOBJ()}})()");
+assert.equal(multiBodyOBJ.moved,true,'translated source piece moves before OBJ export');
+assert.equal(Number.isInteger(multiBodyOBJ.derived),true,'CSG result contributes an independent OBJ object');
+assert.equal(JSON.stringify(multiBodyOBJ.objects),JSON.stringify(multiBodyOBJ.expectedObjects),'one named OBJ object per source or result ID');
+assert.equal(multiBodyOBJ.vertices,multiBodyOBJ.expectedVertices,'all source and derived vertices are represented exactly once');
+assert.equal(multiBodyOBJ.triangles,multiBodyOBJ.expectedTriangles,'multi-object OBJ retains every triangle');
+assert.equal(multiBodyOBJ.within,true,'all exported faces index vertices of their own piece');
+assert.equal(multiBodyOBJ.translated,true,'world-space XYZ translation is applied in OBJ');
+assert.equal(multiBodyOBJ.invalid,true,'OBJ writer refuses faces outside their own object');
+assert.equal(multiBodyOBJ.exported,true,'valid mixed-scene OBJ export remains available');
+
 console.log('3D studio tests passed');
