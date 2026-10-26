@@ -650,6 +650,18 @@ assert.deepEqual(JSON.parse(JSON.stringify(nestedShells.island.report.shellDiagn
 assert.equal(nestedShells.island.report.shellDiagnostics.reduce((sum,x)=>sum+x.surfaceArea,0),nestedShells.island.report.surfaceArea,'per-shell areas add up to the total');
 
 
+// A1/A3/A5: signed-volume centroids of solids, cavities and nested islands.
+const closeVec=(actual,expected,tolerance=1e-6)=>actual.every((x,i)=>Math.abs(x-expected[i])<tolerance);
+assert.equal(closeVec(topology.valid.cube.centroid,[5,5,5]),true,'cube centroid is at its center');
+assert.equal(closeVec(topology.valid.cavity.centroid,[5,5,5]),true,'symmetric cavity preserves material centroid');
+assert.equal(closeVec(topology.valid.separate.centroid,[15,5,5]),true,'two equal disconnected cubes have midpoint centroid');
+assert.equal(closeVec(nestedShells.island.report.centroid,[5,5,5]),true,'nested cavity and island preserve centroid');
+assert.equal(nestedShells.island.report.shellDiagnostics.every(shell=>closeVec(shell.centroid,[5,5,5])),true,'per-shell centroids include nested cavity and island');
+const offCenterCavity=evaluate("(()=>{const outer=extrude([[0,0],[10,0],[10,10],[0,10]],10),inner=extrude([[1,1],[3,1],[3,3],[1,3]],2),n=outer.v.length;return inspectMeshTopology({v:outer.v.concat(inner.v.map(p=>[p[0],p[1],p[2]+1])),faces:outer.faces.concat(inner.faces.map(([a,b,c])=>[a+n,c+n,b+n]))})})()");
+assert.equal(Math.abs(offCenterCavity.signedVolume-992)<1e-6,true,'off-center cavity subtracts 8 cubic mm');
+assert.equal(closeVec(offCenterCavity.centroid,Array(3).fill((5000-16)/992)),true,'off-center cavity shifts centroid using signed volume');
+assert.equal(closeVec(offCenterCavity.shellDiagnostics[1].centroid,[2,2,2]),true,'cavity shell reports its own centroid');
+
 // 125 offsets x 3 boolean operations: accept exact valid solids, refuse
 // edge-only/point-only unions (non-manifold), and preserve empty intersections.
 const boundaryMatrix=evaluate("(()=>{const p=[[0,0],[10,0],[10,10],[0,10]],a={id:1,profile:p,height:10,offset:[0,0,0],mesh:extrude(p,10)},offsets=[-10,-5,0,5,15],result={passed:0,expectedInvalid:0,empty:0,unexpected:[]};for(const x of offsets)for(const y of offsets)for(const z of offsets)for(const mode of ['union','subtract','intersect']){const b={id:2,profile:p,height:10,offset:[x,y,z],mesh:extrude(p,10)},common=[x,y,z].reduce((volume,d)=>volume*Math.max(0,10-Math.abs(d)),1),expected=mode==='union'?2000-common:mode==='subtract'?1000-common:common;if(!expected){result.empty++;continue}const boundary=[x,y,z].every(d=>Math.abs(d)<=10)&&[x,y,z].filter(d=>Math.abs(d)===10).length>=2,mustReject=mode==='union'&&boundary;try{const m=booleanBoxMesh(a,b,mode);inspectMeshTopology(m);const v=meshOrientedVolume(m);if(!mustReject&&Math.abs(v-expected)<1e-5)result.passed++;else result.unexpected.push({x,y,z,mode,v,expected,mustReject})}catch(e){if(mustReject)result.expectedInvalid++;else result.unexpected.push({x,y,z,mode,error:e.message})}}return result})()");
@@ -677,6 +689,10 @@ assert.equal(Math.abs(numericStability.hollowReport.signedVolume-784)<1e-6,true,
 assert.equal(numericStability.hollowReport.nestingDepths.join('/'),'0/1','far away internal cavity retains shell nesting');
 assert.equal(Math.abs(numericStability.hollowReport.surfaceArea-816)<1e-6,true,'far away sealed cavity preserves inner and outer boundary areas');
 
+
+assert.equal(closeVec(numericStability.disconnectedReport.centroid,[45000005,45000005,45000005],1e-5),true,'distant disconnected cubes preserve weighted centroid');
+assert.equal(closeVec(numericStability.hollowReport.centroid,[90000005,90000005,90000005],1e-5),true,'distant hollow cube preserves world-space centroid');
+assert.equal(numericStability.disconnectedReport.shellDiagnostics.every((shell,i)=>closeVec(shell.centroid,i?[90000005,90000005,90000005]:[5,5,5],1e-5)),true,'per-shell centroids preserve separate distant origins');
 
 // A3: local-origin 2D areas, clipping and measurement at distant CAD coordinates.
 // Those profiles are physically 10 mm wide, yet lie 90 million mm from origin.
@@ -1184,6 +1200,7 @@ assert.equal(JSON.stringify(partInspection.source.report.bounds),JSON.stringify(
 assert.equal(JSON.stringify(partInspection.source.dimensions),JSON.stringify([10,10,10]),'source world dimensions remain 10mm');
 assert.equal(Math.abs(partInspection.source.report.signedVolume-1000)<1e-6,true,'source volume is 1000mm3');
 assert.equal(Math.abs(partInspection.source.report.surfaceArea-600)<1e-6,true,'source surface is 600mm2');
+assert.equal(closeVec(partInspection.source.report.centroid,[45,25,10]),true,'selected source exposes world-space centroid');
 assert.equal(partInspection.sourceUnchanged,true,'measurement leaves source project unchanged');
 assert.equal(Number.isInteger(partInspection.union),true,'derived result created for inspection');
 assert.equal(partInspection.derived.derived,true,'inspection resolves currently selected CSG result');
