@@ -2287,6 +2287,9 @@ function dxfMillimetreScale(pairs){
  * Validate the section framing before touching the current 3D project. */
 function dxfEntityIndices(pairs){
  let section=null,structured=false,entitiesSeen=false;
+ // Old CADCraft handoffs contain an unpaired ENDSEC but no SECTION.
+ // Preserve those fixtures while rejecting orphan ENDSEC in structured DXF.
+ const hasSections=pairs.some(([c,v])=>c==='0'&&v==='SECTION');
  const candidates=[];
  for(let i=0;i<pairs.length;i++){
   const [code,value]=pairs[i];
@@ -2301,7 +2304,10 @@ function dxfEntityIndices(pairs){
     entitiesSeen=true;
    }
   }else if(value==='ENDSEC'){
-   if(section===null)throw Error('DXF con ENDSEC sin SECTION');
+   if(section===null){
+    if(hasSections)throw Error('DXF con ENDSEC sin SECTION');
+    continue;
+   }
    section=null;
   }else if(value==='EOF'){
    if(section!==null)throw Error('DXF con sección sin cerrar');
