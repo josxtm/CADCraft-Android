@@ -886,4 +886,12 @@ assert.equal(nearWeld.remote.ok,true,'remote unrelated solid does not widen loca
 assert.equal(nearWeld.remote.report.shells,3,'all truly separated shells remain independent');
 assert.equal(nearWeld.nearRemote.ok,false,'numerically indistinguishable vertices at distant coordinates are rejected');
 
+
+/* C3: rejecting an imported project must preserve a live face preview.
+ * Cancel the gesture only after the replacement project passes validation. */
+const loadDuringFacePreview=evaluate("(()=>{const base={format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10};loadProjectText(JSON.stringify(base));duplicateSceneSolid();addBooleanToScene('union');const item=selectedDerived(),original=item.mesh;item.mesh={v:original.v.map(p=>p.slice()),faces:original.faces.map(f=>f.slice())};item.mesh.v[0][0]+=0.25;faceGesture={pointerId:404,id:item.id,originalMesh:original,distance:0.25};const before=serializeProject();let invalidSyntax=false,invalidGeometry=false;try{loadProjectText('{bad json')}catch(e){invalidSyntax=true}const preservedSyntax=faceGesture?.pointerId===404&&serializeProject()===before;try{loadProjectText(JSON.stringify({...base,profile:[[0,0],[10,10],[0,10],[10,0]]}))}catch(e){invalidGeometry=true}const preservedGeometry=faceGesture?.pointerId===404&&serializeProject()===before;const valid=!!loadProjectText(JSON.stringify(base));return {invalidSyntax,invalidGeometry,preservedSyntax,preservedGeometry,valid,cleared:faceGesture===null,clean:derivedSolids.length===0&&storedSolids.length===0}})()");
+assert.equal(loadDuringFacePreview.invalidSyntax&&loadDuringFacePreview.invalidGeometry,true,'bad JSON and invalid profiles are rejected during a face drag');
+assert.equal(loadDuringFacePreview.preservedSyntax&&loadDuringFacePreview.preservedGeometry,true,'rejected imports preserve face preview, scene and active gesture');
+assert.equal(loadDuringFacePreview.valid&&loadDuringFacePreview.cleared&&loadDuringFacePreview.clean,true,'valid import cancels previous preview and replaces scene');
+
 console.log('3D studio tests passed');

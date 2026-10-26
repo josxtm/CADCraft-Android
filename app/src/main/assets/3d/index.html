@@ -1926,7 +1926,8 @@ function validateProjectDerived(data){
   offset:validateOffset(data.offset),mesh:validateDerivedMesh(data.mesh)};
 }
 function loadProjectText(text){
- if(faceGesture)finishFaceGesture(faceGesture.pointerId,true);
+ // Validate the complete candidate before touching an in-progress face edit.
+ // A rejected file must not cancel a preview or alter the live scene.
  if(typeof text!=='string'||text.length>2000000)throw Error('Proyecto demasiado grande');
  const parsed=JSON.parse(text);
  if(!parsed||parsed.format!=='cadcraft-android-3d'||![1,2,3].includes(parsed.version))throw Error('Formato de proyecto no compatible');
@@ -1942,7 +1943,8 @@ function loadProjectText(text){
  if(new Set(ids).size!==ids.length)throw Error('ID de pieza duplicado');
  const selected=parsed.version===3&&parsed.selectedDerivedId!=null?parsed.selectedDerivedId:null;
  if(selected!=null&&!meshes.some(m=>m.id===selected))throw Error('Selección booleana no existe');
- // Atomic commit: failure in the mesh validation preserves the current scene.
+ // Only a valid replacement may cancel the old preview and replace the scene.
+ if(faceGesture)finishFaceGesture(faceGesture.pointerId,true);
  storedSolids=records;derivedSolids=meshes;selectedDerivedId=selected;derivedUndo=[];derivedRedo=[];exitGeometryMode();moveHistory=[];moveRedoHistory=[];moveGesture=null;
  nextSolidId=Math.max(...ids)+1;
  restoreActiveSolid(main);syncOffsetFields();invalidateSceneContacts();
