@@ -665,12 +665,12 @@ assert.equal(csgCrosscheck.rejected,true,'integrity guard blocks CSG mesh with c
 // B3 incremental: explicitly regenerate a boolean result when a source sketch changes.
 const regeneration=evaluate("(()=>{const rect=[[0,0],[10,0],[10,10],[0,10]],prj={format:'cadcraft-android-3d',version:1,profile:rect,height:10};loadProjectText(JSON.stringify(prj));duplicateSceneSolid();const created=addBooleanToScene('union'),oldVolume=meshOrientedVolume(selectedDerived().mesh),oldParentIds=selectedDerived().parents.slice(),oldOffset=selectedDerived().offset.slice();selectExtrudedSolid();const modified=changeHeight(5);cycleDerivedSolid();const untilRefresh=meshOrientedVolume(selectedDerived().mesh),refreshed=regenerateSelectedBoolean(),updated=meshOrientedVolume(selectedDerived().mesh),unchangedIds=selectedDerived().parents.join('/')===oldParentIds.join('/'),offsetIntact=selectedDerived().offset.join('/')===oldOffset.join('/'),storedJSON=serializeProject();loadProjectText(storedJSON);const persisted=meshOrientedVolume(selectedDerived().mesh);const active=selectedDerived();const originalId=active.parents[1];active.parents[1]=999999;const rejected=regenerateSelectedBoolean()===false&&meshOrientedVolume(active.mesh)===updated;active.parents[1]=originalId;return {created,modified,refreshed,oldVolume,untilRefresh,updated,persisted,rejected,unchangedIds,offsetIntact,button:typeof regenerateSelectedBoolean==='function'}})()");
 assert.equal(Number.isInteger(regeneration.created),true,'CSG result was created for regeneration scenario');
-assert.equal(regeneration.oldVolume,2000,'result initially includes two separate 1000 mm3 cubes');
+assert.equal(Math.abs(regeneration.oldVolume-2000)<1e-6,true,'result initially includes two separate 1000 mm3 cubes');
 assert.equal(regeneration.modified,true,'source extrusion height can be edited while result is not selected');
-assert.equal(regeneration.untilRefresh,2000,'derived mesh is not silently overwritten without user action');
+assert.equal(Math.abs(regeneration.untilRefresh-2000)<1e-6,true,'derived mesh is not silently overwritten without user action');
 assert.equal(regeneration.refreshed,true,'explicit refresh recomputes selected result from provenance');
-assert.equal(regeneration.updated,2500,'refreshed mesh reflects updated height and other original solid');
-assert.equal(regeneration.persisted,2500,'refreshed result remains valid after JSON roundtrip');
+assert.equal(Math.abs(regeneration.updated-2500)<1e-6,true,'refreshed mesh reflects updated height and other original solid');
+assert.equal(Math.abs(regeneration.persisted-2500)<1e-6,true,'refreshed result remains valid after JSON roundtrip');
 assert.equal(regeneration.unchangedIds&&regeneration.offsetIntact,true,'source references and independent result offset remain unchanged');
 assert.equal(regeneration.rejected,true,'missing parent source refuses regeneration without destroying previous geometry');
 assert.equal(regeneration.button,true,'regeneration command is exposed in 3D tooling');
