@@ -928,4 +928,15 @@ assert.equal(Math.abs(protectedExtrusions.volume-1500)<1e-6,true,'accepted incre
 assert.equal(protectedExtrusions.large,false,'out-of-range vertices reject excessive Z height');
 assert.equal(protectedExtrusions.largeSafe,true,'rejected excessive height preserves valid project');
 
+
+/* C4: preserve distinct STL solid blocks without changing facet orientation. */
+const multiBodySTL=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));duplicateSceneSolid();moveActiveSolid(40,20,5);addBooleanToScene('union');const parts=allSceneMeshes(),content=sceneAsMultiSolidSTL(parts),lines=content.trim().split(String.fromCharCode(10)).map(x=>x.trim()),begins=lines.filter(x=>x.startsWith('solid ')),ends=lines.filter(x=>x.startsWith('endsolid ')),normals=lines.filter(x=>x.startsWith('facet normal ')),vertices=lines.filter(x=>x.startsWith('vertex ')),expected=parts.map(x=>'solid CADCraft_pieza_'+x.id),facets=parts.reduce((n,p)=>n+p.faces.length,0),invalid=(()=>{try{sceneAsMultiSolidSTL([{...parts[0],faces:[[0,0,0]]}]);return false}catch(e){return e.message.includes('degenerado')}})();return {begins,ends,expected,facets,normals:normals.length,vertices:vertices.length,translated:content.includes('vertex 40 20 5'),invalid,exported:exportSTL()}})()");
+assert.equal(JSON.stringify(multiBodySTL.begins),JSON.stringify(multiBodySTL.expected),'STL names each independent source or derived solid');
+assert.equal(JSON.stringify(multiBodySTL.ends),JSON.stringify(multiBodySTL.expected.map(x=>'end'+x)),'STL closes each named solid section');
+assert.equal(multiBodySTL.normals,multiBodySTL.facets,'one facet normal per scene triangle');
+assert.equal(multiBodySTL.vertices,multiBodySTL.facets*3,'three indexed vertex coordinates per STL facet');
+assert.equal(multiBodySTL.translated,true,'STL output respects moved solid coordinates');
+assert.equal(multiBodySTL.invalid,true,'STL rejects degenerate triangles');
+assert.equal(multiBodySTL.exported,true,'valid multi-body scene exports STL after topology checks');
+
 console.log('3D studio tests passed');

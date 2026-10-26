@@ -90,6 +90,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **C4 — coherencia de dependencias:** los resultados CSG obsoletos o sin pieza de origen impiden la exportación general OBJ/STL con un mensaje explicativo. Se conserva la escena y se requiere regeneración explícita. Los resultados heredados sin huella y con fuente existente se siguen pudiendo exportar tras validación geométrica, sin recalcular nada automáticamente.
 
+**C4 — STL multipieza:** STL ASCII conserva ahora cada cuerpo fuente o booleano en su propio bloque `solid CADCraft_pieza_ID` / `endsolid ...`, con normales y coordenadas mundiales. La puerta de exportación continúa rechazando cualquier malla defectuosa y CSG obsoleta; los nombres de bloque STL pueden no conservarse en todos los programas externos.
+
 **C4 — OBJ multipieza:** la exportación general OBJ preserva cada extrusión y resultado CSG en su propio objeto `o CADCraft_pieza_ID`, con coordenadas mundiales y referencias de vértices globales correctas. El validador previo sigue bloqueando mallas dañadas y CSG obsoletas. No es formato STEP ni implica unión automática de materiales entre piezas independientes.
 
 **C4 — puerta de exportación:** la salida general OBJ y STL comprueba primero la validez topológica de **cada sólido** (caras, orientación, cierre y autointersección) y cancela la exportación completa si uno está dañado, identificando su ID. Las piezas independientes pueden solaparse sin que se traten erróneamente como una sola booleana. Estas comprobaciones no certifican conformidad CAD industrial ni un formato STEP.

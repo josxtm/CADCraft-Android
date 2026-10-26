@@ -1869,22 +1869,42 @@ function exportOBJ(){
  }catch(e){setStatus('OBJ: '+e.message);return false;}
 }
 
+/* ASCII STL supports multiple individually named solid sections.
+ * Keep world-space coordinates and prevent malformed triangles, while
+ * the export gate separately checks watertightness of each input part. */
+function sceneAsMultiSolidSTL(parts=allSceneMeshes()){
+ if(!parts.length)throw Error('Escena STL vacía');
+ const lines=[];
+ for(const part of parts){
+  if(!Number.isSafeInteger(part.id)||part.id<1)throw Error('ID de sólido STL inválido');
+  if(!Array.isArray(part.v)||!Array.isArray(part.faces))throw Error('Malla STL inválida');
+  const label='CADCraft_pieza_'+part.id;
+  lines.push('solid '+label);
+  for(const face of part.faces){
+   if(!Array.isArray(face)||face.length!==3||
+      !face.every(i=>Number.isInteger(i)&&i>=0&&i<part.v.length))
+    throw Error('Cara STL inválida en pieza '+part.id);
+   const points=face.map(i=>part.v[i]);
+   if(points.some(p=>!Array.isArray(p)||p.length!==3||!p.every(Number.isFinite)))
+    throw Error('Vértices STL inválidos en pieza '+part.id);
+   const [a,b,c]=points,u=b.map((v,i)=>v-a[i]),v=c.map((x,i)=>x-a[i]);
+   const normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+   const magnitude=Math.hypot(...normal);
+   if(!(magnitude>1e-10))throw Error('Triángulo STL degenerado en pieza '+part.id);
+   lines.push(' facet normal '+normal.map(x=>x/magnitude).join(' '),'  outer loop');
+   for(const p of points)lines.push('   vertex '+p.join(' '));
+   lines.push('  endloop',' endfacet');
+  }
+  lines.push('endsolid '+label);
+ }
+ return lines.join(String.fromCharCode(10))+String.fromCharCode(10);
+}
 function exportSTL(){
  try{
   assertSceneExportable();
-  const scene=combinedScene();let out='solid cadcraft_android\n';
-  for(const f of scene.faces){
-   const a=scene.v[f[0]],b=scene.v[f[1]],c=scene.v[f[2]];
-   const u=b.map((v,i)=>v-a[i]),v=c.map((x,i)=>x-a[i]);
-   const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],mag=Math.hypot(...n);
-   if(!(mag>1e-10))throw Error('Triángulo degenerado');
-   out+='facet normal '+n.map(x=>x/mag).join(' ')+'\n outer loop\n';
-   for(const p of [a,b,c])out+=' vertex '+p.join(' ')+'\n';
-   out+=' endloop\nendfacet\n';
-  }
-  out+='endsolid cadcraft_android\n';
+  const content=sceneAsMultiSolidSTL();
   const a=document.createElement('a');a.download='CADCraft_3D.stl';
-  a.href=URL.createObjectURL(new Blob([out],{type:'model/stl'}));a.click();
+  a.href=URL.createObjectURL(new Blob([content],{type:'model/stl'}));a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
   setStatus('STL validado y preparado para guardar');return true;
  }catch(e){setStatus('STL: '+e.message);return false;}
