@@ -915,4 +915,17 @@ assert.equal(multiBodyOBJ.translated,true,'world-space XYZ translation is applie
 assert.equal(multiBodyOBJ.invalid,true,'OBJ writer refuses faces outside their own object');
 assert.equal(multiBodyOBJ.exported,true,'valid mixed-scene OBJ export remains available');
 
+
+/* A1/C3: editing an existing extrusion validates its proposed world mesh
+ * before altering geometry, dimensions, source handle or exportability. */
+const protectedExtrusions=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));const before=serializeProject(),handle=sourceHandle,small=changeHeight(-9.99999998),stays=serializeProject()===before,heightField=document.getElementById('height').value;document.getElementById('height').value='0.00000002';const form=extrudeForm(),still=serializeProject()===before,valid=changeHeight(5),volume=inspectMeshTopology(offsetMesh(model,activeOffset)).signedVolume;const projectAfter=serializeProject();const large=changeHeight(2e8),largeSafe=serializeProject()===projectAfter;return {small,stays,heightField,form,still,valid,volume,large,largeSafe,handle}})()");
+assert.equal(protectedExtrusions.small,false,'near-zero changeHeight cannot commit an invalid volume');
+assert.equal(protectedExtrusions.stays,true,'rejected near-zero height leaves JSON unchanged');
+assert.equal(protectedExtrusions.form,false,'height form refuses a negligible-volume solid');
+assert.equal(protectedExtrusions.still,true,'rejected form cannot replace source profile or height');
+assert.equal(protectedExtrusions.valid,true,'valid height increase remains available');
+assert.equal(Math.abs(protectedExtrusions.volume-1500)<1e-6,true,'accepted increase produces coherent volume');
+assert.equal(protectedExtrusions.large,false,'out-of-range vertices reject excessive Z height');
+assert.equal(protectedExtrusions.largeSafe,true,'rejected excessive height preserves valid project');
+
 console.log('3D studio tests passed');

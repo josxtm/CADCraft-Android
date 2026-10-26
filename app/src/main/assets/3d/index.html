@@ -1319,6 +1319,10 @@ function extrudeForm(){
   if(!profileFromDXF&&!(Number.isFinite(w)&&Number.isFinite(l)&&w>0&&l>0))throw Error('Medidas incorrectas');
   const candidate=profileFromDXF?poly:[[0,0],[w,0],[w,l],[0,l]];
   const next=extrude(candidate,h);
+  // Match the JSON and OBJ/STL validation gate before changing live state:
+  // a tiny height or an out-of-range world-space coordinate must not leave
+  // an unexportable source extrusion in the project.
+  inspectMeshTopology(offsetMesh(next,activeOffset));
   poly=candidate;height=h;model=next;selectedFace=-1;invalidateSceneContacts();
   if(!profileFromDXF)sourceHandle=null;
   render();setStatus('Sólido generado · '+model.faces.length+' triángulos');return true;
@@ -1330,6 +1334,7 @@ function changeHeight(delta){
  if(!Number.isFinite(next)||Math.abs(next)<1e-8){setStatus('Altura no válida');return false;}
  try{
   const candidate=extrude(poly,next);
+  inspectMeshTopology(offsetMesh(candidate,activeOffset));
   height=next;model=candidate;selectedFace=-1;invalidateSceneContacts();
   document.getElementById('height').value=String(height);
   render();setStatus('Altura actualizada: '+height+' mm');return true;
