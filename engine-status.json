@@ -1,13 +1,13 @@
 {
   "schema": 1,
-  "source_sha": "c36ac9032b0b553586814dd80198f8d7227212d1",
+  "source_sha": "118a5d77b40be28fb6c602142a842dcc0c0e006d",
   "source_branch": "main",
   "workflow": "CADCraft · Verificación continua / APK manual",
-  "workflow_run_id": 40420123594,
-  "workflow_run_url": "https://github.com/josxtm/CADCraft-Android/actions/runs/40420123594",
+  "workflow_run_id": 40420244867,
+  "workflow_run_url": "https://github.com/josxtm/CADCraft-Android/actions/runs/40420244867",
   "preflight": "success",
   "rust_tests": "success (included in preflight)",
   "overall": "success",
-  "completed_at": "2026-10-26T23:30:01Z",
+  "completed_at": "2026-10-26T23:31:04Z",
   "apk_built": false
 }
