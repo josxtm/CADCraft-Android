@@ -44,6 +44,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **A1/A5 — diagnóstico trazable por cascarón (26-10-2026):** `inspectMeshTopology` devuelve `shellDiagnostics` con índice, profundidad, papel (`material` o `cavity`), triángulos, volumen orientado, Euler y género. Las regresiones comprueban los volúmenes individuales 1000, −216 y +8 mm³ y su suma neta de 792 mm³ en una cavidad con isla. Es información de validación para el flujo 2D→3D, no una nueva operación de modelado ni un B-Rep. No requiere APK.
 
+**A1/A5 — árbol de contención de cascarones (26-10-2026):** el validador conserva las profundidades y la orientación existente, y añade `nestingParents` (`-1` para superficies exteriores; índice del cascarón contenedor inmediato para cavidades e islas). `shellDiagnostics[].parent` expone el mismo dato por componente, sin modificar mallas ni el formato JSON. Regresiones para un sólido, dos sólidos separados, cavidad e isla de tercer nivel; los anidamientos ambiguos se rechazan. Es diagnóstico geométrico, no una herramienta nueva de bocetos ni B-Rep. Sin APK.
+
 **A1 — tres niveles de anidamiento (26-10-2026):** el diagnóstico expone `materialComponents` (cascarones de profundidad par: sólido exterior e islas de material dentro de cavidades). Se añaden regresiones de tres cascarones anidados (+ exterior, − cavidad, + isla), profundidad `[0, 1, 2]`, volumen neto de 920 mm³ y rechazo de una isla con orientación invertida. Es un contador topológico de componentes materiales, no una validación B-Rep general ni una nueva operación de modelado. No se genera APK en este incremento.
 
 ## Bloque B — Modelado CAD

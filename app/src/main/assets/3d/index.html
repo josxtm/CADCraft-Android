@@ -805,7 +805,8 @@ function shellSolidAngleAt(mesh,faceIndices,point){
 }
 function validateShellNesting(mesh,shells,indicesByShell){
  const depths=new Array(shells.length).fill(0);
- if(shells.length<2)return depths;
+ const containers=Array.from({length:shells.length},()=>[]);
+ if(shells.length<2)return {depths,parents:new Array(shells.length).fill(-1)};
  const limits=indicesByShell.map(indices=>{
   const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
   for(const index of indices)for(const vertex of mesh.faces[index])for(let k=0;k<3;k++){
@@ -820,13 +821,21 @@ function validateShellNesting(mesh,shells,indicesByShell){
    const bounds=limits[j];
    if(point.some((v,k)=>v<bounds.min[k]||v>bounds.max[k]))continue;
    const winding=shellSolidAngleAt(mesh,indicesByShell[j],point);
-   if(Math.abs(winding)>0.5)depths[i]++;
+   if(Math.abs(winding)>0.5){depths[i]++;containers[i].push(j);}
   }
   const shouldBePositive=depths[i]%2===0;
   if((shells[i].signedVolume>0)!==shouldBePositive)
    throw Error('Orientación de cascarón incorrecta: sólidos anidados y cavidades');
  }
- return depths;
+ // The direct parent is the unique enclosing shell one nesting level up.
+ // Retain the original depth/parity validation and reject ambiguous trees.
+ const parents=containers.map((outer,i)=>{
+  if(!outer.length)return -1;
+  const direct=outer.filter(index=>depths[index]===depths[i]-1);
+  if(direct.length!==1)throw Error('Anidamiento de cascarones ambiguo');
+  return direct[0];
+ });
+ return {depths,parents};
 }
 
 function inspectMeshTopology(mesh){
@@ -933,7 +942,7 @@ function inspectMeshTopology(mesh){
  const signedVolume=shells.reduce((sum,sh)=>sum+sh.signedVolume,0);
  if(!(signedVolume>1e-8))throw Error('Malla vacía o invertida');
  const intersections=inspectMeshSelfIntersections(mesh,faceShells);
- const nestingDepths=validateShellNesting(mesh,shells,indicesByShell);
+ const {depths:nestingDepths,parents:nestingParents}=validateShellNesting(mesh,shells,indicesByShell);
  // A closed, orientable shell has Euler characteristic 2 - 2g.
  // Counting each connected component separately distinguishes a cavity
  // (another genus-0 shell) from a through-hole (genus-1 shell).
@@ -956,13 +965,13 @@ function inspectMeshTopology(mesh){
  // Per-shell traceability for 2D→3D and CSG diagnostics. Volumes are signed:
  // negative cavity shells subtract material; positive nested islands add it.
  const shellDiagnostics=shells.map((part,index)=>({
-  index,depth:nestingDepths[index],role:nestingDepths[index]%2?'cavity':'material',
+  index,parent:nestingParents[index],depth:nestingDepths[index],role:nestingDepths[index]%2?'cavity':'material',
   triangles:part.triangles,signedVolume:part.signedVolume,
   euler:shellGenus[index].euler,genus:shellGenus[index].genus
  }));
  return {vertices:mesh.v.length,edges:edges.size,triangles:mesh.faces.length,
   shells:shells.length,cavities:shells.filter(sh=>sh.signedVolume<0).length,
-  nestingDepths,shellGenus,shellDiagnostics,
+  nestingDepths,nestingParents,shellGenus,shellDiagnostics,
   materialComponents:nestingDepths.filter(depth=>depth%2===0).length,
   euler:mesh.v.length-edges.size+mesh.faces.length,signedVolume,
   intersectionCandidates:intersections.candidatePairs,intersectionPairs:intersections.intersectionPairs,
