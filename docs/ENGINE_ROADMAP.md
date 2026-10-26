@@ -79,6 +79,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 | C2 | Manipuladores táctiles, selección precisa, ViewCube y gestos | Parcial | Funcionamiento contrastado en Nothing Phone 2a, sin interferencias con la cámara |
 | C3 | Guardado seguro y recuperación de sesión | Parcial | Autosalvado y restauración tras cierre forzado sin archivos corruptos |
 
+**A3/C3 — traslaciones seguras:** mover por campos XYZ, gestos, deshacer/rehacer y duplicar piezas comprueba las coordenadas **de todos los vértices trasladados**, no solo el vector de desplazamiento. Una operación que desborde ±100 millones de mm se rechaza antes de modificar la escena; en movimientos confirmados se vuelve a comprobar la topología. Durante el arrastre se aplica una comprobación rápida y la validación completa se realiza al soltar para evitar bloquear la interfaz. Las pruebas cubren fuentes, resultados CSG, límite exacto y conservación de historial/IDs.
+
 **C3/A3 — construcción transaccional de piezas:** «Nueva pieza» y «Duplicar pieza» validan el desplazamiento y el ID antes de cambiar listas u ocupar identificadores. Si las coordenadas alcanzan el límite permitido, la operación falla sin alterar el proyecto ni perder la secuencia de IDs. Incluye regresión de los límites de ±100 millones de mm.
 
 **C3 — importación sin efectos secundarios:** un JSON inválido o una geometría rechazada no cancela el arrastre táctil de una cara que está en curso ni cambia la escena. La vista previa solo se cancela al confirmar que el proyecto entrante supera todas las validaciones, antes de reemplazar el modelo. Incluye regresiones de sintaxis, perfil inválido y carga válida.

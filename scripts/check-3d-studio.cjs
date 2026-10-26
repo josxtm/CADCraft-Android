@@ -976,4 +976,26 @@ for(const item of dxfCases){
 assert.equal(evaluate("parseDxfProfile("+JSON.stringify(dxSquare()+'\n0\nEOF')+").length"),4,'DXF with correct 90 vertex declaration remains supported');
 assert.equal(evaluate("(()=>{try{parseDxfProfile('x'.repeat(2000001));return false}catch(e){return e.message.includes('grande')}})()"),true,'DXF size is capped before parsing');
 
+
+/* A3/C3: all interactive translations obey world-coordinate/topology limits
+ * before commit, including derived meshes, duplication, touch and undo. */
+const placementSafety=evaluate("(()=>{const rect=[[0,0],[10,0],[10,10],[0,10]],p={format:'cadcraft-android-3d',version:1,profile:rect,height:10};loadProjectText(JSON.stringify(p));const original=serializeProject(),history=moveHistory.length;let rejected=false,error='';try{moveActiveSolid(99999995,0,0)}catch(e){rejected=true;error=e.message}const untouched=serializeProject()===original&&moveHistory.length===history;const boundary=moveActiveSolid(99999990,0,0),onBoundary=inspectMeshTopology(offsetMesh(model,activeOffset)).signedVolume;const beforeCopy=serializeProject(),nextId=nextSolidId,copy=duplicateSceneSolid(),create=createSceneSolid(),noPartial=serializeProject()===beforeCopy&&nextSolidId===nextId;moveActiveSolid(0,0,0);duplicateSceneSolid();const derivedId=addBooleanToScene('union'),derived=selectedDerived(),beforeDerived=JSON.stringify(derived.offset);let derivedRejected=false;try{moveActiveSolid(99999995,0,0)}catch(e){derivedRejected=true}let gestureRejected=false;try{updateOffsetById(derivedId,[99999995,0,0],false)}catch(e){gestureRejected=true}const derivedSafe=JSON.stringify(derived.offset)===beforeDerived;for(const [id,v] of [['offsetX','99999900'],['offsetY','0'],['offsetZ','0']])document.getElementById(id).value=v;const applied=applyOffset(),moved=derived.offset[0],undone=undoMove(),undoneAt=derived.offset[0],redone=redoMove(),redoneAt=derived.offset[0];return {rejected,error,untouched,boundary,onBoundary,copy,create,noPartial,derivedRejected,gestureRejected,derivedSafe,applied,moved,undone,undoneAt,redone,redoneAt}})()");
+assert.equal(placementSafety.rejected,true,'moving source vertices past world limit is rejected');
+assert.equal(placementSafety.error.includes('límites 3D'),true,'world-space move has an actionable error');
+assert.equal(placementSafety.untouched,true,'rejected movement leaves project and history intact');
+assert.equal(placementSafety.boundary,true,'moving exactly to world boundary is allowed');
+assert.equal(Math.abs(placementSafety.onBoundary-1000)<1e-6,true,'boundary move retains topology and volume');
+assert.equal(placementSafety.copy,false,'duplicate checks every translated vertex, not only offset');
+assert.equal(placementSafety.create,false,'new piece checks translated vertices before commit');
+assert.equal(placementSafety.noPartial,true,'failed create/duplicate do not consume IDs or change scene');
+assert.equal(Number.isInteger(placementSafety.moved),true,'moved derived offset is finite');
+assert.equal(placementSafety.derivedRejected,true,'derived CSG result cannot move outside world');
+assert.equal(placementSafety.gestureRejected,true,'touch translation rejects out-of-range world coordinates');
+assert.equal(placementSafety.derivedSafe,true,'rejected derived movement keeps its offset');
+assert.equal(placementSafety.applied,true,'valid derived movement through toolbar still works');
+assert.equal(placementSafety.undone,true,'valid derived move can be undone');
+assert.equal(placementSafety.undoneAt,0,'undo restores previous derived offset');
+assert.equal(placementSafety.redone,true,'valid derived move can be redone');
+assert.equal(placementSafety.redoneAt,99999900,'redo reapplies valid world-space derived offset');
+
 console.log('3D studio tests passed');

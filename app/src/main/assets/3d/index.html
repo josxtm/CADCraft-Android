@@ -74,6 +74,21 @@ function validateOffset(value){
  if(!Array.isArray(value)||value.length!==3||!value.every(n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<=1e8))throw Error('Desplazamiento 3D no válido');
  return value.slice();
 }
+/* Translation leaves topology unchanged mathematically, but it can push
+ * vertices outside supported world coordinates or lose precision at large
+ * offsets. The cheap check is safe during pointermove; deep validation is
+ * performed on committed moves, including the end of a touch gesture. */
+function validateWorldPlacement(mesh,offset,deep=false){
+ const next=validateOffset(offset);
+ if(!mesh||!Array.isArray(mesh.v)||!mesh.v.length)throw Error('Malla de pieza no válida');
+ for(const p of mesh.v){
+  if(!Array.isArray(p)||p.length!==3||
+     p.some((v,i)=>typeof v!=='number'||!Number.isFinite(v+next[i])||Math.abs(v+next[i])>1e8))
+   throw Error('Pieza fuera de límites 3D (±100 millones mm)');
+ }
+ if(deep)inspectMeshTopology(offsetMesh(mesh,next));
+ return next;
+}
 function createSceneSolid(){
  if(!model||storedSolids.length+derivedSolids.length>=23){setStatus('Límite de 24 piezas');return false;}
  try{
@@ -82,7 +97,7 @@ function createSceneSolid(){
   const newProfile=[[0,0],[100,0],[100,60],[0,60]];
   const next=extrude(newProfile,25);
   const farthestX=Math.max(...allSceneMeshes().flatMap(item=>item.v.map(p=>p[0])));
-  const candidateOffset=validateOffset([farthestX+20,0,0]);
+  const candidateOffset=validateWorldPlacement(next,[farthestX+20,0,0],true);
   const previous=captureActiveSolid();
   storedSolids.push(previous);invalidateSceneContacts();
   activeSolidId=nextSolidId++;selectedDerivedId=null;activeOffset=candidateOffset;
@@ -98,8 +113,8 @@ function duplicateSceneSolid(){
   if(!Number.isSafeInteger(nextSolidId)||nextSolidId<1)throw Error('ID de pieza no válido');
   const xs=model.v.map(p=>p[0]),width=Math.max(...xs)-Math.min(...xs);
   const copy=captureActiveSolid();
-  const offset=validateOffset([activeOffset[0]+width+20,activeOffset[1],activeOffset[2]]);
   const mesh=extrude(copy.profile,copy.height);
+  const offset=validateWorldPlacement(mesh,[activeOffset[0]+width+20,activeOffset[1],activeOffset[2]],true);
   copy.id=nextSolidId;copy.offset=offset;copy.mesh=mesh;
   storedSolids.push(copy);nextSolidId++;
   selectedDerivedId=null;syncOffsetFields();invalidateSceneContacts();
@@ -136,9 +151,8 @@ function invalidateSceneContacts(){
 }
 function selectedDerived(){return derivedSolids.find(item=>item.id===selectedDerivedId)||null;}
 function moveActiveSolid(x,y,z){
- const candidate=validateOffset([x,y,z]);
- const derived=selectedDerived();if(derived)derived.offset=candidate;else activeOffset=candidate;
- invalidateSceneContacts();render();return true;
+ updateOffsetById(selectedDerivedId||activeSolidId,[x,y,z]);
+ return true;
 }
 function syncOffsetFields(){
  for(let i=0;i<3;i++){
@@ -164,9 +178,14 @@ function recordById(id){
 function offsetById(id){
  const rec=recordById(id);return rec?rec.offset.slice():null;
 }
-function updateOffsetById(id,offset){
- const next=validateOffset(offset);
+function meshById(id){
+ if(id===activeSolidId)return model;
+ const item=derivedSolids.find(r=>r.id===id)||storedSolids.find(r=>r.id===id);
+ return item?(item.mesh||extrude(item.profile,item.height)):null;
+}
+function updateOffsetById(id,offset,deep=true){
  const rec=recordById(id);if(!rec)throw Error('La pieza ha sido eliminada');
+ const next=validateWorldPlacement(meshById(id),offset,deep);
  if(rec.kind==='active')activeOffset=next;
  else rec.offset=next;
  invalidateSceneContacts();syncOffsetFields();render();return next;
@@ -224,7 +243,7 @@ function updateMoveGesture(pointerId,x,y,axis,snap,sensitivity=1){
   const target=v+delta[i];
   return snap>0&&delta[i]!==0?Math.round(target/snap)*snap:target;
  });
- updateOffsetById(g.owner,next);
+ updateOffsetById(g.owner,next,false);
  g.moved=next.some((v,i)=>Math.abs(v-g.origin[i])>1e-9);
  return true;
 }
@@ -232,8 +251,14 @@ function finishMoveGesture(pointerId,cancel=false){
  const g=moveGesture;if(!g||g.pointerId!==pointerId)return false;
  moveGesture=null;
  const last=offsetById(g.owner);
- if(cancel){if(last)updateOffsetById(g.owner,g.origin);setStatus('Movimiento cancelado');return false;}
+ if(cancel){if(last)updateOffsetById(g.owner,g.origin,false);setStatus('Movimiento cancelado');return false;}
  if(!last)return false;
+ try{validateWorldPlacement(meshById(g.owner),last,true);}
+ catch(e){
+  updateOffsetById(g.owner,g.origin,false);
+  setStatus('Movimiento rechazado: '+e.message);
+  return false;
+ }
  const recorded=saveMoveHistory(g.owner,g.origin,last);
  if(recorded)setStatus('Pieza '+g.owner+' movida · '+displacementDisplay(g)+' · deshacer disponible');
  return recorded;
@@ -1279,7 +1304,7 @@ function duplicateDerivedSolid(){
   // Copy must validate without mutating either the original or the ID
   // counter. Failed mesh validation must not leave a partial scene.
   const mesh=validateDerivedMesh(item.mesh);
-  const offset=validateOffset([item.offset[0]+20,item.offset[1],item.offset[2]]);
+  const offset=validateWorldPlacement(mesh,[item.offset[0]+20,item.offset[1],item.offset[2]],true);
   const copy={id:nextSolidId,mode:item.mode,parents:item.parents.slice(),
    sourceFingerprints:item.sourceFingerprints?item.sourceFingerprints.slice():null,
    offset,mesh};
