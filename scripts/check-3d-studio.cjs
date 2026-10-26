@@ -760,4 +760,21 @@ assert.equal(safeSave.invalidMessage.includes('Guardar:')&&safeSave.invalidMessa
 assert.equal(safeSave.repaired,true,'repaired scene saves successfully');
 assert.equal(safeSave.after,safeSave.snapshot,'save validator does not mutate project or provenance');
 
+
+/* B3: never orphan dependent booleans when deleting their source extrusions. */
+const deletionSafety=evaluate("(()=>{const p={format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10};loadProjectText(JSON.stringify(p));duplicateSceneSolid();const id=addBooleanToScene('union');selectExtrudedSolid();const initial=serializeProject(),historyBefore=moveHistory.length,blocked=deleteSceneSolid(),unchanged=serializeProject()===initial,warning=status.textContent.includes('usada por resultado'),deps=dependentBooleanIds(activeSolidId),otherDeps=dependentBooleanIds(storedSolids[0].id);cycleSceneSolid();const blockedOther=deleteSceneSolid(),unchangedOther=derivedSolids.length===1&&storedSolids.length===1;cycleDerivedSolid();const removed=deleteDerivedSolid();const free=dependentBooleanIds(activeSolidId),deleted=deleteSceneSolid(),remaining=storedSolids.length,active=activeSolidId;return {id,blocked,unchanged,warning,deps,otherDeps,blockedOther,unchangedOther,removed,free,deleted,remaining,active,historyIntact:historyBefore===0}})()");
+assert.equal(Number.isInteger(deletionSafety.id),true,'CSG result created for source deletion safety');
+assert.equal(deletionSafety.blocked,false,'deleting a referenced source is refused');
+assert.equal(deletionSafety.unchanged,true,'rejected source deletion does not mutate project');
+assert.equal(deletionSafety.warning,true,'user sees dependent result IDs');
+assert.equal(deletionSafety.deps.includes(deletionSafety.id),true,'active parent appears in dependency report');
+assert.equal(deletionSafety.otherDeps.includes(deletionSafety.id),true,'stored parent appears in dependency report');
+assert.equal(deletionSafety.blockedOther,false,'second CSG source is protected after changing active piece');
+assert.equal(deletionSafety.unchangedOther,true,'refused deletion retains all objects');
+assert.equal(deletionSafety.removed,true,'dependent result may be deleted explicitly');
+assert.equal(deletionSafety.free.length,0,'source is free after removing last dependent result');
+assert.equal(deletionSafety.deleted,true,'free source can then be deleted');
+assert.equal(deletionSafety.remaining,0,'scene has exactly one extrusion after deletion');
+assert.equal(deletionSafety.historyIntact,true,'source deletion guard preserves movement history');
+
 console.log('3D studio tests passed');

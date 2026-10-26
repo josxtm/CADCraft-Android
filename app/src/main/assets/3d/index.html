@@ -105,9 +105,20 @@ function cycleSceneSolid(){
  const next=storedSolids.shift();storedSolids.push(current);
  restoreActiveSolid(next);selectedDerivedId=null;invalidateSceneContacts();fit();setStatus('Pieza activa '+activeSolidId);return true;
 }
+function dependentBooleanIds(sourceId){
+ return derivedSolids.filter(item=>item.parents.includes(sourceId)).map(item=>item.id);
+}
 function deleteSceneSolid(){
  if(selectedDerived()){setStatus('Pulsa Eliminar resultado para borrar la malla booleana');return false;}
  if(!storedSolids.length){setStatus('Debe quedar al menos una pieza');return false;}
+ // Do not create orphaned boolean results by deleting their extrusion.
+ // This is a read-only check: all scene state and undo stacks stay intact.
+ const usedBy=dependentBooleanIds(activeSolidId);
+ if(usedBy.length){
+  setStatus('Pieza '+activeSolidId+' usada por resultado(s) '+usedBy.join(', ')+
+   ' · elimina primero esos resultados');
+  return false;
+ }
  const next=storedSolids.pop();moveHistory=[];moveRedoHistory=[];restoreActiveSolid(next);selectedDerivedId=null;invalidateSceneContacts();
  fit();setStatus('Pieza eliminada · '+(storedSolids.length+1)+' restantes');return true;
 }
