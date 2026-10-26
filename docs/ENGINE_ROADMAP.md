@@ -134,6 +134,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **A1/A5 — cascarones y túneles en el núcleo Rust (26-10-2026):** sobre las mallas cuya clausura, orientación y abanico de vértices pasan las verificaciones nuevas, `inspect_closed_mesh` cuenta componentes de superficie conectados por aristas (`shells`) y género topológico (`genus`) mediante la característica de Euler. Se añadieron casos de dos prismas separados (dos cascarones, género cero) y un toro triangulado (un cascarón, género uno). El diagnóstico no implica que se detecten todas las superficies intersectantes ni que exista modelado paramétrico de agujeros en Android; sigue siendo un núcleo experimental.
 
+**B3/C2 — selección por superficie proyectada en el prototipo Rust (26-10-2026):** `PreviewState::pick_face_at(x,y)` y `pick_solid_at(x,y)` seleccionan el triángulo visible más cercano entre piezas independientes a partir de coordenadas ortográficas de cámara (antes de escalar a píxeles). La información devuelta incluye ID de pieza, índice de cara, profundidad y coordenadas 3D mundiales con desplazamiento XYZ. Se incluyen pruebas con dos cubos superpuestos en Z, traslación XY de uno, puntos fuera de malla y valores no finitos. **No es todavía selección táctil Android ni raycasting en perspectiva**: el adaptador Rust permanece sin conexión a la interfaz WebView.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.

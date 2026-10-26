@@ -34,6 +34,16 @@ pub struct SolidMeasurements {
     pub bounds_max:Vec3,
 }
 
+/// Face hit in the orthographic camera plane. World coordinates include the
+/// source solid's independent translation. Smaller depth is closer to the eye.
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub struct FaceHit {
+    pub solid_id:u64,
+    pub face_index:usize,
+    pub world_point:Vec3,
+    pub depth:f64,
+}
+
 #[derive(Clone,Debug)]
 pub struct PreviewState {
     pub camera:Camera,
@@ -270,6 +280,49 @@ impl PreviewState {
         let (right,up,forward)=self.camera.basis();
         let delta=point-self.camera.target;
         (delta.dot(right),delta.dot(up),delta.dot(forward))
+    }
+    /// Hit-test independent mesh triangles using orthographic camera-space
+    /// coordinates (NOT viewport pixels). The UI must first undo its screen
+    /// scale/centre transform. The closest visible triangle wins across solids.
+    /// This does not mutate the camera or any 3D geometry. Triangles projected
+    /// to zero area are ignored; edge/vertex hits have a small tolerance.
+    pub fn pick_face_at(&self,sx:f64,sy:f64)->Option<FaceHit> {
+        if !sx.is_finite()||!sy.is_finite(){return None}
+        let mut best:Option<FaceHit>=None;
+        for solid in &self.solids {
+            for (face_index,triangle) in solid.mesh.triangles.iter().enumerate() {
+                let coords=triangle.map(|index|{
+                    let local=solid.mesh.vertices.get(index as usize)?;
+                    let p=*local+solid.offset;
+                    if !p.x.is_finite()||!p.y.is_finite()||!p.z.is_finite() {
+                        return None
+                    }
+                    let projected=self.project(p);
+                    Some((p,projected))
+                });
+                let [Some((a,pa)),Some((b,pb)),Some((c,pc))]=coords else {continue};
+                let det=(pb.0-pa.0)*(pc.1-pa.1)-(pb.1-pa.1)*(pc.0-pa.0);
+                if !det.is_finite()||det.abs()<=1e-12 {continue}
+                let w_b=((sx-pa.0)*(pc.1-pa.1)-(sy-pa.1)*(pc.0-pa.0))/det;
+                let w_c=((pb.0-pa.0)*(sy-pa.1)-(pb.1-pa.1)*(sx-pa.0))/det;
+                let w_a=1.0-w_b-w_c;
+                if w_a< -1e-9||w_b< -1e-9||w_c< -1e-9{continue}
+                let depth=pa.2*w_a+pb.2*w_b+pc.2*w_c;
+                if !depth.is_finite(){continue}
+                if best.as_ref().is_none_or(|previous|depth<previous.depth-1e-9) {
+                    best=Some(FaceHit {
+                        solid_id:solid.id,
+                        face_index,
+                        world_point:a*w_a+b*w_b+c*w_c,
+                        depth,
+                    });
+                }
+            }
+        }
+        best
+    }
+    pub fn pick_solid_at(&self,sx:f64,sy:f64)->Option<u64> {
+        self.pick_face_at(sx,sy).map(|hit|hit.solid_id)
     }
     /// A visible bounds estimate to frame current 3D solids.
     pub fn frame_solids(&mut self){
@@ -657,6 +710,37 @@ mod tests{
         assert_eq!(preview.next_id,previous.next_id);
     }
 
+    #[test]fn orthographic_face_picker_prefers_frontmost_mesh_and_world_coordinates() {
+        let mut preview=PreviewState::default();
+        let outline=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                         Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        preview.select_profile_checked(44,outline).unwrap();
+        assert_eq!(preview.extrude_selected(10.0),Ok(1));
+        assert_eq!(preview.duplicate_solid(1,Vec3::new(0.0,0.0,20.0)),Ok(2));
+        preview.view(View::Top);
+        let camera=preview.camera;
+        let original=preview.solids.clone();
+        let (sx,sy,_)=preview.project(Vec3::new(3.0,6.0,30.0));
+        let front=preview.pick_face_at(sx,sy).expect("overlap produces a hit");
+        assert_eq!(front.solid_id,2);
+        assert!((front.world_point.x-3.0).abs()<1e-8);
+        assert!((front.world_point.y-6.0).abs()<1e-8);
+        assert!((front.world_point.z-30.0).abs()<1e-8);
+        assert_eq!(preview.pick_solid_at(sx,sy),Some(2));
+        assert_eq!(preview.pick_face_at(f64::NAN,sy),None);
+        assert_eq!(preview.pick_solid_at(5000.0,5000.0),None);
+        assert_eq!(preview.solids,original);
+        assert_eq!(preview.camera,camera);
+        preview.set_solid_offset(2,Vec3::new(30.0,0.0,20.0)).unwrap();
+        let near=preview.pick_face_at(sx,sy).expect("uncovered first solid");
+        assert_eq!(near.solid_id,1);
+        assert!((near.world_point.z-10.0).abs()<1e-8);
+        let (tx,ty,_)=preview.project(Vec3::new(33.0,6.0,30.0));
+        let moved=preview.pick_face_at(tx,ty).expect("translated second solid");
+        assert_eq!(moved.solid_id,2);
+        assert!((moved.world_point.x-33.0).abs()<1e-8);
+        assert!((moved.world_point.z-30.0).abs()<1e-8);
+    }
     #[test]fn measured_solids_report_world_bounds_and_local_stable_volume() {
         let mut state=PreviewState::default();
         let rectangle=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
