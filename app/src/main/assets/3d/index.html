@@ -922,12 +922,15 @@ function inspectMeshTopology(mesh){
  const visited=new Set(),shells=[],indicesByShell=[],faceShells=new Array(mesh.faces.length);
  for(let start=0;start<mesh.faces.length;start++){
   if(visited.has(start))continue;
-  const queue=[start];visited.add(start);let shellVolume=0;
+  const queue=[start];visited.add(start);let shellVolume=0,shellArea=0;
   const shellOrigin=mesh.v[mesh.faces[start][0]];
   const shellIndex=shells.length;
   for(let q=0;q<queue.length;q++){
    const index=queue[q],face=mesh.faces[index];faceShells[index]=shellIndex;
    const [a,b,c]=face.map(i=>mesh.v[i].map((v,k)=>v-shellOrigin[k]));
+   // Edge differences preserve small face areas at large world offsets.
+   const ab=b.map((v,k)=>v-a[k]),ac=c.map((v,k)=>v-a[k]);
+   shellArea+=Math.hypot(ab[1]*ac[2]-ab[2]*ac[1],ab[2]*ac[0]-ab[0]*ac[2],ab[0]*ac[1]-ab[1]*ac[0])/2;
    shellVolume+=(a[0]*(b[1]*c[2]-b[2]*c[1])+
     a[1]*(b[2]*c[0]-b[0]*c[2])+
     a[2]*(b[0]*c[1]-b[1]*c[0]))/6;
@@ -935,11 +938,14 @@ function inspectMeshTopology(mesh){
     visited.add(adjacent);queue.push(adjacent);
    }
   }
+  if(!Number.isFinite(shellArea)||!(shellArea>0))throw Error('Área de cascarón inválida');
   if(!Number.isFinite(shellVolume)||Math.abs(shellVolume)<=1e-8)throw Error('Superficie cerrada sin volumen útil');
-  shells.push({triangles:queue.length,signedVolume:shellVolume});
+  shells.push({triangles:queue.length,signedVolume:shellVolume,surfaceArea:shellArea});
   indicesByShell.push(queue);
  }
  const signedVolume=shells.reduce((sum,sh)=>sum+sh.signedVolume,0);
+ const surfaceArea=shells.reduce((sum,sh)=>sum+sh.surfaceArea,0);
+ if(!Number.isFinite(surfaceArea))throw Error('Área total de malla inválida');
  if(!(signedVolume>1e-8))throw Error('Malla vacía o invertida');
  const intersections=inspectMeshSelfIntersections(mesh,faceShells);
  const {depths:nestingDepths,parents:nestingParents}=validateShellNesting(mesh,shells,indicesByShell);
@@ -966,14 +972,14 @@ function inspectMeshTopology(mesh){
  // negative cavity shells subtract material; positive nested islands add it.
  const shellDiagnostics=shells.map((part,index)=>({
   index,parent:nestingParents[index],depth:nestingDepths[index],role:nestingDepths[index]%2?'cavity':'material',
-  triangles:part.triangles,signedVolume:part.signedVolume,
+  triangles:part.triangles,signedVolume:part.signedVolume,surfaceArea:part.surfaceArea,
   euler:shellGenus[index].euler,genus:shellGenus[index].genus
  }));
  return {vertices:mesh.v.length,edges:edges.size,triangles:mesh.faces.length,
   shells:shells.length,cavities:shells.filter(sh=>sh.signedVolume<0).length,
   nestingDepths,nestingParents,shellGenus,shellDiagnostics,
   materialComponents:nestingDepths.filter(depth=>depth%2===0).length,
-  euler:mesh.v.length-edges.size+mesh.faces.length,signedVolume,
+  euler:mesh.v.length-edges.size+mesh.faces.length,signedVolume,surfaceArea,
   intersectionCandidates:intersections.candidatePairs,intersectionPairs:intersections.intersectionPairs,
   bounds};
 }

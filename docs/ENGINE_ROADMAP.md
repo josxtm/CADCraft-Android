@@ -48,6 +48,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **A1 — tres niveles de anidamiento (26-10-2026):** el diagnóstico expone `materialComponents` (cascarones de profundidad par: sólido exterior e islas de material dentro de cavidades). Se añaden regresiones de tres cascarones anidados (+ exterior, − cavidad, + isla), profundidad `[0, 1, 2]`, volumen neto de 920 mm³ y rechazo de una isla con orientación invertida. Es un contador topológico de componentes materiales, no una validación B-Rep general ni una nueva operación de modelado. No se genera APK en este incremento.
 
+**A1/A5 — área superficial por cascarón (26-10-2026):** `inspectMeshTopology` añade `surfaceArea` (mm²) tanto al diagnóstico global como a cada elemento de `shellDiagnostics`, calculada con diferencias locales de aristas para evitar cancelación con coordenadas alejadas del origen. La superficie interior de una cavidad **suma área** aunque reste volumen; las islas también suman. Regresiones: cubo de 10 mm (600 mm²), cavidad cúbica de 6 mm (816 mm² total), isla anidada (840 mm² total) y sólidos/cavidades desplazados hasta 90 millones de mm. Es un diagnóstico del contorno triangulado, no una representación B-Rep ni una medida de volumen material. Sin APK.
+
 ## Bloque B — Modelado CAD
 
 | Paso | Capacidad | Estado | Criterio de aceptación |
