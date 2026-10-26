@@ -676,6 +676,15 @@ function trianglePierces3D(edgeTriangle,target,targetNormal,epsilon,inclusive=fa
    if(Math.abs(da)<=epsilon&&Math.abs(db)<=epsilon){
     if(triangleStrictInterior3D(a,target,targetNormal,epsilon,true)||
        triangleStrictInterior3D(b,target,targetNormal,epsilon,true))return true;
+    // Both endpoints can lie outside while the entire coplanar edge
+    // crosses the interior of a target triangle. Endpoint-only tests
+    // missed this tangential contact between noncoplanar triangles.
+    const axis=targetNormal.map(Math.abs).indexOf(Math.max(...targetNormal.map(Math.abs)));
+    const segment=projectTriangle2D([a,b,a],axis);
+    const projected=projectTriangle2D(target,axis);
+    for(let edge=0;edge<3;edge++)
+     if(segmentContact(segment[0],segment[1],projected[edge],projected[(edge+1)%3]))
+      return true;
     continue;
    }
   }else if(!((da>epsilon&&db< -epsilon)||(da< -epsilon&&db>epsilon)))continue;

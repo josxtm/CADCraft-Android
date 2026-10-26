@@ -33,6 +33,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **Mejora A3 adicional:** área 2D, triangulación de bocetos, volumen y recorte de contornos usan productos relativos al origen local para evitar cancelaciones cuando las coordenadas absolutas están a ±90 millones de mm. La detección de contacto emplea además tolerancias por pareja de triángulos, no el tamaño de toda la escena, para no confundir huecos pequeños con intersecciones cuando hay otras piezas a gran distancia. Se añadieron 10 regresiones JavaScript de perfiles cóncavos remotos, cotas, intersección y volúmenes; el núcleo de prototipo Rust tiene regresiones equivalentes, sin afirmar que ya sea el motor del APK.
 
+**Avance A2:** detección de aristas coplanares que atraviesan una cara no coplanar aunque sus dos extremos queden fuera del triángulo. Se comprueban también contactos simétricos y separaciones sin contacto. Este control no elimina las restantes limitaciones de robustez geométrica.
+
 **Siguiente secuencia:** profundizar en contactos tangenciales, robustez de intersección coplanar, tolerancias numéricas y validación cruzada con mallas grandes antes de proponer booleanas generales.
 
 ## Bloque B — Modelado CAD

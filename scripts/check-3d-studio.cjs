@@ -638,6 +638,16 @@ assert.equal(boundaryTouch.vertical,true,'inclusive predicate detects noncoplana
 assert.equal(boundaryTouch.detectedWithoutShellDifference,true,'broad-phase catches disjoint-index point contact even within one labelled shell');
 
 
+
+/* A2: a coplanar EDGE of a tilted triangle can cut through a noncoplanar
+ * triangle, with both of its endpoints outside. This is still a contact. */
+const tiltedEdgeContacts=evaluate("(()=>{const flat=[[0,0,0],[10,0,0],[0,10,0]],cross=[[-2,3,0],[9,3,0],[-2,3,4]],far=[[-2,12,0],[9,12,0],[-2,12,4]],point=[[-2,3,0],[0,3,0],[-2,3,4]];return {cut:triangleSurfaceIntersection3D(flat,cross,1e-8,true),cutReverse:triangleSurfaceIntersection3D(cross,flat,1e-8,true),strict:triangleSurfaceIntersection3D(flat,cross,1e-8,false),far:triangleSurfaceIntersection3D(flat,far,1e-8,true),tip:triangleSurfaceIntersection3D(flat,point,1e-8,true)}})()");
+assert.equal(tiltedEdgeContacts.cut,true,'inclusive crossing of noncoplanar triangle by a coplanar edge is detected');
+assert.equal(tiltedEdgeContacts.cutReverse,true,'crossing test is symmetric');
+assert.equal(tiltedEdgeContacts.strict,false,'pure boundary touch is not a proper-area piercing');
+assert.equal(tiltedEdgeContacts.far,false,'distant coplanar edge is not a false contact');
+assert.equal(tiltedEdgeContacts.tip,true,'touching at triangle boundary is detected');
+
 // A3: distant third shell must not expand tolerance between two almost-touching cubes.
 const localPrecision=evaluate("(()=>{const sq=[[0,0],[10,0],[10,10],[0,10]],box=extrude(sq,10),copy=(dx,dy,dz)=>({v:box.v.map(p=>p.map((v,i)=>v+[dx,dy,dz][i])),faces:box.faces.map(f=>f.slice())}),join=(...meshes)=>{const out={v:[],faces:[]};for(const m of meshes){const base=out.v.length;out.v.push(...m.v);out.faces.push(...m.faces.map(f=>f.map(i=>i+base)))}return out},clear=join(box,copy(10.0005,0,0),copy(9e7,0,0)),touch=join(box,copy(10,0,0),copy(9e7,0,0)),nearPair=inspectMeshSelfIntersections(clear),ok=inspectMeshTopology(clear);let rejectedTouch=false;try{inspectMeshTopology(touch)}catch(e){rejectedTouch=true}return {shells:ok.shells,volume:ok.signedVolume,sweepEpsilon:nearPair.epsilon,rejectedTouch}})()");
 assert.equal(localPrecision.shells,3,'three disconnected shells with 0.0005 mm air gap remain separate');
