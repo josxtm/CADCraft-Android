@@ -1682,18 +1682,40 @@ function toggleGeometryMode(kind){
  return kind;
 }
 
+/* Screen picking must compare each triangle's interpolated depth AT the tap,
+ * not the mean of its vertices. A sloped face can pass behind another surface
+ * even if its mean depth is greater. Orthographic projection is affine, so
+ * barycentric weights apply equally to Z in the projected camera frame.
+ * This helper is pure and accepts projected [screenX,screenY,cameraZ] vertices.
+ */
+function frontmostProjectedFace(px,py,projected,faces,owners=null,onlyOwner=null){
+ if(!Number.isFinite(px)||!Number.isFinite(py))return -1;
+ let result=-1,bestDepth=-Infinity;
+ for(let index=0;index<faces.length;index++){
+  if(onlyOwner!==null&&owners[index]!==onlyOwner)continue;
+  const face=faces[index],a=projected[face[0]],b=projected[face[1]],c=projected[face[2]];
+  if(!a||!b||!c)continue;
+  const x1=b[0]-a[0],y1=b[1]-a[1],x2=c[0]-a[0],y2=c[1]-a[1];
+  const den=x1*y2-y1*x2;
+  if(!Number.isFinite(den)||Math.abs(den)<1e-9)continue;
+  const vx=px-a[0],vy=py-a[1],v=(vx*y2-vy*x2)/den,w=(x1*vy-y1*vx)/den,u=1-v-w;
+  if(u< -1e-8||v< -1e-8||w< -1e-8)continue;
+  const depth=u*a[2]+v*b[2]+w*c[2];
+  if(Number.isFinite(depth)&&depth>bestDepth+1e-9){
+   bestDepth=depth;result=index;
+  }
+ }
+ return result;
+}
 function faceAtScenePoint(px,py,onlyActive=false){
  if(!model||!Number.isFinite(px)||!Number.isFinite(py))return -1;
- const scene=combinedScene(),projection=makeProjection(scene),vertices=scene.v.map(projection);
- const d=devicePixelRatio||1,scale=zoom*d,w=canvas.width,h=canvas.height;
- const to=i=>[w/2+vertices[i].x*scale,h/2-vertices[i].y*scale];
- const visible=scene.faces.map((face,index)=>({index,face,z:face.reduce((v,i)=>v+vertices[i].z,0)/3})).sort((a,b)=>b.z-a.z);
- const owner=selectedDerivedId||activeSolidId;
- for(const {index,face} of visible){
-  if(onlyActive&&scene.owners[index]!==owner)continue;
-  if(insideTriangle2D([px,py],to(face[0]),to(face[1]),to(face[2])))return index;
- }
- return -1;
+ const scene=combinedScene(),projection=makeProjection(scene),d=devicePixelRatio||1,scale=zoom*d;
+ const w=canvas.width,h=canvas.height;
+ const vertices=scene.v.map(point=>{
+  const v=projection(point);return [w/2+v.x*scale,h/2-v.y*scale,v.z];
+ });
+ return frontmostProjectedFace(px,py,vertices,scene.faces,scene.owners,
+  onlyActive?(selectedDerivedId||activeSolidId):null);
 }
 function pickFaceAt(px,py){return faceAtScenePoint(px,py,true);}
 function faceLocalIndex(scene,index){
