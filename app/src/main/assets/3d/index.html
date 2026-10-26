@@ -584,6 +584,110 @@ function separateActiveSolid(clearance=10){
  * oppositely directed faces per edge and one connected face fan per vertex.
  * Multiple separate closed shells are allowed (e.g. an internal cavity).
  * This is NOT yet a full triangle/triangle self-intersection test. */
+/* A1/A2: Broad-phase sweep and narrow-phase triangle checks.
+ * Reject definite triangle crossings or positive-area coplanar overlaps.
+ * Do not classify contact at a shared seam/T-junction as penetration:
+ * robust touching & coincident-vertex resolution is a separate milestone. */
+function triangle3DBounds(vertices){
+ const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+ for(const p of vertices)for(let k=0;k<3;k++){
+  if(p[k]<min[k])min[k]=p[k];
+  if(p[k]>max[k])max[k]=p[k];
+ }
+ return {min,max};
+}
+function triangleNormal3D(tri){
+ const u=tri[1].map((v,i)=>v-tri[0][i]),v=tri[2].map((x,i)=>x-tri[0][i]);
+ const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+ const magnitude=Math.hypot(...n);
+ if(!(magnitude>1e-12))throw Error('Triángulo degenerado para intersección');
+ return n.map(x=>x/magnitude);
+}
+function projectTriangle2D(tri,axis){
+ const indices=axis===0?[1,2]:axis===1?[0,2]:[0,1];
+ return tri.map(p=>indices.map(i=>p[i]));
+}
+function triangleStrictInterior3D(p,tri,n,epsilon){
+ const a=tri[0],b=tri[1],c=tri[2],edgeLengths=[
+  Math.hypot(...b.map((v,i)=>v-a[i])),
+  Math.hypot(...c.map((v,i)=>v-b[i])),
+  Math.hypot(...a.map((v,i)=>v-c[i]))
+ ];
+ const tol=Math.max(1e-10,epsilon*Math.max(...edgeLengths));
+ for(const [u,v] of [[a,b],[b,c],[c,a]]){
+  const e=v.map((x,i)=>x-u[i]),d=p.map((x,i)=>x-u[i]);
+  const cross=[e[1]*d[2]-e[2]*d[1],e[2]*d[0]-e[0]*d[2],e[0]*d[1]-e[1]*d[0]];
+  const sign=cross.reduce((sum,value,i)=>sum+value*n[i],0);
+  if(sign<=tol)return false;
+ }
+ return true;
+}
+function trianglePierces3D(edgeTriangle,target,targetNormal,epsilon){
+ for(let i=0;i<3;i++){
+  const a=edgeTriangle[i],b=edgeTriangle[(i+1)%3],o=target[0];
+  const da=a.reduce((sum,x,k)=>sum+(x-o[k])*targetNormal[k],0);
+  const db=b.reduce((sum,x,k)=>sum+(x-o[k])*targetNormal[k],0);
+  if(!((da>epsilon&&db< -epsilon)||(da< -epsilon&&db>epsilon)))continue;
+  const t=da/(da-db),point=a.map((x,k)=>x+(b[k]-x)*t);
+  if(triangleStrictInterior3D(point,target,targetNormal,epsilon))return true;
+ }
+ return false;
+}
+function triangleSurfaceIntersection3D(first,second,epsilon=1e-8){
+ const an=triangleNormal3D(first),bn=triangleNormal3D(second);
+ const a0=first[0],b0=second[0];
+ const da=first.map(p=>p.reduce((sum,x,i)=>sum+(x-b0[i])*bn[i],0));
+ const db=second.map(p=>p.reduce((sum,x,i)=>sum+(x-a0[i])*an[i],0));
+ if(da.every(d=>d>epsilon)||da.every(d=>d< -epsilon)||
+    db.every(d=>d>epsilon)||db.every(d=>d< -epsilon))return false;
+ if(da.every(d=>Math.abs(d)<=epsilon)&&db.every(d=>Math.abs(d)<=epsilon)){
+  const axis=an.map(Math.abs).indexOf(Math.max(...an.map(Math.abs)));
+  const pa=projectTriangle2D(first,axis),pb=projectTriangle2D(second,axis);
+  const overlap=clipConvexPolygon(pa,pb);
+  const bounds=triangle3DBounds(first.concat(second));
+  const diagonal=Math.hypot(...bounds.max.map((v,i)=>v-bounds.min[i]));
+  const tolerance=Math.max(1e-12,epsilon*epsilon,epsilon*Math.max(1,diagonal)*0.05);
+  return overlap.length>=3&&polygonArea(overlap)>tolerance;
+ }
+ return trianglePierces3D(first,second,bn,epsilon)||
+        trianglePierces3D(second,first,an,epsilon);
+}
+function inspectMeshSelfIntersections(mesh){
+ const faceCount=mesh.faces.length;
+ const triangles=mesh.faces.map(indices=>indices.map(i=>mesh.v[i]));
+ const boxes=triangles.map((points,index)=>({index,...triangle3DBounds(points)}));
+ const order=boxes.slice().sort((a,b)=>a.min[0]-b.min[0]);
+ const extent=[Infinity,Infinity,Infinity],upper=[-Infinity,-Infinity,-Infinity];
+ for(const p of mesh.v)for(let k=0;k<3;k++){
+  extent[k]=Math.min(extent[k],p[k]);upper[k]=Math.max(upper[k],p[k]);
+ }
+ const diagonal=Math.hypot(...upper.map((v,i)=>v-extent[i]));
+ const epsilon=Math.max(1e-9,diagonal*1e-11);
+ let candidates=0,checked=0;
+ // Cost guard prevents a pathological imported mesh from hanging the UI.
+ const maxCandidates=2500000;
+ for(let i=0;i<order.length;i++){
+  const a=order[i],aFace=mesh.faces[a.index];
+  for(let j=i+1;j<order.length&&order[j].min[0]<=a.max[0]+epsilon;j++){
+   const b=order[j];
+   if(a.min[1]>b.max[1]+epsilon||b.min[1]>a.max[1]+epsilon||
+      a.min[2]>b.max[2]+epsilon||b.min[2]>a.max[2]+epsilon)continue;
+   candidates++;
+   if(candidates>maxCandidates)throw Error('Malla demasiado compleja para verificar autointersecciones');
+   const bFace=mesh.faces[b.index];
+   const shared=aFace.filter(id=>bFace.includes(id)).length;
+   if(shared===3)continue; // Already rejected separately as duplicate faces.
+   // Shared edges of a valid manifold shell are allowed, unless the
+   // triangles overlap in positive area or cross away from that edge.
+   checked++;
+   if(triangleSurfaceIntersection3D(triangles[a.index],triangles[b.index],epsilon))
+    throw Error('Autointersección entre triángulos '+(a.index+1)+' y '+(b.index+1));
+  }
+ }
+ return {candidatePairs:candidates,checkedPairs:checked,epsilon,
+  intersectionPairs:0};
+}
+
 function inspectMeshTopology(mesh){
  if(!mesh||!Array.isArray(mesh.v)||!Array.isArray(mesh.faces)||
     mesh.v.length<4||mesh.v.length>8000||mesh.faces.length<4||mesh.faces.length>16000)
@@ -659,9 +763,11 @@ function inspectMeshTopology(mesh){
  }
  const signedVolume=shells.reduce((sum,sh)=>sum+sh.signedVolume,0);
  if(!(signedVolume>1e-8))throw Error('Malla vacía o invertida');
+ const intersections=inspectMeshSelfIntersections(mesh);
  return {vertices:mesh.v.length,edges:edges.size,triangles:mesh.faces.length,
   shells:shells.length,cavities:shells.filter(sh=>sh.signedVolume<0).length,
   euler:mesh.v.length-edges.size+mesh.faces.length,signedVolume,
+  intersectionCandidates:intersections.candidatePairs,intersectionPairs:intersections.intersectionPairs,
   bounds};
 }
 function validateDerivedMesh(mesh){
