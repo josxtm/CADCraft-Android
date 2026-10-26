@@ -176,6 +176,21 @@ La herramienta **Diagnóstico malla** no necesita una compilación independiente
 
 **Seguridad:** no modificar manualmente un proyecto de trabajo para fabricar datos corruptos; usar exclusivamente un archivo de pruebas separado.
 
+## Comprobaciones pendientes del bloque de autointersecciones
+
+Se incluirán **cuando se autorice una nueva APK de hito**, no durante los commits de desarrollo.
+
+| Código | Preparación y acción | Resultado esperado |
+|---|---|---|
+| I1 | Generar una unión entre dos cajas que solapan en volumen y ejecutar `Diagnóstico malla` | Geometría cerrada, volumen coherente y sin autointersección |
+| I2 | Crear dos cajas que se tocan únicamente por una arista e intentar exportar su unión OBJ | Se rechaza la unión no manifold; las piezas originales siguen intactas |
+| I3 | Unir dos cajas que comparten exactamente una cara | Debe permitir exportar un sólido cerrado sin superficie interior duplicada |
+| I4 | Crear una cavidad interior sin perforar la superficie exterior y diagnosticar el resultado | Reconoce los cascarones anidados con signos opuestos |
+| I5 | Abrir un JSON **de prueba independiente** con dos mallas cruzadas o una orientación interior incorrecta | Se muestra aviso; el proyecto que estaba abierto no cambia |
+| I6 | Guardar y volver a abrir un proyecto válido tras operaciones booleanas | Las piezas y los resultados se conservan, sin recalcular automáticamente las booleanas |
+
+Las pruebas de geometría corrupta deben hacerse solo con archivos específicos de prueba, nunca manipulando un proyecto de trabajo.
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
