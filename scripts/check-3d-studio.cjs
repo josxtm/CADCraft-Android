@@ -9,11 +9,17 @@ const file={addEventListener(){},click(){}};
 const document={
  getElementById(id){return id==='scene'?canvas:(id==='file'||id==='projectFile')?file:controls[id]},
  createElement(){return {click(){},style:{}}},
+ addEventListener(name,fn){this.listeners[name]=fn},
+ listeners:{},
+ visibilityState:'visible',
 };
-const window={addEventListener(){}};
+const window={listeners:{},addEventListener(name,fn){this.listeners[name]=fn},confirm(){return true}};
 const sessionData=new Map();
 const sessionStorage={getItem:k=>sessionData.get(k)||null,setItem:(k,v)=>sessionData.set(k,String(v)),removeItem:k=>sessionData.delete(k)};
-const context=vm.createContext({document,window,devicePixelRatio:1,Math,Number,Error,Map,Blob,URL,console,sessionStorage,setTimeout(){}});
+const recoveryData=new Map();
+let failRecoveryWrites=false;
+const localStorage={getItem:k=>recoveryData.get(k)||null,setItem(k,v){if(failRecoveryWrites)throw Error('QuotaExceededError');recoveryData.set(k,String(v))},removeItem:k=>recoveryData.delete(k)};
+const context=vm.createContext({document,window,devicePixelRatio:1,Math,Number,Error,Map,Blob,URL,console,sessionStorage,localStorage,setTimeout(){},clearTimeout(){}});
 vm.runInContext(source,context,{timeout:3000});
 function evaluate(expression){return vm.runInContext(expression,context,{timeout:3000})}
 assert.equal(evaluate('model.v.length'),8,'extrusion should have 8 vertices');
@@ -1115,5 +1121,35 @@ assert.equal(projectedDepthPicker.restrictedB,1,'only active owner returns its o
 assert.equal(projectedDepthPicker.outside,-1,'touch outside geometry returns no face');
 assert.equal(projectedDepthPicker.badX,-1,'nonfinite screen coordinates are not allowed');
 assert.equal(projectedDepthPicker.degenerate,2,'degenerate projected triangles are skipped');
+
+
+/* C3: autosave writes only validated geometry, restores full source/CSG state
+ * and preserves the previous snapshot if the next scene is malformed. */
+const recoveryTest=evaluate("(()=>{const square=[[0,0],[10,0],[10,10],[0,10]];loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:square,height:10}));moveActiveSolid(17,23,9);duplicateSceneSolid();addBooleanToScene('union');const original=serializeProject();const saved=saveRecoverySnapshot();const backup=localStorage.getItem(recoveryKey);const backupIsOriginal=backup===original;moveActiveSolid(51,24,11);const changed=serializeProject()!==original;const restored=restoreRecoverySnapshot();const equal=serializeProject()===original;const old=selectedDerived().mesh.faces.pop(),broken=saveRecoverySnapshot(),stillSaved=localStorage.getItem(recoveryKey)===backup;selectedDerived().mesh.faces.push(old);const cleared=discardRecoverySnapshot(),gone=localStorage.getItem(recoveryKey)===null,unchanged=serializeProject()===original;const unchangedSave=saveRecoverySnapshot(),notRecreated=localStorage.getItem(recoveryKey)===null;moveActiveSolid(60,20,10);const afterEdit=saveRecoverySnapshot(),recreated=localStorage.getItem(recoveryKey)===serializeProject();return {saved,backupIsOriginal,changed,restored,equal,broken,stillSaved,cleared,gone,unchanged,unchangedSave,notRecreated,afterEdit,recreated}})()");
+assert.equal(recoveryTest.saved,true,'valid 3D scene saves to local recovery');
+assert.equal(recoveryTest.backupIsOriginal,true,'backup contains complete JSON v3 without extra metadata');
+assert.equal(recoveryTest.changed,true,'subsequent move changes the live project');
+assert.equal(recoveryTest.restored,true,'backup restores scene including CSG');
+assert.equal(recoveryTest.equal,true,'restoration is exact and keeps world placements and dependencies');
+assert.equal(recoveryTest.broken,false,'broken mesh is not written to recovery');
+assert.equal(recoveryTest.stillSaved,true,'rejected snapshot leaves last known good bytes intact');
+assert.equal(recoveryTest.cleared,true,'explicit local backup removal succeeds');
+assert.equal(recoveryTest.gone,true,'backup is actually deleted');
+assert.equal(recoveryTest.unchanged,true,'deleting backup does not erase current CAD scene');
+assert.equal(recoveryTest.unchangedSave,true,'no-op autosave succeeds without storage writes');
+assert.equal(recoveryTest.notRecreated,true,'deletion is not immediately undone');
+assert.equal(recoveryTest.afterEdit,true,'next valid geometry edit can be backed up');
+assert.equal(recoveryTest.recreated,true,'backup is recreated only for changed content');
+const invalidRecovery=evaluate("(()=>{const good=serializeProject();localStorage.setItem(recoveryKey,'{bad-json');const recovered=restoreRecoverySnapshot();const stable=serializeProject()===good;const kept=localStorage.getItem(recoveryKey)==='{bad-json';return {recovered,stable,kept}})()");
+assert.equal(invalidRecovery.recovered,false,'corrupted backup is rejected');
+assert.equal(invalidRecovery.stable,true,'invalid backup cannot alter working project');
+assert.equal(invalidRecovery.kept,true,'invalid recovery bytes are retained for diagnosis');
+failRecoveryWrites=true;
+const quota=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[12,0],[12,12],[0,12]],height:12}));return saveRecoverySnapshot()})()");
+assert.equal(quota,false,'storage quota failure is contained without exception');
+failRecoveryWrites=false;
+const backgroundRecovery=evaluate("(()=>{const current=serializeProject();document.visibilityState='hidden';document.listeners.visibilitychange();const saved=localStorage.getItem(recoveryKey)===current;moveActiveSolid(2,3,4);window.listeners.pagehide();return {saved,flushed:localStorage.getItem(recoveryKey)===serializeProject()}})()");
+assert.equal(backgroundRecovery.saved,true,'backgrounding the WebView flushes recovery');
+assert.equal(backgroundRecovery.flushed,true,'navigating away flushes latest validated geometry');
 
 console.log('3D studio tests passed');
