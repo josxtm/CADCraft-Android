@@ -1224,6 +1224,9 @@ function editSelectedDerivedFace(distance){
  try{
   const {derived,index,axis}=selectedDerivedFace();
   const candidate=translateMeshPlane(derived.mesh,index,distance);
+  // Even a locally manifold edited result can exceed world XYZ limits when
+  // its own translation is near the boundary. Reject before touching undo.
+  validateWorldPlacement(candidate,derived.offset,true);
   const before=derived.mesh;
   const from=meshOrientedVolume(before),to=meshOrientedVolume(candidate);
   if(!(to>1e-8)||to>1e15)throw Error('Volumen resultante no válido');
@@ -1242,6 +1245,8 @@ function undoDerivedEdit(){
  if(faceGesture)finishFaceGesture(faceGesture.pointerId,true);
  const item=selectedDerived(),step=derivedUndo.at(-1);
  if(!item||!step||step.id!==item.id)return false;
+ try{validateWorldPlacement(step.mesh,item.offset,true);}
+ catch(e){setStatus('Deshacer cara: '+e.message);return false;}
  derivedUndo.pop();derivedRedo.push({id:item.id,mesh:item.mesh});item.mesh=step.mesh;
  invalidateSceneContacts();fit();setStatus('Edición de cara deshecha');return true;
 }
@@ -1249,6 +1254,8 @@ function redoDerivedEdit(){
  if(faceGesture)finishFaceGesture(faceGesture.pointerId,true);
  const item=selectedDerived(),step=derivedRedo.at(-1);
  if(!item||!step||step.id!==item.id)return false;
+ try{validateWorldPlacement(step.mesh,item.offset,true);}
+ catch(e){setStatus('Rehacer cara: '+e.message);return false;}
  derivedRedo.pop();derivedUndo.push({id:item.id,mesh:item.mesh});item.mesh=step.mesh;
  invalidateSceneContacts();fit();setStatus('Edición de cara rehecha');return true;
 }
@@ -1290,6 +1297,7 @@ function previewFaceGesture(pointerId,x,y,sensitivity=1,snap=0){
  }
  const candidate=translateMeshPlane(g.originalMesh,g.faceIndex,distance);
  if(!(meshOrientedVolume(candidate)>1e-8))throw Error('Volumen no válido');
+ validateWorldPlacement(candidate,original.offset,true);
  original.mesh=candidate;g.distance=distance;
  invalidateSceneContacts();render();
  setStatus('Vista previa · plano '+['X','Y','Z'][g.axis]+': '+Number(distance.toFixed(2))+' mm');
@@ -1304,6 +1312,11 @@ function finishFaceGesture(pointerId,cancel=false){
   item.mesh=g.originalMesh;invalidateSceneContacts();render();
   setStatus(cancel?'Arrastre de plano cancelado':'Plano sin cambios');
   return false;
+ }
+ try{validateWorldPlacement(item.mesh,item.offset,true);}
+ catch(e){
+  item.mesh=g.originalMesh;invalidateSceneContacts();render();
+  setStatus('Arrastre de plano rechazado: '+e.message);return false;
  }
  derivedUndo.push({id:item.id,mesh:g.originalMesh});
  if(derivedUndo.length>20)derivedUndo.shift();
@@ -1625,6 +1638,7 @@ function editSelectedGeometryFeature(direction){
   const change=direction*amount;
   const candidate=translateMeshPlane(item.mesh,plane.faceIndex,change/plane.sign);
   if(!axisAlignedCuboid(candidate))throw Error('La edición dejaría de producir un bloque ortogonal válido');
+  validateWorldPlacement(candidate,item.offset,true);
   derivedUndo.push({id:item.id,mesh:item.mesh});
   if(derivedUndo.length>20)derivedUndo.shift();
   derivedRedo=[];item.mesh=candidate;invalidateSceneContacts();render();
@@ -1688,6 +1702,7 @@ function scaleSelectedGeometryFeature(direction){
   if(!Number.isFinite(value)||value<=0||value>100000||![1,-1].includes(direction))
    throw Error('Introduce una distancia positiva y válida');
   const change=scaledFeatureMesh(item.mesh,selected,axisName,direction*value);
+  validateWorldPlacement(change.mesh,item.offset,true);
   derivedUndo.push({id:item.id,mesh:item.mesh});
   if(derivedUndo.length>20)derivedUndo.shift();
   derivedRedo=[];item.mesh=change.mesh;
