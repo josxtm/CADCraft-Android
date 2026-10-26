@@ -1,7 +1,7 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>CADCraft 3D</title>
 <style>html,body{height:100%;margin:0;background:#1c222d;color:#e7edf5;font:14px Arial,sans-serif}header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px;background:#303a49}button,input,select{background:#39485d;color:#fff;border:1px solid #647287;border-radius:7px;padding:10px;font-size:15px}button:active{background:#627895}main{position:relative;height:calc(100% - 102px)}canvas{width:100%;height:100%;display:block;touch-action:none}aside{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:7px;max-width:50%;max-height:calc(100% - 20px);overflow-y:auto;overscroll-behavior:contain}aside.collapsed{display:none}aside label{display:flex;gap:6px;align-items:center;background:#303a49e9;border-radius:6px;padding:4px}aside input{width:65px}#cube{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:repeat(3,40px);gap:3px;background:#263244d9;padding:6px;border-radius:8px}#cube button{padding:6px 0;font-size:12px}#status{position:absolute;bottom:8px;left:8px;background:#141c2dd9;padding:6px;border-radius:5px}footer{height:40px;display:flex;justify-content:space-around;align-items:center;background:#303a49;gap:6px;overflow-x:auto;padding:0 6px;box-sizing:border-box}footer button{flex-shrink:0}footer button{padding:5px 9px;font-size:13px}#sketchPanel{display:none;position:absolute;inset:4%;z-index:10;background:#202b3a;border:2px solid #7189a8;border-radius:12px;padding:10px;box-sizing:border-box;flex-direction:column;gap:8px}#sketchPanel.open{display:flex}#sketchCanvas{flex:1;min-height:80px;background:#14202e;border:1px solid #526980;touch-action:none;width:100%}#sketchPanel .toolbar{display:flex;flex-wrap:wrap;gap:6px}#sketchInfo{font-size:12px;color:#d4e0f4}</style></head>
 <body><header><button onclick="location.href='../web/index.html'">CAD 2D</button><strong>CADCraft · 3D</strong><button onclick="exportSTL()">Exportar STL</button><button onclick="exportOBJ()">Exportar OBJ</button></header>
-<main><canvas id="scene"></canvas><aside id="toolsPanel"><button onclick="toggleTools()">Ocultar herramientas</button><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">APLICAR EXTRUSIÓN</button><button onclick="changeHeight(-5)">Altura −5 mm</button><button onclick="changeHeight(5)">Altura +5 mm</button><button onclick="createSceneSolid()">Nueva pieza</button><button onclick="duplicateSceneSolid()">Duplicar pieza</button><button onclick="cycleSceneSolid()">Siguiente pieza</button><button onclick="deleteSceneSolid()">Eliminar pieza</button><label>Despl. X <input id="offsetX" type="number" value="0" step="1"></label><label>Despl. Y <input id="offsetY" type="number" value="0" step="1"></label><label>Despl. Z <input id="offsetZ" type="number" value="0" step="1"></label><button onclick="applyOffset()">Mover pieza activa</button><label>Eje al arrastrar <select id="moveAxis" aria-label="Eje de desplazamiento"><option value="XY">Plano XY</option><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label><label>Rejilla (mm) <input id="moveSnap" type="number" value="0" min="0" max="100" step="1"></label><label>Sensibilidad <input id="moveSensitivity" type="number" min="0.1" max="5" value="1" step="0.1"></label><button onclick="inspectSceneContacts()">Comprobar contactos</button><button onclick="previewBooleanVolumes()">Calcular unión/resta</button><button onclick="exportBooleanOBJ('union')">Unión OBJ · bloques</button><button onclick="exportBooleanOBJ('subtract')">Resta OBJ · bloques</button><button onclick="exportBooleanOBJ('intersect')">Intersección OBJ · bloques</button><button onclick="addBooleanToScene('union')">Añadir unión a escena</button><button onclick="addBooleanToScene('subtract')">Añadir resta a escena</button><button onclick="addBooleanToScene('intersect')">Añadir intersección a escena</button><button onclick="cycleDerivedSolid()">Seleccionar resultado</button><button onclick="selectExtrudedSolid()">Volver a extrusión</button><button onclick="duplicateDerivedSolid()">Duplicar resultado</button><button onclick="deleteDerivedSolid()">Eliminar resultado</button><label>Desplazar cara (mm) <input id="faceDistance" type="number" value="5" min="0.01" step="1"></label><label>Eje de cota <select id="featureAxis"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label><label>Cambiar cota (mm) <input id="featureDistance" type="number" value="5" min="0.01" step="1"></label><button onclick="editSelectedGeometryFeature(1)">Cota +</button><button onclick="editSelectedGeometryFeature(-1)">Cota −</button><button onclick="scaleSelectedGeometryFeature(1)">Escalar eje +</button><button onclick="scaleSelectedGeometryFeature(-1)">Escalar eje −</button><button onclick="pushPullSelectedFace(1)">Mover plano +</button><button onclick="pushPullSelectedFace(-1)">Mover plano −</button><button onclick="undoDerivedEdit()">Deshacer cara</button><button onclick="redoDerivedEdit()">Rehacer cara</button><button onclick="separateActiveSolid()">Separar pieza +10 mm</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
+<main><canvas id="scene"></canvas><aside id="toolsPanel"><button onclick="toggleTools()">Ocultar herramientas</button><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">APLICAR EXTRUSIÓN</button><button onclick="changeHeight(-5)">Altura −5 mm</button><button onclick="changeHeight(5)">Altura +5 mm</button><button onclick="createSceneSolid()">Nueva pieza</button><button onclick="duplicateSceneSolid()">Duplicar pieza</button><button onclick="cycleSceneSolid()">Siguiente pieza</button><button onclick="deleteSceneSolid()">Eliminar pieza</button><label>Despl. X <input id="offsetX" type="number" value="0" step="1"></label><label>Despl. Y <input id="offsetY" type="number" value="0" step="1"></label><label>Despl. Z <input id="offsetZ" type="number" value="0" step="1"></label><button onclick="applyOffset()">Mover pieza activa</button><label>Eje al arrastrar <select id="moveAxis" aria-label="Eje de desplazamiento"><option value="XY">Plano XY</option><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label><label>Rejilla (mm) <input id="moveSnap" type="number" value="0" min="0" max="100" step="1"></label><label>Sensibilidad <input id="moveSensitivity" type="number" min="0.1" max="5" value="1" step="0.1"></label><button onclick="inspectSceneContacts()">Comprobar contactos</button><button onclick="diagnoseSelectedMesh()">Diagnóstico malla</button><button onclick="previewBooleanVolumes()">Calcular unión/resta</button><button onclick="exportBooleanOBJ('union')">Unión OBJ · bloques</button><button onclick="exportBooleanOBJ('subtract')">Resta OBJ · bloques</button><button onclick="exportBooleanOBJ('intersect')">Intersección OBJ · bloques</button><button onclick="addBooleanToScene('union')">Añadir unión a escena</button><button onclick="addBooleanToScene('subtract')">Añadir resta a escena</button><button onclick="addBooleanToScene('intersect')">Añadir intersección a escena</button><button onclick="cycleDerivedSolid()">Seleccionar resultado</button><button onclick="selectExtrudedSolid()">Volver a extrusión</button><button onclick="duplicateDerivedSolid()">Duplicar resultado</button><button onclick="deleteDerivedSolid()">Eliminar resultado</button><label>Desplazar cara (mm) <input id="faceDistance" type="number" value="5" min="0.01" step="1"></label><label>Eje de cota <select id="featureAxis"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label><label>Cambiar cota (mm) <input id="featureDistance" type="number" value="5" min="0.01" step="1"></label><button onclick="editSelectedGeometryFeature(1)">Cota +</button><button onclick="editSelectedGeometryFeature(-1)">Cota −</button><button onclick="scaleSelectedGeometryFeature(1)">Escalar eje +</button><button onclick="scaleSelectedGeometryFeature(-1)">Escalar eje −</button><button onclick="pushPullSelectedFace(1)">Mover plano +</button><button onclick="pushPullSelectedFace(-1)">Mover plano −</button><button onclick="undoDerivedEdit()">Deshacer cara</button><button onclick="redoDerivedEdit()">Rehacer cara</button><button onclick="separateActiveSolid()">Separar pieza +10 mm</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
 <div id="cube"><span></span><button onclick="snap('top')">SUP</button><span></span><button onclick="snap('left')">IZQ</button><button onclick="snap('iso')">3D</button><button onclick="snap('right')">DER</button><span></span><button onclick="snap('front')">FTE</button><span></span></div>
 <section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button><button onclick="updateSelectedPoint()">Mover seleccionado</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="redoSketch()">Rehacer</button><button onclick="makeRectangleSketch()">Rectángulo exacto</button><label>Ø mm <input id="sketchDiameter" type="number" min="0.01" value="40" step="1"></label><button onclick="makeCircleSketch()">Círculo exacto</button><button onclick="deleteSelectedVertex()">Borrar vértice</button><button id="sketchSnapButton" onclick="toggleSketchSnap()">Rejilla ON</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="contactInfo" aria-live="polite" style="position:absolute;right:8px;bottom:108px;background:#17293ae8;padding:7px;border-radius:6px;max-width:60%;font-size:12px;max-height:64px;overflow:auto">Contactos sin analizar</div><div id="measurements" aria-live="polite" style="position:absolute;right:8px;bottom:52px;background:#141c2de8;padding:7px;border-radius:6px;max-width:60%;font-size:12px">Medidas del sólido</div><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="focusSelectedSolid()">Centrar pieza</button><button id="toolsToggle" onclick="toggleTools()">Panel: ON</button><button id="moveModeButton" onclick="toggleMoveMode()">Mover: OFF</button><button onclick="undoMove()">Deshacer mover</button><button onclick="redoMove()">Rehacer mover</button><button id="selectFaceButton" onclick="toggleFaceMode()">Seleccionar cara</button><button id="dragFaceButton" onclick="toggleFaceDragMode()">Arrastrar plano: OFF</button><button id="vertexModeButton" onclick="toggleGeometryMode('vertex')">Vértices: OFF</button><button id="edgeModeButton" onclick="toggleGeometryMode('edge')">Aristas: OFF</button><button onclick="clearFaceSelection()">Deseleccionar</button><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
 <script>
@@ -580,27 +580,106 @@ function separateActiveSolid(clearance=10){
 /* Boolean results are independent triangle-mesh objects in the scene.
  * They can be selected, translated, duplicated and deleted, but they do NOT
  * pretend to have an editable extrusion sketch or parametric feature tree. */
-function validateDerivedMesh(mesh){
+/* Topological checks for triangle-mesh solids. A valid surface must have two
+ * oppositely directed faces per edge and one connected face fan per vertex.
+ * Multiple separate closed shells are allowed (e.g. an internal cavity).
+ * This is NOT yet a full triangle/triangle self-intersection test. */
+function inspectMeshTopology(mesh){
  if(!mesh||!Array.isArray(mesh.v)||!Array.isArray(mesh.faces)||
-   mesh.v.length<4||mesh.v.length>8000||mesh.faces.length<4||mesh.faces.length>16000)
-  throw Error('Malla booleana incompatible o demasiado grande');
+    mesh.v.length<4||mesh.v.length>8000||mesh.faces.length<4||mesh.faces.length>16000)
+  throw Error('Malla incompatible o demasiado grande');
  if(!mesh.v.every(p=>Array.isArray(p)&&p.length===3&&p.every(n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<=1e8)))
   throw Error('Vértices 3D inválidos');
- if(!mesh.faces.every(f=>Array.isArray(f)&&f.length===3&&f.every(i=>Number.isInteger(i)&&i>=0&&i<mesh.v.length)&&new Set(f).size===3))
+ if(!mesh.faces.every(face=>Array.isArray(face)&&face.length===3&&face.every(i=>Number.isInteger(i)&&i>=0&&i<mesh.v.length)&&new Set(face).size===3))
   throw Error('Caras 3D inválidas');
- const edges=new Map();
- for(const [a,b,c] of mesh.faces){
-  const u=mesh.v[b].map((v,i)=>v-mesh.v[a][i]),w=mesh.v[c].map((v,i)=>v-mesh.v[a][i]);
-  const cross=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];
-  if(Math.hypot(...cross)<1e-10)throw Error('Triángulo degenerado');
-  for(const [i,j] of [[a,b],[b,c],[c,a]]){
-   const key=i<j?i+':'+j:j+':'+i;
-   edges.set(key,(edges.get(key)||0)+1);
+ const seenTriangles=new Set(),edges=new Map();
+ const vertexFaces=Array.from({length:mesh.v.length},()=>[]);
+ const neighbors=Array.from({length:mesh.faces.length},()=>new Set());
+ const vertexNeighbors=Array.from({length:mesh.v.length},()=>new Map());
+ const bounds={min:[Infinity,Infinity,Infinity],max:[-Infinity,-Infinity,-Infinity]};
+ for(const p of mesh.v)for(let i=0;i<3;i++){
+  bounds.min[i]=Math.min(bounds.min[i],p[i]);bounds.max[i]=Math.max(bounds.max[i],p[i]);
+ }
+ for(let faceIndex=0;faceIndex<mesh.faces.length;faceIndex++){
+  const f=mesh.faces[faceIndex],key=f.slice().sort((x,y)=>x-y).join(':');
+  if(seenTriangles.has(key))throw Error('Malla con triángulos duplicados');
+  seenTriangles.add(key);
+  for(const v of f)vertexFaces[v].push(faceIndex);
+  const [a,b,c]=f.map(i=>mesh.v[i]);
+  const u=b.map((v,i)=>v-a[i]),w=c.map((v,i)=>v-a[i]);
+  const normal=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];
+  if(Math.hypot(...normal)<1e-10)throw Error('Triángulo degenerado');
+  for(let k=0;k<3;k++){
+   const from=f[k],to=f[(k+1)%3],edgeKey=Math.min(from,to)+':'+Math.max(from,to);
+   if(!edges.has(edgeKey))edges.set(edgeKey,[]);
+   const references=edges.get(edgeKey);
+   references.push({from,to,face:faceIndex});
+   if(references.length>2)throw Error('Arista compartida por más de dos triángulos');
   }
  }
- if([...edges.values()].some(n=>n!==2))throw Error('Malla abierta o no manifold');
- if(!(meshOrientedVolume(mesh)>1e-8))throw Error('Malla vacía o invertida');
+ if(vertexFaces.some(incidents=>!incidents.length))throw Error('Vértice aislado sin triángulos');
+ for(const references of edges.values()){
+  if(references.length!==2)throw Error('Malla abierta: faltan caras en una arista');
+  const [one,two]=references;
+  if(one.from!==two.to||one.to!==two.from)throw Error('Orientación incoherente en arista compartida');
+  neighbors[one.face].add(two.face);neighbors[two.face].add(one.face);
+  for(const vertex of [one.from,one.to]){
+   const local=vertexNeighbors[vertex];
+   if(!local.has(one.face))local.set(one.face,new Set());
+   if(!local.has(two.face))local.set(two.face,new Set());
+   local.get(one.face).add(two.face);local.get(two.face).add(one.face);
+  }
+ }
+ for(let vertex=0;vertex<mesh.v.length;vertex++){
+  const incident=vertexFaces[vertex],local=vertexNeighbors[vertex];
+  const visited=new Set([incident[0]]),queue=[incident[0]];
+  for(let k=0;k<queue.length;k++){
+   for(const other of local.get(queue[k])||[]){
+    if(!visited.has(other)){visited.add(other);queue.push(other);}
+   }
+  }
+  if(visited.size!==incident.length)throw Error('Vértice no manifold: superficies unidas solo por un punto');
+ }
+ const visited=new Set(),shells=[];
+ for(let start=0;start<mesh.faces.length;start++){
+  if(visited.has(start))continue;
+  const queue=[start];visited.add(start);let shellVolume=0;
+  for(let q=0;q<queue.length;q++){
+   const index=queue[q],face=mesh.faces[index];
+   const [a,b,c]=face.map(i=>mesh.v[i]);
+   shellVolume+=(a[0]*(b[1]*c[2]-b[2]*c[1])+
+    a[1]*(b[2]*c[0]-b[0]*c[2])+
+    a[2]*(b[0]*c[1]-b[1]*c[0]))/6;
+   for(const adjacent of neighbors[index])if(!visited.has(adjacent)){
+    visited.add(adjacent);queue.push(adjacent);
+   }
+  }
+  if(!Number.isFinite(shellVolume)||Math.abs(shellVolume)<=1e-8)throw Error('Superficie cerrada sin volumen útil');
+  shells.push({triangles:queue.length,signedVolume:shellVolume});
+ }
+ const signedVolume=shells.reduce((sum,sh)=>sum+sh.signedVolume,0);
+ if(!(signedVolume>1e-8))throw Error('Malla vacía o invertida');
+ return {vertices:mesh.v.length,edges:edges.size,triangles:mesh.faces.length,
+  shells:shells.length,cavities:shells.filter(sh=>sh.signedVolume<0).length,
+  euler:mesh.v.length-edges.size+mesh.faces.length,signedVolume,
+  bounds};
+}
+function validateDerivedMesh(mesh){
+ inspectMeshTopology(mesh);
  return {v:mesh.v.map(p=>p.slice()),faces:mesh.faces.map(f=>f.slice())};
+}
+function diagnoseSelectedMesh(){
+ const item=selectedDerived();
+ if(!item){setStatus('Selecciona primero una malla booleana');return null;}
+ try{
+  const report=inspectMeshTopology(item.mesh),fmt=v=>Number(v.toFixed(3)).toLocaleString('es-ES');
+  const message='Malla '+item.id+' · '+report.vertices+' vértices · '+report.edges+' aristas · '+
+   report.triangles+' triángulos · '+report.shells+' cascarón(es) · '+report.cavities+
+   ' cavidad(es) orientada(s) · volumen '+fmt(report.signedVolume)+' mm³';
+  const label=document.getElementById('contactInfo');if(label)label.textContent=message;
+  setStatus('Diagnóstico de malla correcto · Euler '+report.euler);
+  return report;
+ }catch(e){setStatus('Diagnóstico de malla: '+e.message);return null;}
 }
 function addBooleanToScene(mode){
  try{
