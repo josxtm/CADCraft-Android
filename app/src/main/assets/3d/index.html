@@ -2042,23 +2042,57 @@ document.getElementById('projectFile').addEventListener('change',async e=>{
  e.target.value='';
 });
 
+/* DXF LWPOLYLINE import is intentionally single-loop. Treating the
+ * first loop of a multi-loop sketch as a solid silently loses holes/islands,
+ * so refuse ambiguous profiles until true multi-loop extrusion exists. */
 function parseDxfProfile(text){
+ if(typeof text!=='string'||text.length>2000000)throw Error('DXF demasiado grande');
  const lines=text.replace(/\r/g,'').split('\n'),pairs=[];
+ if(lines.length>200001)throw Error('DXF con demasiados registros');
  for(let i=0;i<lines.length-1;i+=2)pairs.push([lines[i].trim(),lines[i+1].trim()]);
- let profiles=[];
+ const profiles=[];
+ const numeric=value=>{
+  if(value===''||!Number.isFinite(Number(value)))throw Error('Coordenada o parámetro DXF inválido');
+  return Number(value);
+ };
  for(let i=0;i<pairs.length;i++){
-  if(pairs[i][0]==='0'&&pairs[i][1]==='LWPOLYLINE'){
-   let pts=[],closed=false,bulge=false;
-   for(i++;i<pairs.length&&pairs[i][0]!=='0';i++){
-    let [code,value]=pairs[i];
-    if(code==='10')pts.push([Number(value),NaN]);
-    else if(code==='20'&&pts.length)pts[pts.length-1][1]=Number(value);
-    else if(code==='70')closed=(Number(value)&1)!==0;
-    else if(code==='42'&&Math.abs(Number(value))>1e-9)bulge=true;
-   }
-   i--;
-   if(closed&&pts.length>=3&&!bulge)profiles.push(pts);
+  if(pairs[i][0]!=='0'||pairs[i][1]!=='LWPOLYLINE')continue;
+  const pts=[],normal=[0,0,1];let closed=false,count=null,bulge=false,elevation=0,thickness=0;
+  for(i++;i<pairs.length&&pairs[i][0]!=='0';i++){
+   const [code,value]=pairs[i];
+   if(code==='10'){
+    if(pts.length>=10000)throw Error('DXF con demasiados vértices');
+    pts.push([numeric(value),NaN]);
+   }else if(code==='20'){
+    if(!pts.length||Number.isFinite(pts[pts.length-1][1]))
+     throw Error('Orden de coordenadas DXF inválido');
+    pts[pts.length-1][1]=numeric(value);
+   }else if(code==='70'){
+    const flags=numeric(value);
+    if(!Number.isInteger(flags)||flags<0)throw Error('Indicadores DXF inválidos');
+    closed=(flags&1)!==0;
+   }else if(code==='90'){
+    count=numeric(value);
+    if(!Number.isInteger(count)||count<0||count>10000)
+     throw Error('Número de vértices DXF inválido');
+   }else if(code==='42'){
+    bulge=bulge||numeric(value)!==0;
+   }else if(code==='38')elevation=numeric(value);
+   else if(code==='39')thickness=numeric(value);
+   else if(code==='210')normal[0]=numeric(value);
+   else if(code==='220')normal[1]=numeric(value);
+   else if(code==='230')normal[2]=numeric(value);
   }
+  i--;
+  if(!closed)continue;
+  if(count!==null&&count!==pts.length)throw Error('Cantidad de vértices DXF incoherente');
+  if(pts.length<3||pts.some(p=>!p.every(Number.isFinite)))
+   throw Error('Polilínea DXF cerrada con coordenadas incompletas');
+  if(bulge)throw Error('DXF con arcos bulge: conversión no compatible');
+  if(elevation!==0||thickness!==0||normal.some((n,k)=>Math.abs(n-[0,0,1][k])>1e-12))
+   throw Error('DXF con elevación, espesor o plano inclinado no compatible');
+  profiles.push(pts);
+  if(profiles.length>1)throw Error('DXF con varios perfiles cerrados: agujeros/islas aún no compatibles');
  }
  if(!profiles.length)throw Error('No hay LWPOLYLINE cerradas con segmentos rectos');
  return profiles[0];

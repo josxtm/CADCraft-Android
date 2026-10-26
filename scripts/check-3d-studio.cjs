@@ -939,4 +939,26 @@ assert.equal(multiBodySTL.translated,true,'STL output respects moved solid coord
 assert.equal(multiBodySTL.invalid,true,'STL rejects degenerate triangles');
 assert.equal(multiBodySTL.exported,true,'valid multi-body scene exports STL after topology checks');
 
+
+/* C4/B2: never discard DXF loops or silently flatten unsupported curves,
+ * tilted planes, missing vertices or mismatched DXF vertex declarations. */
+const dxSquare=(x=0)=>['0','LWPOLYLINE','90','4','70','1','10',String(x),'20','0','10',String(x+10),'20','0','10',String(x+10),'20','10','10',String(x),'20','10'].join('\\n');
+const dxfCases=[
+ {name:'multiple loops',data:dxSquare()+'\\n'+dxSquare(2)+'\\n0\\nEOF',error:'varios perfiles'},
+ {name:'bulge arc',data:dxSquare()+'\\n42\\n0.5\\n0\\nEOF',error:'bulge'},
+ {name:'missing Y',data:dxSquare().replace('20\\n0','20\\n')+'\\n0\\nEOF',error:'inválido'},
+ {name:'wrong vertex count',data:dxSquare().replace('90\\n4','90\\n5')+'\\n0\\nEOF',error:'incoherente'},
+ {name:'tilted OCS plane',data:dxSquare()+'\\n210\\n1\\n0\\nEOF',error:'plano inclinado'},
+ {name:'nonzero elevation',data:dxSquare()+'\\n38\\n5\\n0\\nEOF',error:'elevación'},
+ {name:'open polyline',data:dxSquare().replace('70\\n1','70\\n0')+'\\n0\\nEOF',error:'No hay LWPOLYLINE'}
+];
+for(const item of dxfCases){
+ const result=evaluate("(()=>{const before=serializeProject();try{importDxfText("+JSON.stringify(item.data)+");return {rejected:false,unchanged:serializeProject()===before}}catch(e){return {rejected:true,unchanged:serializeProject()===before,message:e.message}}})()");
+ assert.equal(result.rejected,true,'DXF rejects '+item.name);
+ assert.equal(result.unchanged,true,'invalid DXF leaves original project intact: '+item.name);
+ assert.equal(result.message.includes(item.error),true,'DXF explains rejection: '+item.name);
+}
+assert.equal(evaluate("parseDxfProfile("+JSON.stringify(dxSquare()+'\n0\nEOF')+").length"),4,'DXF with correct 90 vertex declaration remains supported');
+assert.equal(evaluate("(()=>{try{parseDxfProfile('x'.repeat(2000001));return false}catch(e){return e.message.includes('grande')}})()"),true,'DXF size is capped before parsing');
+
 console.log('3D studio tests passed');
