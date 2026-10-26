@@ -56,6 +56,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **A5/C1 — traslación XYZ validada en el prototipo Rust (26-10-2026):** `PreviewState::set_solid_offset` conserva las coordenadas locales del boceto, la malla fuente, el ID y su vínculo 2D, mientras que `solid_world_vertex` y `frame_solids` utilizan el desplazamiento mundial. Rechaza desplazamientos no finitos, superiores a ±100 millones de mm y los que proyecten algún vértice fuera de rango. Las modificaciones posteriores de altura y de boceto revalidan todas las mallas con ese desplazamiento, sin efectuar cambios parciales si fallan. Pruebas Rust cubren límites, la cámara, el vínculo y regeneración. El prototipo Rust todavía **no está conectado** al WebView/Android y no se ha generado APK.
 
+**C2/A5 — encuadre de pieza individual en el prototipo Rust (26-10-2026):** `PreviewState::focus_solid(id)` centra la cámara y ajusta su distancia usando la caja envolvente mundial de una pieza concreta, con su desplazamiento XYZ. Mantiene posiciones, bocetos y piezas intactos; un ID ausente se rechaza sin mover la cámara. Las pruebas comparan encuadre de toda la escena con una pieza trasladada y otra sin traslado. El núcleo Rust continúa sin enlace de producción con Android; sin APK.
+
 ## Bloque B — Modelado CAD
 
 | Paso | Capacidad | Estado | Criterio de aceptación |

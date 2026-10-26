@@ -148,6 +148,25 @@ impl PreviewState {
         self.solids.retain(|solid|solid.id!=id);
         self.solids.len()!=before
     }
+    /// Frame one object, without moving it or altering the current 2D source.
+    /// A missing solid does not modify the camera.
+    pub fn focus_solid(&mut self,id:u64)->Result<(),WorkspaceError> {
+        let solid=self.solids.iter().find(|solid|solid.id==id)
+            .ok_or(WorkspaceError::SolidNotFound)?;
+        let mut min=Vec3::new(f64::INFINITY,f64::INFINITY,f64::INFINITY);
+        let mut max=Vec3::new(f64::NEG_INFINITY,f64::NEG_INFINITY,f64::NEG_INFINITY);
+        for &local in &solid.mesh.vertices {
+            let p=local+solid.offset;
+            min.x=min.x.min(p.x);min.y=min.y.min(p.y);min.z=min.z.min(p.z);
+            max.x=max.x.max(p.x);max.y=max.y.max(p.y);max.z=max.z.max(p.z);
+        }
+        if !min.x.is_finite() {
+            return Err(WorkspaceError::Geometry(ExtrudeError::DegeneratePolygon))
+        }
+        self.camera.target=(min+max)*0.5;
+        self.camera.distance=((max-min).norm()*1.7).max(1.0);
+        Ok(())
+    }
     pub fn view(&mut self,view:View){self.camera.snap(view)}
     pub fn drag_viewcube(&mut self,dx:f64,dy:f64){self.camera.orbit(dx,dy,0.01)}
     /// Orthographic projection of a world point to camera coordinates.
@@ -380,6 +399,30 @@ mod tests{
         state.set_solid_offset(1,Vec3::new(20.0,30.0,2.0)).unwrap();
         assert_eq!(state.set_solid_height(1,6.0),Ok(()));
         assert_eq!(state.solid_world_vertex(1,4),Some(Vec3::new(20.0,30.0,8.0)));
+    }
+
+    #[test]fn focusing_one_translated_solid_does_not_move_any_scene_geometry() {
+        let mut state=PreviewState::default();
+        let square=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                        Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile(77,square);
+        assert_eq!(state.extrude_selected(10.0),Ok(1));
+        assert_eq!(state.extrude_selected(10.0),Ok(2));
+        state.set_solid_offset(2,Vec3::new(100.0,0.0,0.0)).unwrap();
+        let originals=state.solids.clone();
+        state.frame_solids();
+        assert_eq!(state.camera.target,Vec3::new(55.0,5.0,5.0));
+        assert_eq!(state.focus_solid(2),Ok(()));
+        assert_eq!(state.camera.target,Vec3::new(105.0,5.0,5.0));
+        let second_distance=state.camera.distance;
+        assert!((second_distance-10.0*3.0_f64.sqrt()*1.7).abs()<1e-8);
+        assert_eq!(state.focus_solid(1),Ok(()));
+        assert_eq!(state.camera.target,Vec3::new(5.0,5.0,5.0));
+        let camera=state.camera;
+        assert_eq!(state.focus_solid(999),Err(WorkspaceError::SolidNotFound));
+        assert_eq!(state.camera,camera);
+        assert_eq!(state.solids,originals);
+        assert_eq!(state.solid_world_vertex(2,0),Some(Vec3::new(100.0,0.0,0.0)));
     }
 
 }
