@@ -606,8 +606,9 @@ function separateActiveSolid(clearance=10){
  * This is NOT yet a full triangle/triangle self-intersection test. */
 /* A1/A2: Broad-phase sweep and narrow-phase triangle checks.
  * Reject definite triangle crossings or positive-area coplanar overlaps.
- * Do not classify contact at a shared seam/T-junction as penetration:
- * robust touching & coincident-vertex resolution is a separate milestone. */
+ * Also reject tangential point/edge contacts between faces that share no
+ * vertex indices, even within the same shell. Adjacent faces with a shared
+ * seam still need more rigorous contact/overlap predicates. */
 function triangle3DBounds(vertices){
  const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
  for(const p of vertices)for(let k=0;k<3;k++){
@@ -712,11 +713,14 @@ function inspectMeshSelfIntersections(mesh,faceShells=null){
    const bFace=mesh.faces[b.index];
    const shared=aFace.filter(id=>bFace.includes(id)).length;
    if(shared===3)continue; // Already rejected separately as duplicate faces.
-   // Shared edges of a valid manifold shell are allowed, unless the
-   // triangles overlap in positive area or cross away from that edge.
+   // Topologically disjoint faces in a single shell must not touch even at
+   // a vertex/edge. Connected faces may meet at their expected manifold
+   // seam; retain strict overlap/crossing checks for those pairs.
    checked++;
+   const checkTouch=shared===0||
+     (!!faceShells&&faceShells[a.index]!==faceShells[b.index]);
    if(triangleSurfaceIntersection3D(triangles[a.index],triangles[b.index],epsilon,
-      !!faceShells&&faceShells[a.index]!==faceShells[b.index]))
+      checkTouch))
     throw Error('Autointersección entre triángulos '+(a.index+1)+' y '+(b.index+1));
   }
  }

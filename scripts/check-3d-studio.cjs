@@ -622,4 +622,13 @@ assert.equal(worldAreaChecks.overlap,250,'remote 2D clipping computes box overla
 assert.equal(worldAreaChecks.union,1750,'remote 2D clipping computes exact union volume');
 assert.equal(worldAreaChecks.reject,true,'remote collinear sketch still rejects zero-area profiles');
 
+
+// A2: boundary-only contacts between faces with no topological shared vertices.
+const boundaryTouch=evaluate("(()=>{const face=[[0,0,0],[4,0,0],[0,4,0]],touchVertex=[[4,0,0],[5,0,0],[4,1,0]],touchEdge=[[2,0,0],[5,0,0],[2,-3,0]],touchVertical=[[1,1,0],[1,1,3],[2,2,3]],box=extrude([[0,0],[10,0],[10,10],[0,10]],10),far={v:box.v.map(p=>p.map(v=>v+10)),faces:box.faces.map(f=>f.slice())},combined={v:box.v.concat(far.v),faces:box.faces.concat(far.faces.map(f=>f.map(i=>i+box.v.length)))},fakeSameShell=new Array(combined.faces.length).fill(0);let rejection=false;try{inspectMeshSelfIntersections(combined,fakeSameShell)}catch(e){rejection=e.message.includes('Autointersección')}return {defaultPoint:triangleSurfaceIntersection3D(face,touchVertex),point:triangleSurfaceIntersection3D(face,touchVertex,1e-8,true),edge:triangleSurfaceIntersection3D(face,touchEdge,1e-8,true),vertical:triangleSurfaceIntersection3D(face,touchVertical,1e-8,true),detectedWithoutShellDifference:rejection}})()");
+assert.equal(boundaryTouch.defaultPoint,false,'zero-area point contact is not an interior crossing');
+assert.equal(boundaryTouch.point,true,'inclusive predicate detects coplanar point-only contact');
+assert.equal(boundaryTouch.edge,true,'inclusive predicate detects coplanar edge-only contact');
+assert.equal(boundaryTouch.vertical,true,'inclusive predicate detects noncoplanar endpoint contact');
+assert.equal(boundaryTouch.detectedWithoutShellDifference,true,'broad-phase catches disjoint-index point contact even within one labelled shell');
+
 console.log('3D studio tests passed');
