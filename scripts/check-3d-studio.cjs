@@ -595,4 +595,16 @@ assert.equal(evaluate('status.textContent.includes("Booleana OBJ")'),true,'unsaf
 assert.equal(evaluate("(()=>{moveActiveSolid(10,0,0);return exportBooleanOBJ('union')})()"),true,'valid face-touch union can be exported to OBJ');
 assert.equal(evaluate("(()=>{moveActiveSolid(5,5,5);return exportBooleanOBJ('subtract')})()"),true,'valid partial-volume subtraction can be exported to OBJ');
 
+
+// A3 numeric stability: local reference points for distant closed components.
+const numericStability=evaluate("(()=>{const rect=[[0,0],[10,0],[10,10],[0,10]],b=extrude(rect,10),offset=(m,shift)=>({v:m.v.map(p=>p.map(v=>v+shift)),faces:m.faces.map(f=>f.slice())}),merge=(a,c)=>({v:a.v.concat(c.v),faces:a.faces.concat(c.faces.map(f=>f.map(i=>i+a.v.length)))}),values=[1e3,1e6,1e7,9e7].map(shift=>{const shifted=offset(b,shift);return {shift,volume:meshOrientedVolume(shifted),report:inspectMeshTopology(shifted).signedVolume}}),disconnected=merge(b,offset(b,9e7)),cavity=extrude([[2,2],[8,2],[8,8],[2,8]],6),cavityShell={v:cavity.v.map(p=>p.map((v,i)=>v+(i===2?2:0))),faces:cavity.faces.map(([a,b,c])=>[a,c,b])},hollow=merge(b,cavityShell),farHollow=offset(hollow,9e7);return {values,disconnectedVolume:meshOrientedVolume(disconnected),disconnectedReport:inspectMeshTopology(disconnected),hollowVolume:meshOrientedVolume(farHollow),hollowReport:inspectMeshTopology(farHollow)}})()");
+assert.equal(numericStability.values.every(item=>Math.abs(item.volume-1000)<1e-6),true,'distant single-solid volume remains stable at four scales');
+assert.equal(numericStability.values.every(item=>Math.abs(item.report-1000)<1e-6),true,'distant manifold shell signed volume remains stable');
+assert.equal(Math.abs(numericStability.disconnectedVolume-2000)<1e-6,true,'two shells 90 million mm apart retain their individual volumes');
+assert.equal(Math.abs(numericStability.disconnectedReport.signedVolume-2000)<1e-6,true,'topology volume also handles distant shells');
+assert.equal(numericStability.disconnectedReport.shells,2,'distant shells are independent');
+assert.equal(Math.abs(numericStability.hollowVolume-784)<1e-6,true,'distant translated hollow solid keeps cavity subtraction');
+assert.equal(Math.abs(numericStability.hollowReport.signedVolume-784)<1e-6,true,'hollow-shell validation remains stable far from origin');
+assert.equal(numericStability.hollowReport.nestingDepths.join('/'),'0/1','far away internal cavity retains shell nesting');
+
 console.log('3D studio tests passed');
