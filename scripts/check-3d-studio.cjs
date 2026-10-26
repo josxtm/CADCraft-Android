@@ -693,4 +693,24 @@ assert.equal(sourceTracking.reloaded,'current','provenance survives project roun
 assert.equal(sourceTracking.oldProject,'unknown','existing v3 projects without fingerprints remain loadable');
 assert.equal(sourceTracking.signatures,2,'exactly two source signatures are stored');
 
+/* B3 batch CSG: dependent results, atomic failure, legacy protection. */
+const batch=evaluate("(()=>{const rect=[[0,0],[10,0],[10,10],[0,10]],p={format:'cadcraft-android-3d',version:1,profile:rect,height:10};loadProjectText(JSON.stringify(p));duplicateSceneSolid();const a=addBooleanToScene('union'),b=addBooleanToScene('subtract');const fresh=booleanDependencyReport();selectExtrudedSolid();const edited=changeHeight(5),stale=booleanDependencyReport();const count=regenerateStaleBooleans(),after=derivedSolids.map(d=>meshOrientedVolume(d.mesh)),clean=booleanDependencyReport(),noWork=regenerateStaleBooleans();changeHeight(5);const snapshot=derivedSolids.map(d=>JSON.stringify(serializeDerivedSolid(d))),second=derivedSolids[1],parent=second.parents[1];second.parents[1]=999999;const missing=booleanDependencyReport(),aborted=regenerateStaleBooleans(),unchanged=derivedSolids.every((d,i)=>JSON.stringify(serializeDerivedSolid(d))===snapshot[i]||(i===1&&d.parents[1]===999999&&JSON.stringify({...serializeDerivedSolid(d),parents:[d.parents[0],parent]})===snapshot[i]));second.parents[1]=parent;const repaired=regenerateStaleBooleans(),now=derivedSolids.map(d=>meshOrientedVolume(d.mesh));derivedSolids[0].sourceFingerprints=null;const legacy=booleanDependencyReport(),oldMesh=JSON.stringify(derivedSolids[0].mesh),skipped=regenerateStaleBooleans(),legacyUntouched=JSON.stringify(derivedSolids[0].mesh)===oldMesh;loadProjectText(serializeProject());const legacyRestored=booleanDependencyReport();return {a,b,fresh,edited,stale,count,after,clean,noWork,missing,aborted,unchanged,repaired,now,legacy,skipped,legacyUntouched,legacyRestored}})()");
+assert.equal(Number.isInteger(batch.a)&&Number.isInteger(batch.b),true,'two derived solids created');
+assert.equal(batch.fresh.current.length,2,'both results start current');
+assert.equal(batch.edited,true,'source extrusion height changed');
+assert.equal(batch.stale.stale.length,2,'both dependent meshes turn stale');
+assert.equal(batch.count,2,'explicit batch rebuild regenerates both');
+assert.equal(Math.abs(batch.after[0]-2500)<1e-6&&Math.abs(batch.after[1]-1500)<1e-6,true,'both results have updated volume');
+assert.equal(batch.clean.current.length,2,'updated provenance is current');
+assert.equal(batch.noWork,0,'batch skips fresh results');
+assert.equal(batch.missing.missing.length,1,'dependency report finds missing source');
+assert.equal(batch.aborted,false,'missing source cancels batch');
+assert.equal(batch.unchanged,true,'canceled batch preserves all meshes');
+assert.equal(batch.repaired,2,'repairing source permits batch retry');
+assert.equal(Math.abs(batch.now[0]-3000)<1e-6&&Math.abs(batch.now[1]-2000)<1e-6,true,'rebuild uses newer source');
+assert.equal(batch.legacy.unknown.length,1,'legacy result is detected');
+assert.equal(batch.skipped,0,'legacy result does not regenerate implicitly');
+assert.equal(batch.legacyUntouched,true,'legacy mesh is untouched');
+assert.equal(batch.legacyRestored.unknown.length,1,'legacy status survives JSON roundtrip');
+
 console.log('3D studio tests passed');
