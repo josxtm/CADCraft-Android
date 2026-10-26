@@ -1536,4 +1536,25 @@ for(const item of invalidWidthCases){
  assert.match(check.error,/anchura|coordenada|parámetro/i,item.name+' reports width-specific error');
 }
 
+
+/* B3/A3: a valid *local* derived mesh is not necessarily valid after an
+ * existing XYZ translation. Face edits, feature slabs, scaling, drag previews
+ * and historical undo must all preserve world-space limits atomically. */
+const derivedEditWorldSafety=evaluate("(()=>{const p=[[0,0],[10,0],[10,10],[0,10]];loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:p,height:10}));createSceneSolid();const id=addBooleanToScene('union');if(!Number.isInteger(id))throw Error('CSG test result missing');moveActiveSolid(99999980,0,0);const mesh=selectedDerived().mesh,scene=combinedScene();selectedFace=scene.owners.findIndex((owner,index)=>owner===id&&facePlaneInfo(mesh,faceLocalIndex(scene,index)).axis===0&&facePlaneInfo(mesh,faceLocalIndex(scene,index)).sign===1);if(selectedFace<0)throw Error('positive X face missing');const original=serializeProject(),undoStart=derivedUndo.length;const excessiveFace=editSelectedDerivedFace(15),faceSafe=serializeProject()===original&&derivedUndo.length===undoStart;const smallFace=editSelectedDerivedFace(5),afterSmall=serializeProject(),undoValid=undoDerivedEdit(),redoValid=redoDerivedEdit(),redoSafe=serializeProject()===afterSmall;geometryMode='vertex';const max=meshAxisBounds(selectedDerived().mesh).max[0],ix=selectedDerived().mesh.v.findIndex(v=>v[0]===max);selectedGeometryFeature={kind:'vertex',owner:id,indices:[ix]};document.getElementById('featureAxis').value='X';document.getElementById('featureDistance').value='15';const edited=serializeProject(),undoBefore=derivedUndo.length,feature=editSelectedGeometryFeature(1),featureSafe=serializeProject()===edited&&derivedUndo.length===undoBefore;const scaled=scaleSelectedGeometryFeature(1),scaleSafe=serializeProject()===edited&&derivedUndo.length===undoBefore;geometryMode=null;selectedGeometryFeature=null;const inBounds=inspectMeshTopology(offsetMesh(selectedDerived().mesh,selectedDerived().offset)).shells===1;loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:p,height:10}));createSceneSolid();const second=addBooleanToScene('union');moveActiveSolid(99999980,0,0);const b=combinedScene();selectedFace=b.owners.findIndex((owner,index)=>owner===second&&facePlaneInfo(selectedDerived().mesh,faceLocalIndex(b,index)).axis===0&&facePlaneInfo(selectedDerived().mesh,faceLocalIndex(b,index)).sign===1);const shrink=editSelectedDerivedFace(-5);const shrinked=serializeProject();moveActiveSolid(99999995,0,0);const shifted=serializeProject(),steps=derivedUndo.length;const invalidUndo=undoDerivedEdit(),undoSafe=serializeProject()===shifted&&derivedUndo.length===steps;moveActiveSolid(99999980,0,0);const validUndo=undoDerivedEdit();return {id,excessiveFace,faceSafe,smallFace,undoValid,redoValid,redoSafe,feature,featureSafe,scaled,scaleSafe,inBounds,shrink,shrinked,invalidUndo,undoSafe,validUndo}})()");
+assert.equal(derivedEditWorldSafety.excessiveFace,false,'translated CSG refuses out-of-world face expansion');
+assert.equal(derivedEditWorldSafety.faceSafe,true,'rejected face expansion preserves JSON and undo stack');
+assert.equal(derivedEditWorldSafety.smallFace,true,'small in-bound edit still succeeds');
+assert.equal(derivedEditWorldSafety.undoValid,true,'valid face change can be undone');
+assert.equal(derivedEditWorldSafety.redoValid,true,'valid face change can be redone');
+assert.equal(derivedEditWorldSafety.redoSafe,true,'redo restores the exact prior geometry');
+assert.equal(derivedEditWorldSafety.feature,false,'vertex-guided face shift refuses unsafe world placement');
+assert.equal(derivedEditWorldSafety.featureSafe,true,'failed vertex edit cannot consume undo history');
+assert.equal(derivedEditWorldSafety.scaled,false,'vertex-guided scaling refuses unsafe world placement');
+assert.equal(derivedEditWorldSafety.scaleSafe,true,'failed scaling cannot mutate world geometry');
+assert.equal(derivedEditWorldSafety.inBounds,true,'valid world-space result remains manifold');
+assert.equal(derivedEditWorldSafety.shrink,true,'inward translated face edit can be committed');
+assert.equal(derivedEditWorldSafety.invalidUndo,false,'undo rejects old larger mesh after offset was moved near boundary');
+assert.equal(derivedEditWorldSafety.undoSafe,true,'blocked undo keeps geometry and history intact');
+assert.equal(derivedEditWorldSafety.validUndo,true,'undo succeeds once world offset is made safe again');
+
 console.log('3D studio tests passed');

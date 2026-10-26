@@ -164,6 +164,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **C4 — seguridad de anchuras DXF LWPOLYLINE (26-10-2026):** el importador comprueba ahora anchura constante (grupo 43) y anchuras de inicio/fin de vértice (40/41). Una polilínea con grosor no cero describe una banda y **no debe convertirse silenciosamente en un contorno de grosor cero**: se rechaza con diagnóstico antes de cambiar el proyecto. Las anchuras explícitas de cero se aceptan; parámetros duplicados, negativos o malformados se rechazan. Pruebas cubren importación de contornos sin grosor y rechazo transaccional de perfiles de banda. No se implementan todavía contornos expandidos por grosor variable ni operación B-Rep.
 
+**A3/B3 — edición segura en coordenadas mundiales (26-10-2026):** el estudio 3D del WebView vuelve a validar mallas booleanas **después de aplicar su traslación XYZ** y antes de aceptar el desplazamiento de una cara, la cota de vértice/arista, una escala afín o la vista previa/confirmación de un arrastre de plano. Deshacer/Rehacer comprueban también que una malla histórica siga siendo válida en la ubicación actual (la pieza puede haberse movido desde entonces). Las ediciones rechazadas no cambian la malla, sus pilas de deshacer ni el JSON. Pruebas próximas a ±100 millones de mm cubren rechazo, operaciones válidas, escala y deshacer histórico. La capacidad sigue limitada a mallas derivadas del motor WebView; **no equivale a integración del prototipo Rust o una APK probada**.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.
