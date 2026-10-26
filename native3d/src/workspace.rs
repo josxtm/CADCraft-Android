@@ -179,6 +179,15 @@ impl PreviewState {
         self.next_id=following_id;
         Ok(new_id)
     }
+    /// Detach one source extrusion from its shared 2D sketch. Its identity,
+    /// local mesh, independently edited height, placement and camera remain
+    /// unchanged. Other copies still follow future updates to the same sketch.
+    /// Returns false when the extrusion is already independent.
+    pub fn detach_solid_source(&mut self,id:u64)->Result<bool,WorkspaceError> {
+        let solid=self.solids.iter_mut().find(|solid|solid.id==id)
+            .ok_or(WorkspaceError::SolidNotFound)?;
+        Ok(solid.source_handle.take().is_some())
+    }
     /// Get a source mesh vertex with its current world XYZ translation.
     pub fn solid_world_vertex(&self,id:u64,vertex_index:usize)->Option<Vec3> {
         let solid=self.solids.iter().find(|solid|solid.id==id)?;
@@ -586,6 +595,64 @@ mod tests{
         assert_eq!(state.duplicate_solid(1,Vec3::new(40.0,0.0,0.0)),Ok(next));
         assert_eq!(state.solids.len(),2);
         assert_eq!(state.next_id,next+1);
+    }
+
+    #[test]fn detached_copy_does_not_follow_subsequent_2d_sketch_updates() {
+        let mut preview=PreviewState::default();
+        let square=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                        Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        preview.select_profile_checked(52,square.clone()).unwrap();
+        let linked=preview.extrude_selected(4.0).unwrap();
+        let detached=preview.duplicate_solid(linked,Vec3::new(35.0,5.0,-2.0)).unwrap();
+        preview.set_solid_height(detached,6.0).unwrap();
+        let original=preview.solids.clone();
+        let camera=preview.camera;
+        let next_id=preview.next_id;
+
+        assert_eq!(preview.detach_solid_source(999),
+                   Err(WorkspaceError::SolidNotFound));
+        assert_eq!(preview.solids,original);
+        assert_eq!(preview.detach_solid_source(detached),Ok(true));
+        assert_eq!(preview.detach_solid_source(detached),Ok(false));
+        assert_eq!(preview.solids[0],original[0]);
+        let mut expected=original[1].clone();
+        expected.source_handle=None;
+        assert_eq!(preview.solids[1],expected);
+        assert_eq!(preview.camera,camera);
+        assert_eq!(preview.next_id,next_id);
+        assert_eq!(preview.selected_handle,Some(52));
+
+        let edited=vec![Point2::new(0.0,0.0),Point2::new(20.0,0.0),
+                        Point2::new(20.0,10.0),Point2::new(0.0,10.0)];
+        assert_eq!(preview.refresh_source_profile(52,edited.clone()),Ok(1));
+        assert_eq!(preview.solids[0].outline,edited);
+        assert_eq!(preview.solids[0].height,4.0);
+        assert_eq!(preview.solids[0].source_handle,Some(52));
+        assert_eq!(preview.solids[1],expected);
+        assert_eq!(preview.solid_world_vertex(detached,0),Some(Vec3::new(35.0,5.0,-2.0)));
+        assert_eq!(preview.camera,camera);
+        assert_eq!(preview.next_id,next_id);
+        assert_eq!(preview.extrude_selected(3.0),Ok(next_id));
+        assert_eq!(preview.solids[2].source_handle,Some(52));
+        assert_eq!(preview.solids[2].outline,preview.solids[0].outline);
+    }
+
+    #[test]fn detaching_an_unlinked_extrusion_is_a_noop() {
+        let mut preview=PreviewState::default();
+        preview.select_profile_checked(99,vec![Point2::new(0.0,0.0),Point2::new(4.0,0.0),
+                                                Point2::new(4.0,4.0),Point2::new(0.0,4.0)]).unwrap();
+        preview.clear_selection();
+        // An unlinked source can still be introduced through a 2D preview;
+        // its geometry and document IDs remain unchanged by this command.
+        preview.select_profile(99,vec![Point2::new(0.0,0.0),Point2::new(4.0,0.0),
+                                       Point2::new(4.0,4.0),Point2::new(0.0,4.0)]);
+        let id=preview.extrude_selected(5.0).unwrap();
+        preview.detach_solid_source(id).unwrap();
+        let previous=preview.clone();
+        assert_eq!(preview.detach_solid_source(id),Ok(false));
+        assert_eq!(preview.solids,previous.solids);
+        assert_eq!(preview.camera,previous.camera);
+        assert_eq!(preview.next_id,previous.next_id);
     }
 
     #[test]fn measured_solids_report_world_bounds_and_local_stable_volume() {

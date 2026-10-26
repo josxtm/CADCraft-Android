@@ -126,6 +126,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **C1/B3 — desvinculación de bocetos 2D (26-10-2026):** en el estudio 3D del Android WebView, el botón «Desvincular boceto 2D» permite convertir **solo la extrusión activa** en una copia independiente del `sourceHandle` CADCraft, conservando su malla, cotas, posición XYZ e ID. Otros sólidos duplicados desde el mismo boceto continúan actualizándose al recibir modificaciones del editor 2D. La desvinculación no afecta a resultados booleanos ni geometrías de otras fuentes y se conserva en JSON v3. Se añaden regresiones de rechazo sin vínculo, actualización parcial de hermanos y persistencia. Esta operación es de la interfaz JavaScript ya existente; no significa que el motor Rust experimental esté conectado a Android.
 
+**C1/B3 — desvinculación de piezas en el prototipo Rust (26-10-2026):** `PreviewState::detach_solid_source(id)` elimina únicamente el vínculo con el perfil 2D de una extrusión seleccionada. Una copia desvinculada conserva malla, medidas, desplazamiento XYZ e ID y no se regenera al editar el boceto original; las demás copias sí se actualizan. Repetir la orden es inocuo y un ID inexistente no modifica el proyecto. Regresiones Rust verifican estado, cámara, secuencia de ID y refresco selectivo. Es la API equivalente a la orden de desvinculación existente en el estudio JavaScript; el núcleo Rust **aún no está conectado a la APK**.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.
