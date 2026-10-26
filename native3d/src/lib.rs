@@ -50,6 +50,11 @@ pub fn inspect_closed_mesh(mesh:&Mesh)->Result<MeshTopology,MeshTopologyError> {
     if mesh.vertices.iter().any(|p|{
         [p.x,p.y,p.z].iter().any(|v|!v.is_finite()||v.abs()>MAX_WORLD_COORD)
     }) {return Err(MeshTopologyError::InvalidVertex)}
+    // Reject counts that cannot be represented by the u32 triangle index format.
+    // This also avoids overflowing topology arithmetic on hostile imported meshes.
+    if mesh.vertices.len()>u32::MAX as usize || mesh.triangles.len()>i64::MAX as usize/3 {
+        return Err(MeshTopologyError::InvalidFace)
+    }
     let vertex_count=mesh.vertices.len();
     // Different indices at exactly the same world position describe an
     // unwelded seam or overlapping shells. Canonicalize +/-0 to prevent
