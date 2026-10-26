@@ -235,4 +235,17 @@ mod tests {
         assert_ne!(state.export_obj(&[first,second]).unwrap(),obj);
     }
 
+    #[test]fn invalid_selection_does_not_emit_partial_export_after_valid_solid() {
+        let mut state=PreviewState::default();
+        state.select_profile_checked(41,square(0.0,0.0,5.0)).unwrap();
+        let valid=state.extrude_selected(3.0).unwrap();
+        let invalid=state.duplicate_solid(valid,Vec3::new(15.0,0.0,0.0)).unwrap();
+        let baseline=state.export_obj(&[valid]).unwrap();
+        state.solids.iter_mut().find(|solid|solid.id==invalid).unwrap()
+            .mesh.triangles.pop();
+        assert_eq!(state.export_obj(&[valid,invalid]),Err(ExportError::InvalidSolid(invalid)));
+        assert_eq!(state.export_ascii_stl(&[valid,invalid]),Err(ExportError::InvalidSolid(invalid)));
+        assert_eq!(state.export_obj(&[valid]).unwrap(),baseline);
+    }
+
 }
