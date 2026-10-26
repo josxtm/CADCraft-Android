@@ -2273,7 +2273,7 @@ function dxfMillimetreScale(pairs){
   if(declared)throw Error('DXF con unidades declaradas varias veces');
   declared=true;
   const unit=pairs[i+1];
-  if(!unit||unit[0]!=='70'||!/^\\d+$/.test(unit[1]))throw Error('DXF con $INSUNITS inválido');
+  if(!unit||unit[0]!=='70'||!/^\d+$/.test(unit[1]))throw Error('DXF con $INSUNITS inválido');
   const id=Number(unit[1]);
   if(!Object.prototype.hasOwnProperty.call(scales,id))
    throw Error('Unidades DXF no compatibles ($INSUNITS='+id+')');
