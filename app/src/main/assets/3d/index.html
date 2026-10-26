@@ -2314,7 +2314,7 @@ function dxfEntityIndices(pairs){
    if(pairs.slice(i+1).some(([c,v])=>c==='0'&&v==='SECTION'))
     throw Error('DXF con datos tras EOF');
    break;
-  }else if(value==='LWPOLYLINE'||value==='CIRCLE'||value==='ELLIPSE'){
+  }else if(value==='LWPOLYLINE'||value==='CIRCLE'||value==='ELLIPSE'||value==='POLYLINE'){
    candidates.push({index:i,section});
   }
  }
@@ -2407,6 +2407,80 @@ function expandDxfEllipseProfile(cx,cy,dx,dy,ratio,unitScale){
           center[1]+major[1]*c+major[0]*ratio*sn];
  });
 }
+/* Legacy DXF POLYLINE stores its outline as VERTEX records terminated
+ * by SEQEND. Accept only flat, closed 2D outlines; reject polyface meshes,
+ * 3D polylines, nonzero widths and extrusion thickness instead of silently
+ * changing manufacturing geometry. Bulge arcs share the LWPOLYLINE gate. */
+function parseLegacyDxfPolyline(pairs,start,numeric,unitScale){
+ let i=start+1,closed=false,layout=null,paperSpace=false;
+ const normal=[0,0,1],seen=new Set();
+ let elevation=0,headerX=0,headerY=0;
+ for(;i<pairs.length&&pairs[i][0]!=='0';i++){
+  const [code,value]=pairs[i];
+  if(['10','20','30','39','40','41','66','67','70','410','210','220','230'].includes(code)){
+   if(seen.has(code))throw Error('POLYLINE DXF con cabecera duplicada: '+code);
+   seen.add(code);
+  }
+  if(code==='70'){
+   const flags=numeric(value);
+   if(!Number.isInteger(flags)||flags<0||(flags&~1)!==0)
+    throw Error('POLYLINE DXF 3D, malla o ajuste de curva no compatible');
+   closed=(flags&1)!==0;
+  }else if(code==='66'){
+   if(numeric(value)!==1)throw Error('POLYLINE DXF sin secuencia VERTEX');
+  }else if(code==='10')headerX=numeric(value);
+  else if(code==='20')headerY=numeric(value);
+  else if(code==='30')elevation=numeric(value);
+  else if(code==='39'||code==='40'||code==='41'){
+   if(numeric(value)!==0)throw Error('POLYLINE DXF con ancho o espesor no compatible');
+  }else if(code==='67'){
+   const space=numeric(value);
+   if(!Number.isInteger(space)||![0,1].includes(space))
+    throw Error('POLYLINE DXF con espacio 67 inválido');
+   paperSpace=space===1;
+  }else if(code==='410')layout=value;
+  else if(code==='210')normal[0]=numeric(value);
+  else if(code==='220')normal[1]=numeric(value);
+  else if(code==='230')normal[2]=numeric(value);
+ }
+ const pts=[],bulges=[];let terminated=false;
+ for(;i<pairs.length;){
+  if(pairs[i][0]!=='0')throw Error('POLYLINE DXF sin delimitador de entidad');
+  if(pairs[i][1]==='SEQEND'){terminated=true;break;}
+  if(pairs[i][1]!=='VERTEX')throw Error('POLYLINE DXF sin SEQEND');
+  i++;
+  const vseen=new Set();let x=null,y=null,z=0,bulge=0;
+  for(;i<pairs.length&&pairs[i][0]!=='0';i++){
+   const [code,value]=pairs[i];
+   if(['10','20','30','40','41','42','70'].includes(code)){
+    if(vseen.has(code))throw Error('VERTEX DXF con parámetro duplicado: '+code);
+    vseen.add(code);
+   }
+   if(code==='10')x=numeric(value);
+   else if(code==='20')y=numeric(value);
+   else if(code==='30')z=numeric(value);
+   else if(code==='42')bulge=numeric(value);
+   else if(code==='40'||code==='41'){
+    if(numeric(value)!==0)throw Error('VERTEX DXF con anchura no compatible');
+   }else if(code==='70'){
+    const flags=numeric(value);
+    if(!Number.isInteger(flags)||flags!==0)
+     throw Error('VERTEX DXF 3D, spline o malla no compatible');
+   }
+  }
+  if(x===null||y===null||z!==0)throw Error('VERTEX DXF con coordenadas 2D incompletas');
+  if(pts.length>=10000)throw Error('POLYLINE DXF con demasiados vértices');
+  pts.push([x,y]);bulges.push(bulge);
+ }
+ if(!terminated)throw Error('POLYLINE DXF sin SEQEND');
+ if(paperSpace||(layout!==null&&layout!=='Model'))return {points:null,end:i};
+ if(!closed)return {points:null,end:i};
+ if(headerX!==0||headerY!==0||elevation!==0||
+    normal.some((n,k)=>Math.abs(n-[0,0,1][k])>1e-12))
+  throw Error('POLYLINE DXF fuera del plano XY');
+ if(pts.length<2)throw Error('POLYLINE DXF cerrada sin suficientes vértices');
+ return {points:expandDxfBulgeProfile(pts,bulges,unitScale),end:i};
+}
 function parseDxfProfile(text){
  if(typeof text!=='string'||text.length>2000000)throw Error('DXF demasiado grande');
  const lines=text.replace(/\r/g,'').split('\n'),pairs=[];
@@ -2422,6 +2496,16 @@ function parseDxfProfile(text){
  for(let i=0;i<pairs.length;i++){
   if(!entityIndices.has(i))continue;
   const entityType=pairs[i][1];
+  if(entityType==='POLYLINE'){
+   const parsed=parseLegacyDxfPolyline(pairs,i,numeric,unitScale);
+   i=parsed.end;
+   if(parsed.points){
+    profiles.push(parsed.points);
+    if(profiles.length>1)
+     throw Error('DXF con varios perfiles cerrados: agujeros/islas aún no compatibles');
+   }
+   continue;
+  }
   if(entityType==='ELLIPSE'){
    let cx=null,cy=null,cz=0,dx=null,dy=null,dz=0,ratio=null;
    let start=0,end=2*Math.PI,layout=null,paperSpace=false;
@@ -2548,7 +2632,7 @@ function parseDxfProfile(text){
   profiles.push(millimetres);
   if(profiles.length>1)throw Error('DXF con varios perfiles cerrados: agujeros/islas aún no compatibles');
  }
- if(!profiles.length)throw Error('No hay LWPOLYLINE, CIRCLE o ELLIPSE cerrada en XY');
+ if(!profiles.length)throw Error('No hay POLYLINE, LWPOLYLINE, CIRCLE o ELLIPSE cerrada en XY');
  return profiles[0];
 }
 function importDxfText(text){

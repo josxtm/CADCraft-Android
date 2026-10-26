@@ -1424,4 +1424,63 @@ assert.equal(ellipseImported.changed,true,'valid ELLIPSE becomes an editable sou
 assert.equal(ellipseImported.shells,1,'ELLIPSE source remains closed after handoff');
 assert.ok(ellipseImported.v>=24,'ELLIPSE source is an approximated mesh');
 
+
+/* C4/A5: legacy DXF POLYLINE/VERTEX/SEQEND from older CAD exports. */
+const legacyPolyline=(vertices,extraHeader=[],ending=true)=>[
+ '0','POLYLINE','66','1','70','1',...extraHeader,
+ ...vertices.flatMap(v=>['0','VERTEX','10',String(v[0]),'20',String(v[1]),...v.slice(2)]),
+ ...(ending?['0','SEQEND']:[])
+].join(dxfNewline);
+const legacySquare=legacyPolyline([[0,0],[10,0],[10,10],[0,10]]);
+const legacyDocument=legacySquare+dxfNewline+['0','EOF'].join(dxfNewline);
+const legacySolid=evaluate("(()=>{const p=parseDxfProfile("+JSON.stringify(legacyDocument)+
+ "),mesh=extrude(p,5),report=inspectMeshTopology(mesh);return {points:p,volume:meshOrientedVolume(mesh),shells:report.shells}})()");
+assert.equal(legacySolid.points.length,4,'legacy 2D POLYLINE returns four outline vertices');
+assert.equal(legacySolid.shells,1,'legacy POLYLINE extrudes watertight shell');
+assert.ok(Math.abs(legacySolid.volume-500)<1e-6,'legacy POLYLINE has correct volume');
+const legacyInches=evaluate("(()=>{const p=parseDxfProfile("+
+ JSON.stringify(dxfUnitDocument(1,legacySquare))+
+ "),m=extrude(p,-5);return {width:p[1][0],volume:meshOrientedVolume(m)}})()");
+assert.ok(Math.abs(legacyInches.width-254)<1e-8,'legacy POLYLINE converts inches to mm');
+assert.ok(Math.abs(legacyInches.volume-254*254*5)<1e-4,'legacy POLYLINE extrudes with negative height');
+const legacyBulge=legacyPolyline([[10,0,'42','1'],[-10,0,'42','1']]);
+const legacyArc=evaluate("(()=>{const p=parseDxfProfile("+
+ JSON.stringify(legacyBulge+dxfNewline+['0','EOF'].join(dxfNewline))+
+ "),m=extrude(p,10);return {vertices:p.length,volume:meshOrientedVolume(m),shells:inspectMeshTopology(m).shells}})()");
+assert.ok(legacyArc.vertices>24,'legacy POLYLINE bulges generate circular outline');
+assert.equal(legacyArc.shells,1,'legacy POLYLINE bulges extrude watertight solid');
+assert.ok(Math.abs(legacyArc.volume-Math.PI*1000)<25,'legacy POLYLINE bulge area is accurate');
+const legacyLayouts=[
+ '0','SECTION','2','BLOCKS',legacyPolyline([[0,0],[50,0],[50,50],[0,50]]),
+ '0','ENDSEC','0','SECTION','2','ENTITIES',
+ legacyPolyline([[0,0],[30,0],[30,30],[0,30]],['67','1']),
+ legacyPolyline([[0,0],[40,0],[40,40],[0,40]],['410','Paper']),
+ legacyPolyline([[0,0],[7,0],[7,7],[0,7]],['410','Model']),
+ '0','ENDSEC','0','EOF'
+].join(dxfNewline);
+const legacyLayoutResult=evaluate("parseDxfProfile("+JSON.stringify(legacyLayouts)+")[1][0]");
+assert.equal(legacyLayoutResult,7,'legacy POLYLINE excludes BLOCKS and paper-space layouts');
+const legacyInvalid=[
+ {name:'missing SEQEND',data:legacyPolyline([[0,0],[10,0],[10,10],[0,10]],[],false)+dxfNewline+'0'+dxfNewline+'EOF'},
+ {name:'3D polyline',data:legacyPolyline([[0,0],[10,0],[10,10],[0,10]],['70','8'])},
+ {name:'nonzero elevation',data:legacyPolyline([[0,0],[10,0],[10,10],[0,10]],['30','2'])},
+ {name:'vertex Z',data:legacyPolyline([[0,0,'30','1'],[10,0],[10,10],[0,10]])},
+ {name:'vertex width',data:legacyPolyline([[0,0,'40','2'],[10,0],[10,10],[0,10]])},
+ {name:'header thickness',data:legacyPolyline([[0,0],[10,0],[10,10],[0,10]],['39','2'])},
+ {name:'duplicated vertex X',data:legacyPolyline([[0,0,'10','1'],[10,0],[10,10],[0,10]])},
+ {name:'missing vertex Y',data:['0','POLYLINE','70','1','0','VERTEX','10','0','0','SEQEND','0','EOF'].join(dxfNewline)},
+ {name:'two closed contours',data:legacySquare+dxfNewline+legacyDocument}
+];
+for(const c of legacyInvalid){
+ const outcome=evaluate("(()=>{const before=serializeProject();try{importDxfText("+
+  JSON.stringify(c.data)+");return {rejected:false}}catch(e){return {rejected:true,unchanged:before===serializeProject(),message:e.message}}})()");
+ assert.equal(outcome.rejected,true,c.name+' rejects malformed legacy POLYLINE');
+ assert.equal(outcome.unchanged,true,c.name+' leaves live project unchanged');
+ assert.ok(outcome.message.length>5,c.name+' has diagnostic');
+}
+const legacyImported=evaluate("(()=>{const before=serializeProject(),m=importDxfText("+
+ JSON.stringify(legacyDocument)+");return {changed:before!==serializeProject(),volume:meshOrientedVolume(m),shells:inspectMeshTopology(m).shells}})()");
+assert.equal(legacyImported.changed,true,'legacy POLYLINE imports into editable source');
+assert.equal(legacyImported.shells,1,'legacy POLYLINE import remains watertight');
+
 console.log('3D studio tests passed');
