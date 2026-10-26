@@ -527,6 +527,9 @@ assert.equal(topology.valid.cube.euler,2,'solid box Euler characteristic');
 assert.equal(Math.round(topology.valid.cube.signedVolume),1000,'solid box volume');
 assert.equal(topology.valid.cube.surfaceArea,600,'10 mm cube has 600 mm² exterior area');
 assert.equal(topology.valid.cube.shellDiagnostics[0].surfaceArea,600,'single shell area matches total');
+assert.deepEqual(topology.valid.cube.shellDiagnostics[0].bounds,{min:[0,0,0],max:[10,10,10]},'single shell exposes exact 3D bounds');
+assert.deepEqual(topology.valid.cavity.shellDiagnostics.map(x=>x.bounds),[{min:[0,0,0],max:[10,10,10]},{min:[2,2,2],max:[8,8,8]}],'nested cavity bounds distinguish outer and inner surfaces');
+assert.deepEqual(topology.valid.separate.shellDiagnostics.map(x=>x.bounds.min),[[0,0,0],[20,0,0]],'separated components retain independent bounds');
 assert.equal(topology.valid.cavity.shells,2,'hollow block has two surfaces');
 assert.deepEqual(Array.from(topology.valid.cavity.nestingParents),[-1,0],'cavity shell is parented by exterior');
 assert.equal(topology.valid.cavity.cavities,1,'hollow block preserves inward facing cavity surface');
@@ -603,6 +606,7 @@ assert.equal(nestedShells.island.report.shellDiagnostics.every(x=>x.genus===0&&x
 assert.equal(nestedShells.island.report.shellDiagnostics.reduce((sum,x)=>sum+x.signedVolume,0),nestedShells.island.report.signedVolume,'shell diagnostic volume sums to net solid volume');
 assert.deepEqual(Array.from(nestedShells.island.report.shellDiagnostics,x=>x.surfaceArea),[600,216,24],'outer, cavity and island surfaces retain their individual areas');
 assert.equal(nestedShells.island.report.surfaceArea,840,'nested shells expose total boundary area, not net volume');
+assert.deepEqual(nestedShells.island.report.shellDiagnostics[2].bounds,{min:[4,4,4],max:[6,6,6]},'material island has its own 3D bounds inside the cavity');
 assert.equal(nestedShells.island.report.shellDiagnostics.reduce((sum,x)=>sum+x.surfaceArea,0),nestedShells.island.report.surfaceArea,'per-shell areas add up to the total');
 
 
@@ -626,6 +630,7 @@ assert.equal(numericStability.values.every(item=>Math.abs(item.report-1000)<1e-6
 assert.equal(Math.abs(numericStability.disconnectedVolume-2000)<1e-6,true,'two shells 90 million mm apart retain their individual volumes');
 assert.equal(Math.abs(numericStability.disconnectedReport.signedVolume-2000)<1e-6,true,'topology volume also handles distant shells');
 assert.equal(numericStability.disconnectedReport.shells,2,'distant shells are independent');
+assert.deepEqual(numericStability.disconnectedReport.shellDiagnostics.map(x=>x.bounds.min),[[0,0,0],[9e7,9e7,9e7]],'far-apart shells preserve world-space bounds without mixing components');
 assert.equal(Math.abs(numericStability.disconnectedReport.surfaceArea-1200)<1e-6,true,'surface area remains stable with shells 90 million mm apart');
 assert.equal(Math.abs(numericStability.hollowVolume-784)<1e-6,true,'distant translated hollow solid keeps cavity subtraction');
 assert.equal(Math.abs(numericStability.hollowReport.signedVolume-784)<1e-6,true,'hollow-shell validation remains stable far from origin');

@@ -807,13 +807,8 @@ function validateShellNesting(mesh,shells,indicesByShell){
  const depths=new Array(shells.length).fill(0);
  const containers=Array.from({length:shells.length},()=>[]);
  if(shells.length<2)return {depths,parents:new Array(shells.length).fill(-1)};
- const limits=indicesByShell.map(indices=>{
-  const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
-  for(const index of indices)for(const vertex of mesh.faces[index])for(let k=0;k<3;k++){
-   min[k]=Math.min(min[k],mesh.v[vertex][k]);max[k]=Math.max(max[k],mesh.v[vertex][k]);
-  }
-  return {min,max};
- });
+ // Each shell's bounds are gathered during traversal, not rescanned here.
+ const limits=shells.map(shell=>shell.bounds);
  for(let i=0;i<shells.length;i++){
   const point=mesh.v[mesh.faces[indicesByShell[i][0]][0]];
   for(let j=0;j<shells.length;j++){
@@ -923,10 +918,16 @@ function inspectMeshTopology(mesh){
  for(let start=0;start<mesh.faces.length;start++){
   if(visited.has(start))continue;
   const queue=[start];visited.add(start);let shellVolume=0,shellArea=0;
+  const shellBounds={min:[Infinity,Infinity,Infinity],max:[-Infinity,-Infinity,-Infinity]};
   const shellOrigin=mesh.v[mesh.faces[start][0]];
   const shellIndex=shells.length;
   for(let q=0;q<queue.length;q++){
    const index=queue[q],face=mesh.faces[index];faceShells[index]=shellIndex;
+   for(const vertex of face)for(let k=0;k<3;k++){
+    const coordinate=mesh.v[vertex][k];
+    shellBounds.min[k]=Math.min(shellBounds.min[k],coordinate);
+    shellBounds.max[k]=Math.max(shellBounds.max[k],coordinate);
+   }
    const [a,b,c]=face.map(i=>mesh.v[i].map((v,k)=>v-shellOrigin[k]));
    // Edge differences preserve small face areas at large world offsets.
    const ab=b.map((v,k)=>v-a[k]),ac=c.map((v,k)=>v-a[k]);
@@ -940,7 +941,7 @@ function inspectMeshTopology(mesh){
   }
   if(!Number.isFinite(shellArea)||!(shellArea>0))throw Error('Área de cascarón inválida');
   if(!Number.isFinite(shellVolume)||Math.abs(shellVolume)<=1e-8)throw Error('Superficie cerrada sin volumen útil');
-  shells.push({triangles:queue.length,signedVolume:shellVolume,surfaceArea:shellArea});
+  shells.push({triangles:queue.length,signedVolume:shellVolume,surfaceArea:shellArea,bounds:shellBounds});
   indicesByShell.push(queue);
  }
  const signedVolume=shells.reduce((sum,sh)=>sum+sh.signedVolume,0);
@@ -973,6 +974,7 @@ function inspectMeshTopology(mesh){
  const shellDiagnostics=shells.map((part,index)=>({
   index,parent:nestingParents[index],depth:nestingDepths[index],role:nestingDepths[index]%2?'cavity':'material',
   triangles:part.triangles,signedVolume:part.signedVolume,surfaceArea:part.surfaceArea,
+  bounds:{min:part.bounds.min.slice(),max:part.bounds.max.slice()},
   euler:shellGenus[index].euler,genus:shellGenus[index].genus
  }));
  return {vertices:mesh.v.length,edges:edges.size,triangles:mesh.faces.length,

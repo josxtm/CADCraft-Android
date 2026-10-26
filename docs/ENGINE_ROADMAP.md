@@ -50,6 +50,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **A1/A5 — área superficial por cascarón (26-10-2026):** `inspectMeshTopology` añade `surfaceArea` (mm²) tanto al diagnóstico global como a cada elemento de `shellDiagnostics`, calculada con diferencias locales de aristas para evitar cancelación con coordenadas alejadas del origen. La superficie interior de una cavidad **suma área** aunque reste volumen; las islas también suman. Regresiones: cubo de 10 mm (600 mm²), cavidad cúbica de 6 mm (816 mm² total), isla anidada (840 mm² total) y sólidos/cavidades desplazados hasta 90 millones de mm. Es un diagnóstico del contorno triangulado, no una representación B-Rep ni una medida de volumen material. Sin APK.
 
+**A1/A5 — límites espaciales por cascarón (26-10-2026):** el diagnóstico `shellDiagnostics[].bounds` incorpora cajas 3D `min/max` independientes para cada cascarón. Se calculan en el recorrido de caras y se reutilizan en la prueba de anidamiento, evitando volver a recorrer las caras solo para obtener límites. Regresiones de sólido único, cavidad, sólidos separados, isla anidada y cascarones a 90 millones de mm; la caja global `bounds` permanece compatible. Es metadato diagnóstico de la malla triangulada, no geometría paramétrica ni una operación nueva de boceto. Sin APK.
+
 ## Bloque B — Modelado CAD
 
 | Paso | Capacidad | Estado | Criterio de aceptación |
