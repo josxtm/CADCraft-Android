@@ -1303,4 +1303,62 @@ assert.equal(bulgeImported.changed,true,'bulge DXF imports into editable source 
 assert.ok(bulgeImported.vertices>8,'curved source is a tessellated 3D solid');
 assert.ok(bulgeImported.volume>3000,'curved source has meaningful 3D volume');
 
+
+/* C4: native DXF CIRCLE has no bulge; a closed circular model-space entity
+ * must create a correctly scaled tessellated, watertight extrusion. */
+const circleDxfShape=(r=10,cx=3,cy=-4,extra=[])=>[
+ '0','CIRCLE','10',String(cx),'20',String(cy),'40',String(r),...extra
+].join(dxfNewline);
+const circleDxfDocument=(r=10,cx=3,cy=-4,extra=[])=>circleDxfShape(r,cx,cy,extra)+
+ dxfNewline+['0','EOF'].join(dxfNewline);
+const circleSolid=evaluate("(()=>{const p=parseDxfProfile("+JSON.stringify(circleDxfDocument())+
+ ");const m=extrude(p,10),check=inspectMeshTopology(m);return {count:p.length,volume:meshOrientedVolume(m),shells:check.shells,bounds:check.bounds}})()");
+assert.ok(circleSolid.count>=12&&circleSolid.count<=2048,'native DXF CIRCLE produces bounded samples');
+assert.equal(circleSolid.shells,1,'closed native CIRCLE extrudes to one watertight shell');
+assert.ok(Math.abs(circleSolid.volume-Math.PI*1000)<30,'CIRCLE extrusion volume approximates analytic disk');
+assert.ok(Math.abs(circleSolid.bounds.min[0]+7)<0.02,'CIRCLE world xmin retains center');
+assert.ok(Math.abs(circleSolid.bounds.max[0]-13)<0.02,'CIRCLE world xmax retains center');
+assert.ok(Math.abs(circleSolid.bounds.min[1]+14)<0.02,'CIRCLE world ymin retains center');
+const circleInches=evaluate("(()=>{const p=parseDxfProfile("+
+ JSON.stringify(dxfUnitDocument(1,circleDxfShape(1,0,0)))+
+ ");const m=extrude(p,-10);return {radius:Math.max(...p.map(q=>Math.hypot(...q))),volume:meshOrientedVolume(m)}})()");
+assert.ok(Math.abs(circleInches.radius-25.4)<0.02,'CIRCLE INSUNITS inches scales into mm');
+assert.ok(Math.abs(circleInches.volume-Math.PI*25.4*25.4*10)<170,
+ 'CIRCLE with negative extrusion keeps volume and millimetre scale');
+const circleModelOnly=[
+ '0','SECTION','2','BLOCKS',circleDxfShape(10,0,0),
+ '0','ENDSEC','0','SECTION','2','ENTITIES',
+ circleDxfShape(12,100,100,['67','1']),
+ circleDxfShape(5,100,100,['410','Layout1']),
+ circleDxfShape(7,0,0,['410','Model']),
+ '0','ENDSEC','0','EOF'
+].join(dxfNewline);
+const circleModel=evaluate("(()=>{const p=parseDxfProfile("+JSON.stringify(circleModelOnly)+
+ ");return {radius:Math.max(...p.map(q=>Math.hypot(...q))),length:p.length}})()");
+assert.ok(Math.abs(circleModel.radius-7)<0.01,'CIRCLE ignores BLOCKS and paper-space entities');
+assert.ok(circleModel.length>=12,'model-space native CIRCLE remains available');
+const invalidCircles=[
+ {name:'missing radius',source:['0','CIRCLE','10','0','20','0','0','EOF'].join(dxfNewline)},
+ {name:'negative radius',source:circleDxfDocument(-2)},
+ {name:'zero radius',source:circleDxfDocument(0)},
+ {name:'tilted normal',source:circleDxfDocument(10,0,0,['210','1'])},
+ {name:'nonzero elevation',source:circleDxfDocument(10,0,0,['30','1'])},
+ {name:'duplicate radius',source:circleDxfDocument(10,0,0,['40','5'])},
+ {name:'two source circles',source:circleDxfShape()+dxfNewline+circleDxfDocument(5)}
+];
+for(const item of invalidCircles){
+ const outcome=evaluate("(()=>{const before=serializeProject();try{importDxfText("+
+  JSON.stringify(item.source)+
+  ");return {rejected:false}}catch(e){return {rejected:true,preserved:before===serializeProject(),error:e.message}}})()");
+ assert.equal(outcome.rejected,true,item.name+' rejects invalid CIRCLE');
+ assert.equal(outcome.preserved,true,item.name+' retains preexisting scene on failure');
+ assert.ok(outcome.error.length>5,item.name+' explains rejection');
+}
+const circleImport=evaluate("(()=>{const before=serializeProject(),mesh=importDxfText("+
+ JSON.stringify(circleDxfDocument())+
+ ");return {changed:before!==serializeProject(),shells:inspectMeshTopology(mesh).shells,vertices:mesh.v.length}})()");
+assert.equal(circleImport.changed,true,'native CIRCLE import updates source only after validation');
+assert.equal(circleImport.shells,1,'imported CIRCLE remains watertight');
+assert.ok(circleImport.vertices>=24,'native CIRCLE is a tessellated extruded solid');
+
 console.log('3D studio tests passed');
