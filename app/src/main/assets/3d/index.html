@@ -1295,9 +1295,20 @@ function previewFaceGesture(pointerId,x,y,sensitivity=1,snap=0){
  if(Math.abs(distance)<1e-8){
   original.mesh=g.originalMesh;g.distance=0;render();return true;
  }
- const candidate=translateMeshPlane(g.originalMesh,g.faceIndex,distance);
- if(!(meshOrientedVolume(candidate)>1e-8))throw Error('Volumen no válido');
- validateWorldPlacement(candidate,original.offset,true);
+ let candidate;
+ try{
+  candidate=translateMeshPlane(g.originalMesh,g.faceIndex,distance);
+  if(!(meshOrientedVolume(candidate)>1e-8))throw Error('Volumen no válido');
+  validateWorldPlacement(candidate,original.offset,true);
+ }catch(e){
+  // The finger may pass from a valid preview into an invalid position.
+  // Never commit the last valid intermediate geometry on pointerup when
+  // the operator actually released an unsafe pose. Restore the start mesh
+  // and disarm this gesture without consuming an undo transaction.
+  original.mesh=g.originalMesh;g.distance=0;
+  invalidateSceneContacts();render();
+  throw e;
+ }
  original.mesh=candidate;g.distance=distance;
  invalidateSceneContacts();render();
  setStatus('Vista previa · plano '+['X','Y','Z'][g.axis]+': '+Number(distance.toFixed(2))+' mm');
