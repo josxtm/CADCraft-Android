@@ -987,7 +987,7 @@ const dxfUnitDocument=(unit,shape=dxSquare())=>[
  '0','SECTION','2','HEADER','9','$INSUNITS','70',String(unit),
  '0','ENDSEC','0','SECTION','2','ENTITIES',shape,
  '0','ENDSEC','0','EOF'
-].join('\\n');
+].join('\n');
 for(const [unit,multiplier] of [[0,1],[1,25.4],[2,304.8],[4,1],[5,10],[6,1000],[14,100]]){
  const doc=dxfUnitDocument(unit);
  const result=evaluate('parseDxfProfile('+JSON.stringify(doc)+')[1][0]');
@@ -995,13 +995,13 @@ for(const [unit,multiplier] of [[0,1],[1,25.4],[2,304.8],[4,1],[5,10],[6,1000],[
   'DXF INSUNITS '+unit+' must convert coordinates to millimetres');
 }
 const exportedDxf=evaluate('profileAsDxf([[0,0],[20,0],[20,10],[0,10]])');
-assert.ok(exportedDxf.includes('9\\n$INSUNITS\\n70\\n4\\n'),
+assert.ok(exportedDxf.includes('9\n$INSUNITS\n70\n4\n'),
  'exported DXF declares millimetres explicitly');
 assert.equal(evaluate('parseDxfProfile('+JSON.stringify(exportedDxf)+')[1][0]'),20,
  'exported millimetre DXF roundtrips without rescaling');
 const unsupportedUnits=dxfUnitDocument(3),badUnits=dxfUnitDocument('inch');
-const duplicatedUnits=dxfUnitDocument(1).replace('0\\nENDSEC',
- '9\\n$INSUNITS\\n70\\n4\\n0\\nENDSEC');
+const duplicatedUnits=dxfUnitDocument(1).replace('0\nENDSEC',
+ '9\n$INSUNITS\n70\n4\n0\nENDSEC');
 for(const [name,doc] of [['unsupported',unsupportedUnits],['malformed',badUnits],['duplicate',duplicatedUnits]]){
  const result=evaluate('(()=>{try{parseDxfProfile('+JSON.stringify(doc)+');return ""}catch(e){return e.message}})()');
  assert.match(result,/unidades|INSUNITS/i,name+' DXF units are rejected');
