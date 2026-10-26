@@ -1462,7 +1462,7 @@ const legacyLayoutResult=evaluate("parseDxfProfile("+JSON.stringify(legacyLayout
 assert.equal(legacyLayoutResult,7,'legacy POLYLINE excludes BLOCKS and paper-space layouts');
 const legacyInvalid=[
  {name:'missing SEQEND',data:legacyPolyline([[0,0],[10,0],[10,10],[0,10]],[],false)+dxfNewline+'0'+dxfNewline+'EOF'},
- {name:'3D polyline',data:legacyPolyline([[0,0],[10,0],[10,10],[0,10]],['70','8'])},
+ {name:'3D polyline',data:legacyPolyline([[0,0],[10,0],[10,10],[0,10]]).replace('70'+dxfNewline+'1','70'+dxfNewline+'8')},
  {name:'nonzero elevation',data:legacyPolyline([[0,0],[10,0],[10,10],[0,10]],['30','2'])},
  {name:'vertex Z',data:legacyPolyline([[0,0,'30','1'],[10,0],[10,10],[0,10]])},
  {name:'vertex width',data:legacyPolyline([[0,0,'40','2'],[10,0],[10,10],[0,10]])},

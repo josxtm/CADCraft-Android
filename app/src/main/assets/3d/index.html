@@ -2632,7 +2632,7 @@ function parseDxfProfile(text){
   profiles.push(millimetres);
   if(profiles.length>1)throw Error('DXF con varios perfiles cerrados: agujeros/islas aún no compatibles');
  }
- if(!profiles.length)throw Error('No hay POLYLINE, LWPOLYLINE, CIRCLE o ELLIPSE cerrada en XY');
+ if(!profiles.length)throw Error('No hay LWPOLYLINE o POLYLINE cerrada, CIRCLE o ELLIPSE en XY');
  return profiles[0];
 }
 function importDxfText(text){
