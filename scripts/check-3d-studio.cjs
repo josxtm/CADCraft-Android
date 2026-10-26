@@ -1020,6 +1020,41 @@ assert.equal(rejectedScaledImport.same,true,'failed scaled import leaves existin
 
 assert.equal(evaluate("(()=>{try{parseDxfProfile('x'.repeat(2000001));return false}catch(e){return e.message.includes('grande')}})()"),true,'DXF size is capped before parsing');
 
+/* C4/A5: block definitions and paper-space annotations are not model-space
+ * contours. A malformed structured DXF must not replace the live solid. */
+const sectionDxf=(sections)=>sections.map(([name,records])=>
+ ['0','SECTION','2',name,records,'0','ENDSEC'].join('\\n')).join('\\n')+'\\n0\\nEOF';
+const modelProfile=dxSquare(50),blockProfile=dxSquare(500),paperProfile=dxSquare(1000);
+const withBlock=sectionDxf([['BLOCKS',['0','BLOCK','2','SYMBOL',blockProfile,'0','ENDBLK'].join('\\n')],['ENTITIES',modelProfile]]);
+const importedModel=evaluate('parseDxfProfile('+JSON.stringify(withBlock)+')');
+assert.equal(importedModel[0][0],50,'block definition must not override actual model contour');
+assert.equal(importedModel.length,4,'block and one visible profile do not count as two loops');
+const onlyBlock=sectionDxf([['BLOCKS',blockProfile],['ENTITIES',['0','LINE','10','0','20','0'].join('\\n')]]);
+assert.match(evaluate('(()=>{try{parseDxfProfile('+JSON.stringify(onlyBlock)+');return ""}catch(e){return e.message}})()'),/No hay LWPOLYLINE/,'block-only drawing cannot be extruded');
+const withPaper=sectionDxf([['ENTITIES',[
+ paperProfile,'67','1',modelProfile,
+ paperProfile,'410','Layout1'
+].join('\\n')]]);
+assert.equal(evaluate('parseDxfProfile('+JSON.stringify(withPaper)+')[0][0]'),50,'paper-space polylines are excluded from model profile');
+const withTwoModel=sectionDxf([['ENTITIES',[modelProfile,dxSquare(80)].join('\\n')]]);
+assert.match(evaluate('(()=>{try{parseDxfProfile('+JSON.stringify(withTwoModel)+');return ""}catch(e){return e.message}})()'),/varios perfiles/,'two visible model contours remain unsupported');
+const malformedDxf=[
+ ['nested', ['0','SECTION','2','ENTITIES','0','SECTION','2','BLOCKS',modelProfile,'0','ENDSEC','0','ENDSEC','0','EOF'].join('\\n'),/anidadas/],
+ ['unclosed', ['0','SECTION','2','ENTITIES',modelProfile,'0','EOF'].join('\\n'),/sin cerrar/],
+ ['missing entities', sectionDxf([['BLOCKS',modelProfile]]),/ENTITIES/],
+ ['duplicate entities', sectionDxf([['ENTITIES',modelProfile],['ENTITIES',dxSquare(80)]]),/duplicada/],
+ ['orphan endsec', ['0','ENDSEC',modelProfile].join('\\n'),/ENDSEC/],
+ ['invalid space', sectionDxf([['ENTITIES',modelProfile+'\\n67\\n2']]),/Espacio DXF/]
+];
+for(const [name,input,pattern] of malformedDxf){
+ const result=evaluate('(()=>{const old=serializeProject();try{importDxfText('+JSON.stringify(input)+');return {error:"",same:serializeProject()===old}}catch(e){return {error:e.message,same:serializeProject()===old}}})()');
+ assert.match(result.error,pattern,'reject malformed DXF: '+name);
+ assert.equal(result.same,true,'rejected DXF must preserve live project: '+name);
+}
+assert.equal(evaluate('parseDxfProfile('+JSON.stringify(dxSquare(3)+'\\n0\\nEOF')+')[0][0]'),3,
+ 'legacy unsectioned CADCraft DXF handoff remains compatible');
+
+
 
 /* A3/C3: all interactive translations obey world-coordinate/topology limits
  * before commit, including derived meshes, duplication, touch and undo. */

@@ -2281,11 +2281,47 @@ function dxfMillimetreScale(pairs){
  }
  return scale;
 }
+/* C4/A5: A DXF BLOCKS definition is not a visible model-space profile.
+ * Accept the legacy sectionless CADCraft handoff, but when SECTION records
+ * exist only the ENTITIES section can supply an extrudable contour.
+ * Validate the section framing before touching the current 3D project. */
+function dxfEntityIndices(pairs){
+ let section=null,structured=false,entitiesSeen=false;
+ const candidates=[];
+ for(let i=0;i<pairs.length;i++){
+  const [code,value]=pairs[i];
+  if(code!=='0')continue;
+  if(value==='SECTION'){
+   if(section!==null)throw Error('DXF con secciones anidadas');
+   const header=pairs[++i];
+   if(!header||header[0]!=='2'||!header[1])throw Error('Sección DXF incompleta');
+   section=header[1];structured=true;
+   if(section==='ENTITIES'){
+    if(entitiesSeen)throw Error('DXF con sección ENTITIES duplicada');
+    entitiesSeen=true;
+   }
+  }else if(value==='ENDSEC'){
+   if(section===null)throw Error('DXF con ENDSEC sin SECTION');
+   section=null;
+  }else if(value==='EOF'){
+   if(section!==null)throw Error('DXF con sección sin cerrar');
+   if(pairs.slice(i+1).some(([c,v])=>c==='0'&&v==='SECTION'))
+    throw Error('DXF con datos tras EOF');
+   break;
+  }else if(value==='LWPOLYLINE'){
+   candidates.push({index:i,section});
+  }
+ }
+ if(section!==null)throw Error('DXF con sección sin cerrar');
+ if(structured&&!entitiesSeen)throw Error('DXF sin sección ENTITIES');
+ return candidates.filter(item=>!structured||item.section==='ENTITIES').map(item=>item.index);
+}
 function parseDxfProfile(text){
  if(typeof text!=='string'||text.length>2000000)throw Error('DXF demasiado grande');
  const lines=text.replace(/\r/g,'').split('\n'),pairs=[];
  if(lines.length>200001)throw Error('DXF con demasiados registros');
  for(let i=0;i<lines.length-1;i+=2)pairs.push([lines[i].trim(),lines[i+1].trim()]);
+ const entityIndices=new Set(dxfEntityIndices(pairs));
  const unitScale=dxfMillimetreScale(pairs);
  const profiles=[];
  const numeric=value=>{
@@ -2293,8 +2329,9 @@ function parseDxfProfile(text){
   return Number(value);
  };
  for(let i=0;i<pairs.length;i++){
-  if(pairs[i][0]!=='0'||pairs[i][1]!=='LWPOLYLINE')continue;
+  if(!entityIndices.has(i))continue;
   const pts=[],normal=[0,0,1];let closed=false,count=null,bulge=false,elevation=0,thickness=0;
+  let paperSpace=false,layout=null;
   for(i++;i<pairs.length&&pairs[i][0]!=='0';i++){
    const [code,value]=pairs[i];
    if(code==='10'){
@@ -2314,13 +2351,21 @@ function parseDxfProfile(text){
      throw Error('Número de vértices DXF inválido');
    }else if(code==='42'){
     bulge=bulge||numeric(value)!==0;
-   }else if(code==='38')elevation=numeric(value);
+   }else if(code==='67'){
+    const space=numeric(value);
+    if(!Number.isInteger(space)||![0,1].includes(space))
+     throw Error('Espacio DXF (67) inválido');
+    paperSpace=space===1;
+   }else if(code==='410')layout=value;
+   else if(code==='38')elevation=numeric(value);
    else if(code==='39')thickness=numeric(value);
    else if(code==='210')normal[0]=numeric(value);
    else if(code==='220')normal[1]=numeric(value);
    else if(code==='230')normal[2]=numeric(value);
   }
   i--;
+  // Layout entities (paper space) are not mechanical profiles in the model.
+  if(paperSpace||(layout!==null&&layout!=='Model'))continue;
   if(!closed)continue;
   if(count!==null&&count!==pts.length)throw Error('Cantidad de vértices DXF incoherente');
   if(pts.length<3||pts.some(p=>!p.every(Number.isFinite)))
