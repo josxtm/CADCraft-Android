@@ -582,4 +582,17 @@ assert.equal(nestedShells.island.report.nestingDepths.join('/'),'0/1/2','shell c
 assert.equal(Math.round(nestedShells.island.report.signedVolume),792,'island contributes positive material volume');
 assert.equal(nestedShells.nestedWrongThree.accepted,false,'wrong internal shell winding rejected even with positive island');
 
+
+// 125 offsets x 3 boolean operations: accept exact valid solids, refuse
+// edge-only/point-only unions (non-manifold), and preserve empty intersections.
+const boundaryMatrix=evaluate("(()=>{const p=[[0,0],[10,0],[10,10],[0,10]],a={id:1,profile:p,height:10,offset:[0,0,0],mesh:extrude(p,10)},offsets=[-10,-5,0,5,15],result={passed:0,expectedInvalid:0,empty:0,unexpected:[]};for(const x of offsets)for(const y of offsets)for(const z of offsets)for(const mode of ['union','subtract','intersect']){const b={id:2,profile:p,height:10,offset:[x,y,z],mesh:extrude(p,10)},common=[x,y,z].reduce((volume,d)=>volume*Math.max(0,10-Math.abs(d)),1),expected=mode==='union'?2000-common:mode==='subtract'?1000-common:common;if(!expected){result.empty++;continue}const boundary=[x,y,z].every(d=>Math.abs(d)<=10)&&[x,y,z].filter(d=>Math.abs(d)===10).length>=2,mustReject=mode==='union'&&boundary;try{const m=booleanBoxMesh(a,b,mode);inspectMeshTopology(m);const v=meshOrientedVolume(m);if(!mustReject&&Math.abs(v-expected)<1e-5)result.passed++;else result.unexpected.push({x,y,z,mode,v,expected,mustReject})}catch(e){if(mustReject)result.expectedInvalid++;else result.unexpected.push({x,y,z,mode,error:e.message})}}return result})()");
+assert.equal(boundaryMatrix.passed,266,'266 nonempty manifold boolean geometries validated by position matrix');
+assert.equal(boundaryMatrix.expectedInvalid,10,'reject all 10 non-manifold edge/vertex unions');
+assert.equal(boundaryMatrix.empty,99,'zero-volume boolean results classified as empty');
+assert.equal(boundaryMatrix.unexpected.length,0,'all 375 offset-operation cases match expected validity and volume');
+assert.equal(evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));createSceneSolid();moveActiveSolid(10,10,0);return exportBooleanOBJ('union')})()"),false,'non-manifold edge-touch union cannot be exported to OBJ');
+assert.equal(evaluate('status.textContent.includes("Booleana OBJ")'),true,'unsafe OBJ export produces a visible explanatory failure');
+assert.equal(evaluate("(()=>{moveActiveSolid(10,0,0);return exportBooleanOBJ('union')})()"),true,'valid face-touch union can be exported to OBJ');
+assert.equal(evaluate("(()=>{moveActiveSolid(5,5,5);return exportBooleanOBJ('subtract')})()"),true,'valid partial-volume subtraction can be exported to OBJ');
+
 console.log('3D studio tests passed');
