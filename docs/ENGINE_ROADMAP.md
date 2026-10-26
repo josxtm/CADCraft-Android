@@ -39,10 +39,12 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 |---|---|---|---|
 | B1 | Restricciones de boceto: horizontal, vertical, coincidencia, tangencia, cotas | Parcial | Solucionador de restricciones estable y perfiles cerrados reproducibles |
 | B2 | Agujeros, islas, perfiles múltiples y extrusiones con vaciados | Pendiente | Crear una placa perforada desde el boceto y medir su volumen |
-| B3 | Historial paramétrico y dependencias | Pendiente | Editar un boceto y regenerar extrusiones/operaciones dependientes sin dejar mallas obsoletas |
+| B3 | Historial paramétrico y dependencias | **Parcial: regeneración manual** | Los resultados CSG guardan las IDs de sus dos fuentes y pueden regenerarse manualmente tras modificar una extrusión; falta grafo de dependencias, propagación automática e historial paramétrico |
 | B4 | Edición directa de caras, vértices y aristas arbitrarios | Parcial | Operaciones sobre sólidos no rectangulares con autocorrección o rechazo sin daño |
 | B5 | Revolución, barrido, chaflán, redondeo, vaciado, patrón y simetría | Pendiente | Geometría validada, deshacer/rehacer y pruebas volumétricas |
 | B6 | Ensamblajes básicos y organización de piezas | Parcial | Árbol de objetos con nombres, visibilidad, selección y transformaciones por pieza |
+
+**B3 — actualización controlada:** el botón «Regenerar resultado» reconstruye una booleana seleccionada a partir de las dos piezas originales guardadas en `parents`. No altera las piezas de origen ni el desplazamiento propio de la malla resultado. Si alguna fuente no existe, la booleana es inválida o produce una malla vacía, el resultado anterior permanece intacto. Esta operación sí reemplaza las ediciones directas realizadas sobre la malla derivada; por ello no se ejecuta automáticamente ni constituye todavía un historial paramétrico completo.
 
 ## Bloque C — App Android, usabilidad y formatos
 
