@@ -1620,4 +1620,21 @@ assert.ok(pinchAnchor.zoomAfter>pinchAnchor.zoomBefore*1.5,'finger separation st
 assert.equal(pinchAnchor.unchanged,true,'anchored pinch has no side effects on the design');
 assert.equal(pinchAnchor.clean,true,'anchored pinch does not leak pointer state');
 
+
+/* C1/B3: the local sketch viewport must fit profiles far from the origin,
+ * allow pointer/world roundtrips, keep the geometry untouched when zooming,
+ * and separate grid visibility from snap constraints. */
+const viewportTest=evaluate("(()=>{const projectBefore=serializeProject();sketchPoints=[[10000,-20000],[16000,-20000],[16000,-14000],[10000,-14000]];const original=JSON.stringify(sketchPoints),scale=fitSketchViewport(600,400),p=sketchWorldToScreen(sketchPoints[0],600,400),corner=sketchScreenToWorld(p[0],p[1],600,400),center=sketchWorldToScreen([13000,-17000],600,400);const target=[190,270],anchored=sketchScreenToWorld(...target,600,400);zoomSketchViewport(...target,2,600,400);const pinned=sketchScreenToWorld(...target,600,400),scaleAfter=sketchScale;const zero=fitSketchViewport(600,400);sketchSnapping=true;const snapped=snapSketchPoint(11,14);sketchGridVisible=!sketchGridVisible;const snappedAgain=snapSketchPoint(11,14);const untouched=JSON.stringify(sketchPoints)===original&&serializeProject()===projectBefore;return {scale,p,corner,center,anchored,pinned,scaleAfter,zero,original,snapped,snappedAgain,untouched}})()");
+assert.ok(viewportTest.scale>0&&viewportTest.scale<1,'large distant sketch receives a visible fitting scale');
+assert.ok(viewportTest.p[0]>0&&viewportTest.p[0]<600,'remote profile X is onscreen after fit');
+assert.ok(viewportTest.p[1]>0&&viewportTest.p[1]<400,'remote profile Y is onscreen after fit');
+assert.ok(Math.hypot(viewportTest.corner[0]-10000,viewportTest.corner[1]+20000)<1e-8,'sketch screen conversion is invertible');
+assert.ok(Math.abs(viewportTest.center[0]-300)<1e-8&&Math.abs(viewportTest.center[1]-200)<1e-8,'sketch center reflects actual nonzero drawing location');
+assert.ok(Math.hypot(...viewportTest.anchored.map((x,i)=>x-viewportTest.pinned[i]))<1e-7,'wheel zoom preserves world point beneath cursor');
+assert.ok(Math.abs(viewportTest.scaleAfter-viewportTest.scale*2)<1e-9,'sketch scale doubles under anchored zoom');
+assert.ok(viewportTest.zero>0,'sketch viewport can be fit repeatedly');
+assert.equal(JSON.stringify(viewportTest.snapped),JSON.stringify([10,15]),'grid snap respects existing 5mm policy');
+assert.equal(JSON.stringify(viewportTest.snappedAgain),JSON.stringify([10,15]),'hiding visual grid does not disable snap');
+assert.equal(viewportTest.untouched,true,'changing sketch camera never changes 2D profile or saved 3D scene');
+
 console.log('3D studio tests passed');
