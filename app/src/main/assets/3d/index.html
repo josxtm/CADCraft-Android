@@ -1914,6 +1914,25 @@ function panCameraByScreenDelta(dx,dy){
  cameraCenter=candidate;
  return cameraCenter;
 }
+/* Keep the *same world point* underneath the two-finger midpoint as both
+ * its screen position and zoom vary. Moving one finger at a time must not
+ * introduce incremental drift from evaluating pan at intermediate zoom.
+ * Pointer coordinates and canvas bounds are CSS pixels, not backing pixels. */
+function anchoredPinchCamera(previousMid,currentMid,newZoom){
+ const oldZoom=zoom;
+ if(!previousMid.every(Number.isFinite)||!currentMid.every(Number.isFinite)||
+    !Number.isFinite(newZoom)||newZoom<=0||!Number.isFinite(oldZoom)||oldZoom<=0)
+  throw Error('Pinza de cámara no válida');
+ const rect=canvas.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
+ const horizontal=(previousMid[0]-cx)/oldZoom-(currentMid[0]-cx)/newZoom;
+ const vertical=(cy-previousMid[1])/oldZoom-(cy-currentMid[1])/newZoom;
+ const ca=Math.cos(az),sa=Math.sin(az),se=Math.sin(el),ce=Math.cos(el);
+ const right=[-sa,ca,0],up=[-ca*se,-sa*se,ce];
+ const candidate=cameraCenter.map((n,i)=>n+horizontal*right[i]+vertical*up[i]);
+ if(candidate.some(n=>!Number.isFinite(n)||Math.abs(n)>1e10))throw Error('Cámara fuera de límites');
+ cameraCenter=candidate;zoom=newZoom;
+ return cameraCenter;
+}
 let pointers=new Map(),lastDist=0,lastPinchMid=null,multitouchOrbitBlocked=false;
 let moveMode=false,moveGesture=null,moveHistory=[],moveRedoHistory=[];
 canvas.addEventListener('pointerdown',e=>{
@@ -1978,14 +1997,14 @@ canvas.addEventListener('pointermove',e=>{
   const q=[...pointers.values()];
   const dist=Math.hypot(q[0][0]-q[1][0],q[0][1]-q[1][1]);
   const midpoint=[(q[0][0]+q[1][0])/2,(q[0][1]+q[1][1])/2];
-  if(lastPinchMid){
-   const dx=midpoint[0]-lastPinchMid[0],dy=midpoint[1]-lastPinchMid[1];
-   try{if(dx||dy)panCameraByScreenDelta(dx,dy);}
-   catch(error){setStatus('Desplazar cámara: '+error.message);}
-  }
+  let nextZoom=zoom;
   if(lastDist>1e-8&&dist>1e-8){
-   const next=zoom*dist/lastDist;
-   if(Number.isFinite(next))zoom=Math.max(.01,Math.min(10000,next));
+   const candidate=zoom*dist/lastDist;
+   if(Number.isFinite(candidate))nextZoom=Math.max(.01,Math.min(10000,candidate));
+  }
+  if(lastPinchMid){
+   try{anchoredPinchCamera(lastPinchMid,midpoint,nextZoom);}
+   catch(error){setStatus('Desplazar cámara: '+error.message);}
   }
   lastDist=dist;lastPinchMid=midpoint;render();
  }
