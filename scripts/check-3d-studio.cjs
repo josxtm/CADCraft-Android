@@ -739,5 +739,15 @@ assert.equal(guardedExports.badObj,false,'OBJ refuses an open triangulated solid
 assert.equal(guardedExports.badStl,false,'STL refuses an open triangulated solid');
 assert.equal(guardedExports.label.includes('STL: Pieza'),true,'STL failure provides a clear error');
 assert.equal(guardedExports.restored&&guardedExports.validAgain,true,'repaired scene exports without damaging source model');
+const staleExport=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));duplicateSceneSolid();addBooleanToScene('union');const fresh=exportOBJ();selectExtrudedSolid();const moved=changeHeight(5),stale=exportOBJ(),warning=status.textContent,staleStl=exportSTL();cycleDerivedSolid();const regeneration=regenerateSelectedBoolean();const after=exportOBJ();selectedDerived().sourceFingerprints=null;const legacy=exportSTL();const index=selectedDerived().parents[1];selectedDerived().parents[1]=999999;const missing=exportOBJ(),missingWarning=status.textContent;selectedDerived().parents[1]=index;return {fresh,moved,stale,warning,staleStl,regeneration,after,legacy,missing,missingWarning}})()");
+assert.equal(staleExport.fresh,true,'fresh CSG may be exported');
+assert.equal(staleExport.moved,true,'source edit succeeds');
+assert.equal(staleExport.stale,false,'stale CSG blocks OBJ export');
+assert.equal(staleExport.staleStl,false,'stale CSG blocks STL export');
+assert.equal(staleExport.warning.includes('obsoleto'),true,'export explains regeneration required');
+assert.equal(staleExport.regeneration&&staleExport.after,true,'manual refresh re-enables OBJ export');
+assert.equal(staleExport.legacy,true,'legacy CSG without fingerprint is not automatically modified or blocked');
+assert.equal(staleExport.missing,false,'missing origin blocks export even for legacy CSG');
+assert.equal(staleExport.missingWarning.includes('origen'),true,'orphaned source error names root cause');
 
 console.log('3D studio tests passed');

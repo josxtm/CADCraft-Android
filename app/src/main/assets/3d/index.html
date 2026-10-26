@@ -1726,6 +1726,14 @@ function assertSceneExportable(){
  if(!model)throw Error('No hay modelo que exportar');
  const parts=allSceneMeshes();
  if(!parts.length)throw Error('Escena sin sólidos');
+ // Derived results are snapshots. Exporting after a source changed would
+ // silently deliver outdated manufacturing geometry; keep the scene until
+ // the operator explicitly regenerates it, without discarding direct edits.
+ for(const item of derivedSolids){
+  const condition=derivedSourceStatus(item);
+  if(condition==='stale')throw Error('Resultado '+item.id+' obsoleto: regenera el resultado antes de exportar');
+  if(condition==='missing')throw Error('Resultado '+item.id+': falta una pieza de origen');
+ }
  for(const part of parts){
   try{inspectMeshTopology(part);}
   catch(e){throw Error('Pieza '+part.id+': '+e.message);}

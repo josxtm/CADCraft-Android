@@ -59,6 +59,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 | C3 | Guardado seguro y recuperación de sesión | Parcial | Autosalvado y restauración tras cierre forzado sin archivos corruptos |
 | C4 | Intercambio CAD: STL/OBJ/DXF y STEP | Parcial | STL/OBJ fiables; DXF más completo; STEP solo si existe un motor CAD capaz de representarlo correctamente |
 
+**C4 — coherencia de dependencias:** los resultados CSG obsoletos o sin pieza de origen impiden la exportación general OBJ/STL con un mensaje explicativo. Se conserva la escena y se requiere regeneración explícita. Los resultados heredados sin huella y con fuente existente se siguen pudiendo exportar tras validación geométrica, sin recalcular nada automáticamente.
+
 **C4 — puerta de exportación:** la salida general OBJ y STL comprueba primero la validez topológica de **cada sólido** (caras, orientación, cierre y autointersección) y cancela la exportación completa si uno está dañado, identificando su ID. Las piezas independientes pueden solaparse sin que se traten erróneamente como una sola booleana. Estas comprobaciones no certifican conformidad CAD industrial ni un formato STEP.
 | C5 | Rendimiento y memoria en Android | Pendiente | Escenas grandes, benchmarking y comprobaciones en dispositivo |
 | C6 | Integración, firma y distribución privada | Parcial | APK de hito reproducible, artefacto verificado y guion de pruebas de aceptación |
