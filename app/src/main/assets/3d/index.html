@@ -2322,6 +2322,50 @@ function dxfEntityIndices(pairs){
  if(structured&&!entitiesSeen)throw Error('DXF sin sección ENTITIES');
  return candidates.filter(item=>!structured||item.section==='ENTITIES').map(item=>item.index);
 }
+/* C4: LWPOLYLINE bulge is tan(sweep/4) for the segment starting at
+ * that vertex (including the closing segment). Approximate arcs in mm so
+ * INSUNITS is honoured and chord error is bounded in physical units.
+ * This produces a tessellated mesh, NOT an analytic circular B-Rep edge. */
+function expandDxfBulgeProfile(points,bulges,unitScale){
+ if(points.length!==bulges.length||points.length<2)throw Error('Vértices DXF inválidos');
+ const mm=points.map(p=>p.map(v=>v*unitScale));
+ if(mm.some(p=>p.some(v=>!Number.isFinite(v))))
+  throw Error('Coordenadas DXF fuera del rango numérico');
+ const expanded=[];
+ for(let i=0;i<mm.length;i++){
+  const a=mm[i],b=mm[(i+1)%mm.length],bulge=bulges[i];
+  if(!Number.isFinite(bulge)||Math.abs(bulge)>1000)
+   throw Error('Arco DXF bulge fuera de rango');
+  expanded.push(a.slice());
+  if(bulge===0)continue;
+  const dx=b[0]-a[0],dy=b[1]-a[1],chord=Math.hypot(dx,dy);
+  if(!Number.isFinite(chord)||chord<1e-8||chord*Math.abs(bulge)/2<1e-7)
+   throw Error('Arco DXF bulge demasiado pequeño o degenerado');
+  const theta=4*Math.atan(bulge);
+  const radius=chord*(1+bulge*bulge)/(4*Math.abs(bulge));
+  if(!Number.isFinite(radius)||radius<=0)throw Error('Radio DXF bulge inválido');
+  // Max chord deviation: 0.05 mm for small arcs, at most 0.5 mm for
+  // very large radii; never silently exceed the segment safety limit.
+  const tolerance=Math.min(0.5,Math.max(0.05,radius*1e-4));
+  const angle=2*Math.acos(1-Math.min(1,tolerance/radius));
+  const segments=Math.max(2,Math.ceil(Math.abs(theta)/angle));
+  if(!Number.isFinite(segments)||segments>2048||expanded.length+segments>2048)
+   throw Error('Arco DXF demasiado complejo: reduce su tamaño o tolerancia');
+  const k=(1-bulge*bulge)/(4*bulge);
+  const cx=a[0]/2+b[0]/2-dy*k,cy=a[1]/2+b[1]/2+dx*k;
+  const sx=a[0]-cx,sy=a[1]-cy;
+  for(let step=1;step<segments;step++){
+   const t=theta*step/segments,c=Math.cos(t),s=Math.sin(t);
+   const vertex=[cx+sx*c-sy*s,cy+sx*s+sy*c];
+   if(vertex.some(v=>!Number.isFinite(v)))
+    throw Error('Arco DXF fuera del rango numérico');
+   expanded.push(vertex);
+  }
+ }
+ if(expanded.length<3||expanded.length>10000)
+  throw Error('Perfil DXF sin área o demasiado complejo');
+ return expanded;
+}
 function parseDxfProfile(text){
  if(typeof text!=='string'||text.length>2000000)throw Error('DXF demasiado grande');
  const lines=text.replace(/\r/g,'').split('\n'),pairs=[];
@@ -2336,13 +2380,14 @@ function parseDxfProfile(text){
  };
  for(let i=0;i<pairs.length;i++){
   if(!entityIndices.has(i))continue;
-  const pts=[],normal=[0,0,1];let closed=false,count=null,bulge=false,elevation=0,thickness=0;
+  const pts=[],bulges=[],normal=[0,0,1];let closed=false,count=null,elevation=0,thickness=0;
+  let bulgeSet=false;
   let paperSpace=false,layout=null;
   for(i++;i<pairs.length&&pairs[i][0]!=='0';i++){
    const [code,value]=pairs[i];
    if(code==='10'){
     if(pts.length>=10000)throw Error('DXF con demasiados vértices');
-    pts.push([numeric(value),NaN]);
+    pts.push([numeric(value),NaN]);bulges.push(0);bulgeSet=false;
    }else if(code==='20'){
     if(!pts.length||Number.isFinite(pts[pts.length-1][1]))
      throw Error('Orden de coordenadas DXF inválido');
@@ -2356,7 +2401,9 @@ function parseDxfProfile(text){
     if(!Number.isInteger(count)||count<0||count>10000)
      throw Error('Número de vértices DXF inválido');
    }else if(code==='42'){
-    bulge=bulge||numeric(value)!==0;
+    if(!pts.length||!Number.isFinite(pts[pts.length-1][1])||bulgeSet)
+     throw Error('Orden o repetición de bulge DXF inválido');
+    bulges[bulges.length-1]=numeric(value);bulgeSet=true;
    }else if(code==='67'){
     const space=numeric(value);
     if(!Number.isInteger(space)||![0,1].includes(space))
@@ -2374,16 +2421,13 @@ function parseDxfProfile(text){
   if(paperSpace||(layout!==null&&layout!=='Model'))continue;
   if(!closed)continue;
   if(count!==null&&count!==pts.length)throw Error('Cantidad de vértices DXF incoherente');
-  if(pts.length<3||pts.some(p=>!p.every(Number.isFinite)))
+  if(pts.length<2||pts.some(p=>!p.every(Number.isFinite)))
    throw Error('Polilínea DXF cerrada con coordenadas incompletas');
-  if(bulge)throw Error('DXF con arcos bulge: conversión no compatible');
   if(elevation!==0||thickness!==0||normal.some((n,k)=>Math.abs(n-[0,0,1][k])>1e-12))
    throw Error('DXF con elevación, espesor o plano inclinado no compatible');
   // Convert only after the complete entity has passed OCS, bulge and
   // vertex-count checks. The existing extrusion gate checks world limits.
-  const millimetres=pts.map(p=>p.map(value=>value*unitScale));
-  if(millimetres.some(p=>p.some(value=>!Number.isFinite(value))))
-   throw Error('Coordenadas DXF fuera del rango numérico');
+  const millimetres=expandDxfBulgeProfile(pts,bulges,unitScale);
   profiles.push(millimetres);
   if(profiles.length>1)throw Error('DXF con varios perfiles cerrados: agujeros/islas aún no compatibles');
  }

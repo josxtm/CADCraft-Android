@@ -966,7 +966,7 @@ assert.equal(multiBodySTL.exported,true,'valid multi-body scene exports STL afte
 const dxSquare=(x=0)=>['0','LWPOLYLINE','90','4','70','1','10',String(x),'20','0','10',String(x+10),'20','0','10',String(x+10),'20','10','10',String(x),'20','10'].join('\n');
 const dxfCases=[
  {name:'multiple loops',data:dxSquare()+'\n'+dxSquare(2)+'\n0\nEOF',error:'varios perfiles'},
- {name:'bulge arc',data:dxSquare()+'\n42\n0.5\n0\nEOF',error:'bulge'},
+ {name:'extreme bulge arc',data:dxSquare()+'\n42\n1000000\n0\nEOF',error:'bulge'},
  {name:'missing Y',data:dxSquare().replace('20\n0','20\n')+'\n0\nEOF',error:'inválido'},
  {name:'wrong vertex count',data:dxSquare().replace('90\n4','90\n5')+'\n0\nEOF',error:'incoherente'},
  {name:'tilted OCS plane',data:dxSquare()+'\n210\n1\n0\nEOF',error:'plano inclinado'},
@@ -1257,5 +1257,133 @@ for(const value of collinearSketch.output){
 assert.equal(collinearSketch.rejects,true,'overlapping backtracking edge is rejected');
 assert.equal(collinearSketch.lVertices,12,'concave L corners are not stripped');
 assert.ok(Math.abs(collinearSketch.lVolume-192)<1e-6,'concave L volume remains unchanged');
+
+
+/* C4/A5: curved LWPOLYLINE bulges are tessellated before the same validated
+ * 2D→solid gate; two semicircular segments can form a complete disk. */
+const dxfBulgeShape=(a=1,b=1)=>[
+ '0','LWPOLYLINE','90','2','70','1',
+ '10','10','20','0','42',String(a),
+ '10','-10','20','0','42',String(b),'0','EOF'
+].join('\\n');
+const bulgeDisk=evaluate("(()=>{const input="+JSON.stringify("0
+LWPOLYLINE
+90
+2
+70
+1
+10
+10
+20
+0
+42
+1
+10
+-10
+20
+0
+42
+1
+0
+EOF")+";const p=parseDxfProfile(input),solid=extrude(p,10),topology=inspectMeshTopology(solid);return {length:p.length,volume:meshOrientedVolume(solid),shells:topology.shells,bounds:topology.bounds,points:p}})()");
+assert.ok(bulgeDisk.length>=24&&bulgeDisk.length<=2048,'two bulge semicircles create a bounded polygon');
+assert.equal(bulgeDisk.shells,1,'bulge disk extrusion is a watertight shell');
+assert.ok(Math.abs(bulgeDisk.volume-Math.PI*1000)<25,'bulge disk volume is within tessellation tolerance');
+assert.ok(Math.abs(bulgeDisk.bounds.min[0]+10)<0.01,'bulge disk leftmost point');
+assert.ok(Math.abs(bulgeDisk.bounds.max[0]-10)<0.01,'bulge disk rightmost point');
+const reversedBulge=evaluate("(()=>{const text="+JSON.stringify("0
+LWPOLYLINE
+90
+2
+70
+1
+10
+10
+20
+0
+42
+-1
+10
+-10
+20
+0
+42
+-1
+0
+EOF")+";const solid=extrude(parseDxfProfile(text),-10);return {volume:meshOrientedVolume(solid),shells:inspectMeshTopology(solid).shells}})()");
+assert.equal(reversedBulge.shells,1,'clockwise bulge profile extrudes as a single shell');
+assert.ok(Math.abs(reversedBulge.volume-Math.PI*1000)<25,'negative bulge and height preserve positive volume');
+const scaledBulge=evaluate("(()=>{const input="+JSON.stringify("0
+SECTION
+2
+HEADER
+9
+$INSUNITS
+70
+1
+0
+ENDSEC
+0
+SECTION
+2
+ENTITIES
+0
+LWPOLYLINE
+90
+2
+70
+1
+10
+1
+20
+0
+42
+1
+10
+-1
+20
+0
+42
+1
+0
+ENDSEC
+0
+EOF")+";const p=parseDxfProfile(input),mesh=extrude(p,10);return {radius:Math.max(...p.map(x=>Math.hypot(...x))),volume:meshOrientedVolume(mesh)}})()");
+assert.ok(Math.abs(scaledBulge.radius-25.4)<0.01,'bulge arcs honour inch INSUNITS before tessellation');
+assert.ok(Math.abs(scaledBulge.volume-Math.PI*25.4*25.4*10)<170,'scaled bulge volume remains physically consistent');
+const invalidBulges=[
+ {name:'duplicate per-vertex bulge',text:"0\\nLWPOLYLINE\\n70\\n1\\n10\\n0\\n20\\n0\\n42\\n1\\n42\\n1\\n10\\n10\\n20\\n0\\n10\\n10\\n20\\n10\\n0\\nEOF"},
+ {name:'bulge before Y',text:"0\\nLWPOLYLINE\\n70\\n1\\n10\\n0\\n42\\n1\\n20\\n0\\n10\\n10\\n20\\n0\\n10\\n10\\n20\\n10\\n0\\nEOF"},
+ {name:'degenerate tiny arc',text:"0\\nLWPOLYLINE\\n70\\n1\\n10\\n0\\n20\\n0\\n42\\n0.0000000000001\\n10\\n10\\n20\\n0\\n10\\n10\\n20\\n10\\n0\\nEOF"}
+];
+for(const c of invalidBulges){
+ const r=evaluate("(()=>{const before=serializeProject();try{importDxfText("+JSON.stringify(c.text)+");return {rejected:false}}catch(e){return {rejected:true,unchanged:before===serializeProject(),message:e.message}}})()");
+ assert.equal(r.rejected,true,c.name+' must reject malformed arc');
+ assert.equal(r.unchanged,true,c.name+' leaves existing 3D project unchanged');
+ assert.match(r.message,/bulge|arco/i,c.name+' produces an arc-specific diagnostic');
+}
+const bulgeImported=evaluate("(()=>{const source="+JSON.stringify("0
+LWPOLYLINE
+90
+2
+70
+1
+10
+10
+20
+0
+42
+1
+10
+-10
+20
+0
+42
+1
+0
+EOF")+";const previous=serializeProject();const mesh=importDxfText(source);return {changed:serializeProject()!==previous,volume:meshOrientedVolume(mesh),vertices:mesh.v.length}})()");
+assert.equal(bulgeImported.changed,true,'bulge DXF is imported into editable source extrusion');
+assert.ok(bulgeImported.vertices>8,'curved source is a tessellated 3D solid');
+assert.ok(bulgeImported.volume>3000,'curved source has meaningful 3D volume');
 
 console.log('3D studio tests passed');
