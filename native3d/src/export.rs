@@ -261,4 +261,18 @@ mod tests {
         assert_eq!(stl.matches("facet normal").count(),12);
     }
 
+    #[test]fn export_rejects_non_finite_world_translation_without_scene_changes() {
+        let mut state=PreviewState::default();
+        state.select_profile_checked(61,square(0.0,0.0,4.0)).unwrap();
+        let id=state.extrude_selected(2.0).unwrap();
+        let valid=state.export_obj(&[id]).unwrap();
+        let original=state.solids.clone();
+        state.solids[0].offset=Vec3::new(f64::NAN,0.0,0.0);
+        assert_eq!(state.export_obj(&[id]),Err(ExportError::InvalidSolid(id)));
+        assert_eq!(state.export_ascii_stl(&[id]),Err(ExportError::InvalidSolid(id)));
+        state.solids=original.clone();
+        assert_eq!(state.export_obj(&[id]).unwrap(),valid);
+        assert_eq!(state.solids,original);
+    }
+
 }
