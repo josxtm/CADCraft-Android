@@ -87,7 +87,16 @@ impl PreviewState {
                 rebuilt.push((index,mesh));
             }
         }
-        if rebuilt.is_empty(){return Ok(0)}
+        if rebuilt.is_empty() {
+            // A 2D edit may arrive before the first extrusion. Refresh the
+            // selected sketch as well, but never replace it with an invalid
+            // profile. Other selections and the ID counter stay untouched.
+            if self.selected_handle==Some(source_handle) {
+                extrude(&outline,1.0).map_err(WorkspaceError::Geometry)?;
+                self.selected_outline=Some(outline);
+            }
+            return Ok(0)
+        }
         let count=rebuilt.len();
         for (index,mesh) in rebuilt {
             self.solids[index].mesh=mesh;
@@ -218,6 +227,31 @@ mod tests{
         assert_eq!(state.extrude_selected(3.0),Err(WorkspaceError::IdExhausted));
         assert_eq!(state.solids,before);
         assert_eq!(state.next_id,u64::MAX);
+    }
+    #[test]fn refreshing_selected_sketch_before_first_extrusion_is_safe() {
+        let mut state=PreviewState::default();
+        let square=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                        Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        let rectangle=vec![Point2::new(0.0,0.0),Point2::new(20.0,0.0),
+                           Point2::new(20.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile(42,square.clone());
+        let invalid=vec![Point2::new(0.0,0.0),Point2::new(2.0,2.0),
+                         Point2::new(0.0,2.0),Point2::new(2.0,0.0)];
+        assert!(state.refresh_source_profile(42,invalid).is_err());
+        assert_eq!(state.selected_outline,Some(square.clone()));
+        assert_eq!(state.next_id,1);
+        assert!(state.solids.is_empty());
+        // A different source must not replace the current 2D selection.
+        assert_eq!(state.refresh_source_profile(999,rectangle.clone()),Ok(0));
+        assert_eq!(state.selected_outline,Some(square));
+        assert_eq!(state.refresh_source_profile(42,rectangle.clone()),Ok(0));
+        assert_eq!(state.selected_outline,Some(rectangle.clone()));
+        assert_eq!(state.next_id,1);
+        let id=state.extrude_selected(3.0).unwrap();
+        assert_eq!(id,1);
+        assert_eq!(state.solids[0].source_handle,Some(42));
+        assert_eq!(state.solids[0].outline,rectangle);
+        assert_eq!(state.solids[0].mesh.vertices[1].x,20.0);
     }
     #[test]fn refreshing_a_2d_source_is_atomic_and_keeps_solid_identity(){
         let mut state=PreviewState::default();
