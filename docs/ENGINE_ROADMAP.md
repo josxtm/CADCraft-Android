@@ -138,6 +138,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **C4/A5 — exportación validada del prototipo Rust (26-10-2026):** se incorpora `native3d::export` con `PreviewState::export_obj(ids)` y `export_ascii_stl(ids)`. Ambos exportadores comprueban primero todos los sólidos elegidos, su topología y volumen positivo, rechazan IDs duplicados/desconocidos y mallas corruptas, y mantienen posiciones XYZ mundiales, orientación y precisión decimal. OBJ separa objetos por ID y mantiene índices globales; STL ASCII evita la cuantización de coordenadas `f32` propia de STL binario a 90 millones de mm. Regresiones reproducen boceto 2D→extrusión→duplicación→cambio de altura negativa→edición del boceto→exportación de dos piezas, además de selección inválida y normales unitarias. **No** combina piezas por CSG ni conecta todavía este exportador Rust al WebView, al selector de archivos o a una APK; el WebView conserva sus exportadores JavaScript independientes. No se genera APK.
 
+**A1/A5 — costuras exactas no soldadas en Rust (26-10-2026):** el inspector de mallas Rust rechaza vértices con coordenadas XYZ exactamente coincidentes pero índices distintos antes de aceptar topología de cascarones. Normaliza los bits de +0/−0 y detecta también dos prismas completamente superpuestos con índices separados; mantiene válidos cascarones cercanos pero realmente separados (hueco de 0,000001 mm). Regresiones para duplicación aislada, solape, ceros con signo y piezas separadas. Esta comprobación no resuelve contactos casi coincidentes ni todas las autointersecciones A2 y todavía no está conectada a la APK.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.

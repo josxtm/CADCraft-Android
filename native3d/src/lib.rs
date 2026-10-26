@@ -32,7 +32,7 @@ pub struct Mesh {pub vertices:Vec<Vec3>,pub triangles:Vec<[u32;3]>}
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum MeshTopologyError {
     Empty, InvalidVertex, InvalidFace, DuplicateFace, OpenOrNonManifoldEdge,
-    InconsistentWinding, NonManifoldVertex, UnusedVertex, InvalidEuler,
+    InconsistentWinding, NonManifoldVertex, UnusedVertex, CoincidentVertices, InvalidEuler,
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct MeshTopology {
@@ -51,6 +51,17 @@ pub fn inspect_closed_mesh(mesh:&Mesh)->Result<MeshTopology,MeshTopologyError> {
         [p.x,p.y,p.z].iter().any(|v|!v.is_finite()||v.abs()>MAX_WORLD_COORD)
     }) {return Err(MeshTopologyError::InvalidVertex)}
     let vertex_count=mesh.vertices.len();
+    // Different indices at exactly the same world position describe an
+    // unwelded seam or overlapping shells. Canonicalize +/-0 to prevent
+    // identical geometry from evading the check through signed-zero bits.
+    // This is exact coincidence only, NOT a fuzzy geometric tolerance.
+    let mut positions=HashSet::with_capacity(vertex_count);
+    for p in &mesh.vertices {
+        let bits=|v:f64|if v==0.0 {0u64} else {v.to_bits()};
+        if !positions.insert((bits(p.x),bits(p.y),bits(p.z))) {
+            return Err(MeshTopologyError::CoincidentVertices)
+        }
+    }
     // Edge values are the two ordered usages and their incident faces.
     let mut edges:HashMap<(u32,u32),Vec<(u32,u32,usize)>>=HashMap::new();
     let mut faces=HashSet::new();
@@ -395,6 +406,39 @@ mod tests {
         let mut mesh=original.clone();
         mesh.vertices.push(Vec3::new(900.0,900.0,900.0));
         assert_eq!(inspect_closed_mesh(&mesh),Err(MeshTopologyError::UnusedVertex));
+    }
+    #[test]fn rust_mesh_topology_rejects_unwelded_exact_vertices_and_overlapping_shells() {
+        let square=[Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                    Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        let first=extrude(&square,5.0).unwrap();
+        let mut duplicated_vertex=first.clone();
+        duplicated_vertex.vertices.push(first.vertices[0]);
+        assert_eq!(inspect_closed_mesh(&duplicated_vertex),
+                   Err(MeshTopologyError::CoincidentVertices));
+        // Even when both indexed shells are individually closed, their
+        // coincident geometry must not pass the topology preflight.
+        let mut overlapping=first.clone();
+        let base=overlapping.vertices.len() as u32;
+        overlapping.vertices.extend(first.vertices.iter().copied());
+        overlapping.triangles.extend(first.triangles.iter().map(|face|
+            [face[0]+base,face[1]+base,face[2]+base]));
+        assert_eq!(inspect_closed_mesh(&overlapping),
+                   Err(MeshTopologyError::CoincidentVertices));
+        // Signed zero must not allow two copies of the origin to pass.
+        let mut signed_zero=first.clone();
+        signed_zero.vertices[0].x=-0.0;
+        signed_zero.vertices.push(Vec3::new(0.0,0.0,0.0));
+        assert_eq!(inspect_closed_mesh(&signed_zero),
+                   Err(MeshTopologyError::CoincidentVertices));
+        // Close but distinct parts are valid: no global epsilon is applied.
+        let mut separate=first.clone();
+        let base=separate.vertices.len() as u32;
+        separate.vertices.extend(first.vertices.iter().copied().map(|p|
+            p+Vec3::new(10.000001,0.0,0.0)));
+        separate.triangles.extend(first.triangles.iter().map(|face|
+            [face[0]+base,face[1]+base,face[2]+base]));
+        assert_eq!(inspect_closed_mesh(&separate),
+                   Ok(MeshTopology{vertices:16,edges:36,faces:24,shells:2,genus:0}));
     }
     #[test]fn rust_mesh_topology_catches_bowtie_vertex_and_edge_overuse() {
         let rect=[Point2::new(0.0,0.0),Point2::new(10.0,0.0),

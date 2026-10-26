@@ -7,7 +7,7 @@ Este módulo Rust independiente inicia el desarrollo de las dos funciones priori
 
 ## Estado real
 
-**Código fuente del prototipo creado, todavía NO integrado en el CADCraft WebAssembly ni verificado con pruebas de compilación.** No crea sólidos B-Rep ni añade entidades CADCraft/DXF. Para usarlo con el programa habrá que enlazar el módulo al motor Rust, almacenar objetos 3D en el documento, renderizarlos, hacer picking, añadir controles táctiles y guardar/abrir datos. La geometría 3D puede visualizarse solo cuando se complete esa integración.
+**Prototipo Rust verificado con `cargo test` en GitHub Actions, pero todavía NO integrado en el CADCraft WebAssembly ni en la APK.** No crea sólidos B-Rep ni añade entidades CADCraft/DXF. Para usarlo con el programa habrá que enlazar el módulo al motor Rust, almacenar objetos 3D en el documento, renderizarlos, hacer picking, añadir controles táctiles y guardar/abrir datos. La geometría 3D puede visualizarse solo cuando se complete esa integración.
 
 ## Comprobación local
 
@@ -29,3 +29,7 @@ Si la fuente 2D seleccionada cambia antes de crear el primer sólido, `refresh_s
 ## Entrega 2D validada al prototipo (26-10-2026)
 
 `PreviewState::select_profile_checked(handle, outline)` realiza una extrusión de prueba de altura 1 mm antes de aceptar una nueva selección 2D. Rechaza contornos degenerados, cruzados o fuera de rango sin modificar la selección previa, cámara, piezas ni IDs. Después, `extrude_selected(height)` valida la altura final de forma independiente. La API antigua `select_profile` sigue disponible por compatibilidad, pero la integración futura con el editor 2D debe usar la variante comprobada. Hay dos pruebas Rust de regresión. **Aún no se conecta a Android ni requiere APK.**
+
+## Exportación del prototipo (26-10-2026)
+
+`PreviewState::export_obj(ids)` y `export_ascii_stl(ids)` exportan en milímetros los sólidos seleccionados, con desplazamientos XYZ y orientación de triángulos. Validan previamente todos los IDs, la malla cerrada y el volumen; la exportación ASCII evita perder precisión en coordenadas remotas al convertir a STL binario de 32 bits. `inspect_closed_mesh` también rechaza vértices geométricamente idénticos con índices distintos (incluido +0/−0), pero **no** sustituye la detección completa de autointersecciones A2. Estas APIs Rust no se invocan desde Android: el WebView sigue usando su exportador JavaScript propio.
