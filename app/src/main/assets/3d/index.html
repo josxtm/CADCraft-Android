@@ -704,6 +704,50 @@ function inspectMeshSelfIntersections(mesh,faceShells=null){
   intersectionPairs:0};
 }
 
+/* Nested disconnected shells require alternating orientation: outer +,
+ * cavity -, island +, etc. A positive nested shell silently double-counts
+ * material despite having watertight triangles and no surface crossings.
+ * Solid-angle point containment avoids the ambiguities of an axis ray. */
+function shellSolidAngleAt(mesh,faceIndices,point){
+ let total=0;
+ for(const index of faceIndices){
+  const tri=mesh.faces[index].map(i=>mesh.v[i].map((v,k)=>v-point[k]));
+  const [a,b,c]=tri,la=Math.hypot(...a),lb=Math.hypot(...b),lc=Math.hypot(...c);
+  if(Math.min(la,lb,lc)<1e-10)throw Error('Cascarones coincidentes o tangentes');
+  const cross=[b[1]*c[2]-b[2]*c[1],b[2]*c[0]-b[0]*c[2],b[0]*c[1]-b[1]*c[0]];
+  const determinant=a.reduce((sum,n,k)=>sum+n*cross[k],0);
+  const dot=(x,y)=>x.reduce((sum,n,k)=>sum+n*y[k],0);
+  const denominator=la*lb*lc+dot(a,b)*lc+dot(b,c)*la+dot(c,a)*lb;
+  total+=2*Math.atan2(determinant,denominator);
+ }
+ return total/(4*Math.PI);
+}
+function validateShellNesting(mesh,shells,indicesByShell){
+ const depths=new Array(shells.length).fill(0);
+ if(shells.length<2)return depths;
+ const limits=indicesByShell.map(indices=>{
+  const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+  for(const index of indices)for(const vertex of mesh.faces[index])for(let k=0;k<3;k++){
+   min[k]=Math.min(min[k],mesh.v[vertex][k]);max[k]=Math.max(max[k],mesh.v[vertex][k]);
+  }
+  return {min,max};
+ });
+ for(let i=0;i<shells.length;i++){
+  const point=mesh.v[mesh.faces[indicesByShell[i][0]][0]];
+  for(let j=0;j<shells.length;j++){
+   if(i===j)continue;
+   const bounds=limits[j];
+   if(point.some((v,k)=>v<bounds.min[k]||v>bounds.max[k]))continue;
+   const winding=shellSolidAngleAt(mesh,indicesByShell[j],point);
+   if(Math.abs(winding)>0.5)depths[i]++;
+  }
+  const shouldBePositive=depths[i]%2===0;
+  if((shells[i].signedVolume>0)!==shouldBePositive)
+   throw Error('Orientación de cascarón incorrecta: sólidos anidados y cavidades');
+ }
+ return depths;
+}
+
 function inspectMeshTopology(mesh){
  if(!mesh||!Array.isArray(mesh.v)||!Array.isArray(mesh.faces)||
     mesh.v.length<4||mesh.v.length>8000||mesh.faces.length<4||mesh.faces.length>16000)
@@ -760,7 +804,7 @@ function inspectMeshTopology(mesh){
   }
   if(visited.size!==incident.length)throw Error('Vértice no manifold: superficies unidas solo por un punto');
  }
- const visited=new Set(),shells=[],faceShells=new Array(mesh.faces.length);
+ const visited=new Set(),shells=[],indicesByShell=[],faceShells=new Array(mesh.faces.length);
  for(let start=0;start<mesh.faces.length;start++){
   if(visited.has(start))continue;
   const queue=[start];visited.add(start);let shellVolume=0;
@@ -777,12 +821,15 @@ function inspectMeshTopology(mesh){
   }
   if(!Number.isFinite(shellVolume)||Math.abs(shellVolume)<=1e-8)throw Error('Superficie cerrada sin volumen útil');
   shells.push({triangles:queue.length,signedVolume:shellVolume});
+  indicesByShell.push(queue);
  }
  const signedVolume=shells.reduce((sum,sh)=>sum+sh.signedVolume,0);
  if(!(signedVolume>1e-8))throw Error('Malla vacía o invertida');
  const intersections=inspectMeshSelfIntersections(mesh,faceShells);
+ const nestingDepths=validateShellNesting(mesh,shells,indicesByShell);
  return {vertices:mesh.v.length,edges:edges.size,triangles:mesh.faces.length,
   shells:shells.length,cavities:shells.filter(sh=>sh.signedVolume<0).length,
+  nestingDepths,
   euler:mesh.v.length-edges.size+mesh.faces.length,signedVolume,
   intersectionCandidates:intersections.candidatePairs,intersectionPairs:intersections.intersectionPairs,
   bounds};
