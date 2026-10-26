@@ -117,7 +117,7 @@ El paquete JavaScript del estudio 3D suma **115 comprobaciones locales correctas
 Implementadas en el estudio 3D, todavía **sin solicitar una nueva APK**:
 
 - **Calcular unión/resta** muestra los volúmenes teóricos en mm³ de dos extrusiones, incluso con perfiles cóncavos y alturas negativas. El volumen común se calcula triangulando los contornos y recortando triángulos en XY, multiplicando el área compartida por el intervalo común en Z.
-- **Unión OBJ · bloques**, **Resta OBJ · bloques** e **Intersección OBJ · bloques** generan un archivo de malla real de dos prismas **de perfil ortogonal en XY, extruidos en Z**, sin superficies interiores redundantes. Se prueban casos superpuestos, disjuntos, idénticos y uno contenido dentro del otro. Los bordes de las mallas producidas en esos casos son cerrados.
+- **Unión OBJ · perfiles XY**, **Resta OBJ · perfiles XY** e **Intersección OBJ · perfiles XY** generan un archivo de malla real de dos prismas **de perfil ortogonal en XY, extruidos en Z**, sin superficies interiores redundantes. Se prueban casos superpuestos, disjuntos, idénticos y uno contenido dentro del otro. Los bordes de las mallas producidas en esos casos son cerrados.
 - Los dos operandos son la **pieza activa** y la **primera pieza almacenada** de la escena. Si no hay segunda pieza, no hay operación.
 - Las geometrías se exportan a **OBJ** como resultado independiente. **No reemplazan la escena actual, no se pueden editar como una entidad paramétrica y no se guardan en el JSON del proyecto**.
 - Los perfiles circulares, inclinados o las booleanas entre más de dos piezas siguen **sin generar una malla booleana**; los perfiles cóncavos de aristas ortogonales (como una L) sí admiten malla. Las mediciones de volumen de dos perfiles concavos sí están admitidas.
@@ -129,18 +129,18 @@ Estas operaciones son una etapa limitada y explícita antes de integrar un motor
 
 El estudio 3D incorpora ahora un flujo de resultados booleanos **persistentes**:
 
-- **Añadir unión / resta / intersección a escena** convierte el cálculo de dos bloques rectangulares alineados en una **pieza de malla triangulada independiente**, sin modificar las extrusiones originales.
+- **Añadir unión / resta / intersección a escena** convierte el cálculo de dos perfiles rectilíneos XY extruidos (rectángulos, piezas en L y otros contornos ortogonales) en una **pieza de malla triangulada independiente**, sin modificar las extrusiones originales.
 - **Seleccionar resultado**, **Volver a extrusión**, **Duplicar resultado** y **Eliminar resultado** permiten gestionar las piezas resultantes.
 - La pieza booleana seleccionada se puede **mover en XYZ** con los campos existentes; el resto de piezas mantiene sus coordenadas.
 - La visualización, el encuadre y la exportación de la **escena completa a STL/OBJ** incluyen las mallas booleanas.
 - El formato de proyecto propio pasa a **JSON v3** e incluye mallas, IDs, operaciones, referencias de las piezas origen, desplazamientos y selección actual. Abre los formatos v1 y v2 anteriores.
 - Antes de importar una malla, se comprueban coordenadas, índices, caras degeneradas, bordes abiertos, volumen y límites de tamaño. Un error no reemplaza la escena en memoria.
-- Se separan explícitamente los controles de extrusión paramétrica y de malla booleana: las mallas resultantes pueden **moverse, seleccionarse, duplicarse y borrarse**. Además, ahora admiten un desplazamiento geométrico **limitado de un plano de caras**, con deshacer/rehacer, pero siguen sin admitir croquis paramétricos, extrusión paramétrica ni edición B-Rep general. No hay todavía historial de operaciones reconstruible ni recomputación automática al cambiar sus fuentes.
+- Se separan explícitamente los controles de extrusión paramétrica y de malla booleana: las mallas resultantes pueden **moverse, seleccionarse, duplicarse y borrarse**. Además, ahora admiten un desplazamiento geométrico **limitado de un plano de caras**, con deshacer/rehacer, pero siguen sin admitir croquis paramétricos, extrusión paramétrica ni edición B-Rep general. El botón **Regenerar resultado** reconstruye manualmente desde las dos piezas fuente, conserva el desplazamiento del resultado y reemplaza sus ediciones de malla. No hay todavía historial paramétrico ni propagación automática.
 - Máximo de **24 piezas totales** entre extrusiones y resultados booleanos.
 - Las operaciones booleanas de creación de malla se limitan a **dos prismas con perfiles rectilíneos alineados a X/Y**. El volumen de intersección sí puede calcularse para perfiles extruidos más generales, pero eso no genera una malla booleana editable.
 - Para evitar proyectos imposibles de reabrir, el guardado JSON rechaza un archivo demasiado grande (límite de 2 MB).
 
-El control JavaScript alcanza **180 pruebas de regresión**, incluidas creación, desplazamiento, exportación, duplicación, persistencia y rechazo de proyectos corruptos. Este bloque **no modifica la versión APK (0.5.0)**. GitHub Actions mantiene el trabajo de compilación Android reservado al disparo manual.
+El control JavaScript dispone de una batería ampliada de regresiones de creación, movimiento, operaciones booleanas ortogonales, verificación volumétrica, regeneración de resultados, persistencia y rechazo de proyectos corruptos. Este bloque **no modifica la versión APK (0.5.0)**. GitHub Actions mantiene el trabajo de compilación Android reservado al disparo manual.
 
 ### Selección táctil y desplazamiento de planos en mallas — desarrollo posterior a 0.5.0
 
@@ -231,7 +231,7 @@ La validación previa al guardado/carga y a las operaciones de malla ahora recha
 
 Se permiten explícitamente **varios cascarones cerrados**, incluidas **cavidades internas con orientación opuesta**. Se añadieron regresiones con una caja hueca, piezas disjuntas y ejemplos dañados; un proyecto JSON con malla defectuosa se rechaza **sin sobrescribir la escena válida**.
 
-La batería local suma **445 comprobaciones JavaScript**, pero estas pruebas **no prueban la compilación Android ni garantizan ausencia de autointersecciones**. El siguiente bloque pendiente es precisamente detectar autointersecciones entre triángulos no vecinos, seguido de booleanas generales.
+La batería local ha superado las **490 comprobaciones JavaScript** y sigue creciendo. Estas pruebas **no prueban la compilación Android ni garantizan ausencia de autointersecciones**. Se comprueban cruces y algunos contactos de triángulos, pero continúan pendientes los predicados robustos y las booleanas generales de mallas.
 
 El trabajo `android` sigue bloqueado en cambios ordinarios y solo se ejecuta mediante lanzamiento manual de una APK de hito.
 
@@ -243,7 +243,7 @@ El diagnóstico de cascarones añade comprobación de **anidamiento por ángulo 
 
 **Exportación segura:** antes de exportar una unión, resta o intersección OBJ entre cajas, se valida la malla booleana. Si dos cajas se tocan solo por una arista o un vértice, su unión puede ser no manifold; en ese caso se **rechaza la exportación**, en lugar de generar un OBJ geométricamente inválido.
 
-Se añadieron verificaciones de **375 operaciones booleanas parametrizadas** y regresiones de autointersección, cavidades e islas: **490 aserciones JavaScript locales**. La validación es una barrera de seguridad, **no una garantía completa de ausencia de autointersecciones geométricas**, ni equivale a un CAD B-Rep de precisión industrial.
+Se añadieron verificaciones de **375 operaciones booleanas parametrizadas** y regresiones de autointersección, cavidades e islas: la batería contiene **más de 490 aserciones JavaScript**. La validación es una barrera de seguridad, **no una garantía completa de ausencia de autointersecciones geométricas**, ni equivale a un CAD B-Rep de precisión industrial.
 
 No se ha solicitado una nueva APK. La prueba Android real continúa pendiente del hito principal.
 
@@ -253,7 +253,11 @@ Los volúmenes de mallas trianguladas y sus cascarones se calculan ahora respect
 
 La regresión comprueba cubos de 10 × 10 × 10 mm desplazados hasta **90 millones de milímetros** en las tres coordenadas, componentes separadas por esa distancia y piezas con cavidades. El error de volumen medido permanece inferior a 0,000001 mm³ en estos casos de ensayo.
 
-**Sigue pendiente** resolver todas las tolerancias adaptativas, casi tangencias y predicados geométricos robustos; este avance no convierte el motor en un núcleo CAD industrial.
+**Sigue pendiente** resolver todos los contactos degenerados entre superficies adyacentes, tolerancias adaptativas y predicados geométricos robustos; este avance no convierte el motor en un núcleo CAD industrial.
+
+### Dependencias de sólidos — avance B3
+
+Los resultados CSG conservan los IDs de sus dos piezas de origen y unas huellas de su boceto, altura y posición. Cuando una fuente cambia, la selección del resultado advierte que necesita regeneración. **Regenerar resultado** calcula una nueva malla, verifica su volumen y topología, y solo sustituye la anterior si toda la operación ha sido válida. La orden es manual para no perder silenciosamente ediciones hechas en el resultado. El JSON v3 guarda estas huellas y continúa leyendo proyectos antiguos sin ellas. Aún no existe un árbol de operaciones paramétricas completo.
 
 ## Hoja de ruta
 
