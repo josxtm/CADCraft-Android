@@ -25,8 +25,10 @@ function validate(p,h){if(p.length<3||!p.every(q=>q.every(Number.isFinite))||!Nu
 function cross2(a,b,c){return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);}
 function inside(p,a,b,c){return cross2(a,b,p)>=-1e-8&&cross2(b,c,p)>=-1e-8&&cross2(c,a,p)>=-1e-8;}
 function triangulate(points){
- const p=points.slice();let area=0;for(let i=0;i<p.length;i++){let j=(i+1)%p.length;area+=p[i][0]*p[j][1]-p[j][0]*p[i][1];}
- if(Math.abs(area)<1e-9)throw Error('Área cero');if(area<0)p.reverse();
+ // Compute area relative to the first point to prevent cancellation of
+ // large absolute CAD drawing coordinates (e.g. a 10 mm profile at 90 km).
+ const p=points.slice(),area=polygonSignedArea(p);
+ if(Math.abs(area)<5e-10)throw Error('Área cero');if(area<0)p.reverse();
  // Reject self-intersecting profiles instead of producing invalid exported solids.
  function seg(a,b,c,d){
    const cr=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);
@@ -401,12 +403,16 @@ function relationBetweenSolids(first,second){
  * vertical prism extrusions, volume overlap = intersection area * Z overlap.
  * This computes quantities, not a boolean output mesh. */
 function polygonSignedArea(vertices){
- let area=0;
- for(let i=0;i<vertices.length;i++){
-  const a=vertices[i],b=vertices[(i+1)%vertices.length];
-  area+=a[0]*b[1]-b[0]*a[1];
+ if(vertices.length<3)return 0;
+ // Translation-invariant shoelace formula: subtract a local origin *before*
+ // multiplication, otherwise small profiles far from (0,0) lose their area.
+ const origin=vertices[0];let twiceArea=0;
+ for(let i=1;i+1<vertices.length;i++){
+  const a=vertices[i],b=vertices[i+1];
+  twiceArea+=(a[0]-origin[0])*(b[1]-origin[1])-
+             (a[1]-origin[1])*(b[0]-origin[0]);
  }
- return area*0.5;
+ return twiceArea*0.5;
 }
 function polygonArea(vertices){return Math.abs(polygonSignedArea(vertices));}
 function clipConvexPolygon(subject,clipper){
@@ -1543,13 +1549,12 @@ canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.01,zoom*Ma
 function meshMeasurements(solid){
  if(!solid||!Array.isArray(solid.outline)||!Number.isFinite(solid.h))throw Error('No hay sólido válido');
  const p=solid.outline;
- let doubleArea=0,perimeter=0;
+ let perimeter=0;
  for(let i=0;i<p.length;i++){
   const a=p[i],b=p[(i+1)%p.length];
-  doubleArea+=a[0]*b[1]-b[0]*a[1];
   perimeter+=Math.hypot(b[0]-a[0],b[1]-a[1]);
  }
- const area=Math.abs(doubleArea)*.5;
+ const area=polygonArea(p);
  return {area,perimeter,volume:area*Math.abs(solid.h),surface:area*2+perimeter*Math.abs(solid.h),triangles:solid.faces.length};
 }
 function renderMeasurements(){

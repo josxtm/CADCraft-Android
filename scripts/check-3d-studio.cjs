@@ -607,4 +607,19 @@ assert.equal(Math.abs(numericStability.hollowVolume-784)<1e-6,true,'distant tran
 assert.equal(Math.abs(numericStability.hollowReport.signedVolume-784)<1e-6,true,'hollow-shell validation remains stable far from origin');
 assert.equal(numericStability.hollowReport.nestingDepths.join('/'),'0/1','far away internal cavity retains shell nesting');
 
+
+// A3: local-origin 2D areas, clipping and measurement at distant CAD coordinates.
+// Those profiles are physically 10 mm wide, yet lie 90 million mm from origin.
+const worldAreaChecks=evaluate("(()=>{const L=[[0,0],[10,0],[10,4],[4,4],[4,10],[0,10]],square=[[0,0],[10,0],[10,10],[0,10]],shift=(p,x,y)=>p.map(q=>[q[0]+x,q[1]+y]),forward=extrude(shift(L,9e7,-9e7),7),reversed=extrude(shift(L,-9e7,9e7).reverse(),7),record=(x,y)=>({id:1,profile:square,height:10,offset:[x,y,0],mesh:extrude(square,10)}),overlap=prismOverlapMetrics(record(9e7,-9e7),record(9e7+5,-9e7+5)),degenerate=shift([[0,0],[1,1],[2,2]],9e7,-9e7);let reject=false;try{extrude(degenerate,7)}catch(e){reject=true}return {area:polygonArea(shift(L,9e7,-9e7)),triangles:forward.faces.length,measured:meshMeasurements(forward).area,volume:meshMeasurements(forward).volume,topology:inspectMeshTopology(forward).signedVolume,reverseArea:meshMeasurements(reversed).area,reverseVolume:inspectMeshTopology(reversed).signedVolume,overlap:overlap.intersectionVolume,union:overlap.unionVolume,reject}})()");
+assert.equal(worldAreaChecks.area,64,'polygon area remains accurate for distant concave profiles');
+assert.equal(worldAreaChecks.triangles,20,'distant concave sketch triangulates to a closed prism');
+assert.equal(worldAreaChecks.measured,64,'2D area measurement uses translation-stable geometry');
+assert.equal(worldAreaChecks.volume,448,'extruded volume remains correct at large absolute coordinates');
+assert.equal(Math.abs(worldAreaChecks.topology-448)<1e-6,true,'distant concave mesh passes manifold validation');
+assert.equal(worldAreaChecks.reverseArea,64,'reversed winding with negative offset retains area');
+assert.equal(Math.abs(worldAreaChecks.reverseVolume-448)<1e-6,true,'reversed distant extrusion has outward winding');
+assert.equal(worldAreaChecks.overlap,250,'remote 2D clipping computes box overlap correctly');
+assert.equal(worldAreaChecks.union,1750,'remote 2D clipping computes exact union volume');
+assert.equal(worldAreaChecks.reject,true,'remote collinear sketch still rejects zero-area profiles');
+
 console.log('3D studio tests passed');
