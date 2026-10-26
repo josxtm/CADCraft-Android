@@ -191,6 +191,10 @@ Se incluirán **cuando se autorice una nueva APK de hito**, no durante los commi
 
 Las pruebas de geometría corrupta deben hacerse solo con archivos específicos de prueba, nunca manipulando un proyecto de trabajo.
 
+## Pruebas de precisión numérica (solo para un futuro hito)
+
+Los casos con piezas alejadas del origen se validan principalmente mediante pruebas automáticas del motor. En una futura APK, la comprobación visual puede consistir en guardar y recuperar un proyecto con varias piezas separadas espacialmente, y verificar que las cotas y volúmenes calculados no cambian tras abrirlo. No generar una APK exclusivamente para esta comprobación.
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
