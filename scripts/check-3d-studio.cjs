@@ -543,4 +543,28 @@ assert.equal(evaluate('serializeProject()'),beforeCorruptLoad,'bad JSON import d
 assert.equal(evaluate('selectExtrudedSolid()'),true,'can switch away from derived mesh');
 assert.equal(evaluate('diagnoseSelectedMesh()'),null,'diagnostics reject missing derived selection');
 
+
+// A2: definitely intersecting closed shells and folded closed surfaces are rejected.
+const geometryCrossings=evaluate("(()=>{const sq=[[0,0],[10,0],[10,10],[0,10]],base=extrude(sq,10),mk=(x,y,z)=>{const mesh=extrude(sq,10);return {v:mesh.v.map(p=>p.map((v,i)=>v+[x,y,z][i])),faces:mesh.faces}},merge=(x,y,z)=>{const b=mk(x,y,z),n=base.v.length;return {v:base.v.concat(b.v),faces:base.faces.concat(b.faces.map(face=>face.map(i=>i+n)))}};const check=(m)=>{try{return {accepted:true,info:inspectMeshTopology(m)}}catch(e){return {accepted:false,message:e.message}}};const folded={v:base.v.map(p=>p.slice()),faces:base.faces};folded.v[0]=[15,5,5];const foldedOther={v:base.v.map(p=>p.slice()),faces:base.faces};foldedOther.v[2]=[5,5,-5];const invalid={overlap:check(merge(5,5,5)),identical:check(merge(0,0,0)),faceTouch:check(merge(10,0,0)),coplanarOverlap:check(merge(5,0,0)),folded:check(folded),foldedOther:check(foldedOther)};const valid={apart:check(merge(20,0,0)),verticalGap:check(merge(0,0,20)),topology:inspectMeshSelfIntersections(base)};const triA=[[0,0,0],[10,0,0],[0,10,0]],triPierce=[[3,3,-2],[3,3,2],[8,2,2]],triFar=[[30,30,0],[31,30,0],[30,31,0]],triCoplanar=[[2,2,0],[7,2,0],[2,7,0]];return {invalid,valid,piercing:triangleSurfaceIntersection3D(triA,triPierce),far:triangleSurfaceIntersection3D(triA,triFar),coplanar:triangleSurfaceIntersection3D(triA,triCoplanar),outsideAabb:inspectMeshSelfIntersections(merge(20,0,0)).intersectionPairs}})()");
+assert.equal(geometryCrossings.invalid.overlap.accepted,false,'two solid shells interpenetrating at offset 5,5,5 are rejected');
+assert.equal(geometryCrossings.invalid.identical.accepted,false,'coincident duplicated shells rejected');
+assert.equal(geometryCrossings.invalid.faceTouch.accepted,false,'two shells touching on a full face rejected');
+assert.equal(geometryCrossings.invalid.coplanarOverlap.accepted,false,'coplanar overlapping disconnected shells rejected');
+assert.equal(geometryCrossings.invalid.folded.accepted,false,'deformed cuboid with crossing triangles rejected');
+assert.equal(geometryCrossings.invalid.foldedOther.accepted,false,'second folded cube orientation rejected');
+assert.equal(geometryCrossings.invalid.overlap.message.includes('Autointersección'),true,'self-intersection rejection is explicit');
+assert.equal(geometryCrossings.valid.apart.accepted,true,'two disconnected non-touching shells accepted');
+assert.equal(geometryCrossings.valid.verticalGap.accepted,true,'vertically separated solid shells accepted');
+assert.equal(geometryCrossings.valid.apart.info.shells,2,'non-overlapping shells counted correctly');
+assert.equal(geometryCrossings.valid.topology.intersectionPairs,0,'ordinary cuboid has zero intersections');
+assert.equal(geometryCrossings.valid.topology.checkedPairs>0,true,'triangle candidate processing actually occurs');
+assert.equal(geometryCrossings.piercing,true,'triangle-through-triangle intersection detected');
+assert.equal(geometryCrossings.far,false,'separate non-near triangles do not intersect');
+assert.equal(geometryCrossings.coplanar,true,'positive area coplanar triangle overlap detected');
+assert.equal(geometryCrossings.outsideAabb,0,'broad phase does not report distant shells');
+// Corrupted v3 project must be rejected transactionally with no scene change.
+const savedBeforeCrossing=evaluate('serializeProject()');
+assert.equal(evaluate("(()=>{const p=JSON.parse(serializeProject()),m=p.derivedSolids[0].mesh;const cube=extrude([[0,0],[10,0],[10,10],[0,10]],10),n=cube.v.length;const other={v:cube.v.map(point=>point.map((v,i)=>v+[5,5,5][i])),faces:cube.faces};p.derivedSolids[0].mesh={v:cube.v.concat(other.v),faces:cube.faces.concat(other.faces.map(f=>f.map(i=>i+n)))};try{loadProjectText(JSON.stringify(p));return false}catch(e){return e.message.includes('Autointersección')}})()"),true,'project import refuses internally intersecting manifold shells');
+assert.equal(evaluate('serializeProject()'),savedBeforeCrossing,'invalid intersecting shell import preserves previous project');
+
 console.log('3D studio tests passed');
