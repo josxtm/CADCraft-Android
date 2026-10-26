@@ -2,8 +2,20 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(process.argv[2],'utf8');
-const draw={highlightCount:0,beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){if(this.fillStyle==='rgba(255,152,47,0.55)')this.highlightCount++;},stroke(){},clearRect(){},fillRect(){},arc(){},fillText(){}};
+const draw={highlightCount:0,setTransform(){},beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){if(this.fillStyle==='rgba(255,152,47,0.55)')this.highlightCount++;},stroke(){},clearRect(){},fillRect(){},arc(){},fillText(){}};
 const controls={width:{value:'100'},length:{value:'60'},height:{value:'25'},faceDistance:{value:'5'},moveAxis:{value:'XY'},moveSnap:{value:'0'},moveSensitivity:{value:'1'},featureAxis:{value:'X'},featureDistance:{value:'5'},vertexModeButton:{textContent:''},edgeModeButton:{textContent:''},dragFaceButton:{textContent:''},toolsPanel:{classList:{toggle(){}}},toolsToggle:{textContent:''},moveModeButton:{textContent:''},selectFaceButton:{textContent:''},offsetX:{value:'0'},offsetY:{value:'0'},offsetZ:{value:'0'},status:{textContent:''}};
+const sketchCanvas={width:900,height:600,dataset:{},listeners:{},
+ getContext(){return draw},
+ getBoundingClientRect(){return {left:0,top:0,width:900,height:600}},
+ addEventListener(name,fn){this.listeners[name]=fn},
+ setPointerCapture(){}};
+Object.assign(controls,{
+ sketchCanvas,sketchPanel:{classList:{add(){},remove(){}}},
+ sketchInfo:{textContent:''},sketchX:{value:'0'},sketchY:{value:'0'},
+ sketchSnapButton:{textContent:'Ajuste 5 mm: ON'},
+ sketchGridButton:{textContent:'Cuadrícula: ON'},
+ sketchPanButton:{textContent:'Desplazar vista: OFF'}
+});
 const canvas={clientWidth:900,clientHeight:600,width:900,height:600,getContext(){return draw},getBoundingClientRect(){return {left:0,top:0,width:900,height:600}},listeners:{},addEventListener(name,fn){this.listeners[name]=fn},setPointerCapture(){}};
 const file={addEventListener(){},click(){}};
 const document={
@@ -19,7 +31,7 @@ const sessionStorage={getItem:k=>sessionData.get(k)||null,setItem:(k,v)=>session
 const recoveryData=new Map();
 let failRecoveryWrites=false;
 const localStorage={getItem:k=>recoveryData.get(k)||null,setItem(k,v){if(failRecoveryWrites)throw Error('QuotaExceededError');recoveryData.set(k,String(v))},removeItem:k=>recoveryData.delete(k)};
-const context=vm.createContext({document,window,devicePixelRatio:1,Math,Number,Error,Map,Blob,URL,console,sessionStorage,localStorage,setTimeout(){},clearTimeout(){}});
+const context=vm.createContext({document,window,devicePixelRatio:1,Math,Number,Error,Map,Blob,URL,console,sessionStorage,localStorage,requestAnimationFrame(fn){fn()},setTimeout(){},clearTimeout(){}});
 vm.runInContext(source,context,{timeout:3000});
 function evaluate(expression){return vm.runInContext(expression,context,{timeout:3000})}
 assert.equal(evaluate('model.v.length'),8,'extrusion should have 8 vertices');
@@ -1647,5 +1659,28 @@ assert.ok(Math.hypot(...sketchPanRegression.after.map((x,i)=>x-sketchPanRegressi
 assert.ok(Math.hypot(...sketchPanRegression.restored.map((x,i)=>x-sketchPanRegression.originalCenter[i]))<1e-8,'camera centre returns to start');
 assert.equal(sketchPanRegression.wrong,true,'invalid 2D camera displacement is rejected');
 assert.equal(sketchPanRegression.noMutation,true,'sketch pan changes neither profile nor saved solid');
+
+
+/* Real local-sketch pointer handler coverage: a hand-mode drag must not add
+ * points, exiting hand-mode enables vertex drag with one undo transaction,
+ * and zoom/grid are view operations rather than 3D source mutations. */
+const sketchPointerTrial=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[40,0],[40,30],[0,30]],height:10}));openSketch();const project=serializeProject(),points=JSON.stringify(sketchPoints),startingCenter=sketchCenter.slice(),startHistory=sketchHistory.length;const pan=toggleSketchPan(),buttonPan=document.getElementById('sketchPanButton').textContent;sketchCanvas.listeners.pointerdown({pointerId:930,clientX:300,clientY:250});sketchCanvas.listeners.pointermove({pointerId:930,clientX:340,clientY:275});sketchCanvas.listeners.pointerup({pointerId:930,clientX:340,clientY:275});const safePan=JSON.stringify(sketchPoints)===points&&sketchHistory.length===startHistory&&serializeProject()===project,panMoved=Math.hypot(...sketchCenter.map((x,i)=>x-startingCenter[i]))>0;const z0=sketchScale,zOk=zoomSketchByFactor(1.5),zoomed=sketchScale>z0;const gridHidden=toggleSketchGrid()===false,snapStillOn=sketchSnapping;toggleSketchPan();const exited=sketchPanMode===false;const origin=sketchWorldToScreen(sketchPoints[0],900,600);sketchCanvas.listeners.pointerdown({pointerId:931,clientX:origin[0],clientY:origin[1]});sketchCanvas.listeners.pointermove({pointerId:931,clientX:origin[0]+35,clientY:origin[1]+15});sketchCanvas.listeners.pointerup({pointerId:931,clientX:origin[0]+35,clientY:origin[1]+15});const changed=JSON.stringify(sketchPoints)!==points,undoHistory=sketchHistory.length===startHistory+1,afterDrag=JSON.stringify(sketchPoints),undid=undoSketchState(),undone=JSON.stringify(sketchPoints)===points,redid=redoSketchState(),redone=JSON.stringify(sketchPoints)===afterDrag;closeSketch();const cleared=!sketchActive&&!sketchPanMode&&sketchPanGesture===null,projectSafe=serializeProject()===project;return {pan,buttonPan,safePan,panMoved,zOk,zoomed,gridHidden,snapStillOn,exited,changed,undoHistory,undid,undone,redid,redone,cleared,projectSafe}})()");
+assert.equal(sketchPointerTrial.pan,true,'hand mode activates while editor is open');
+assert.equal(sketchPointerTrial.buttonPan,'Desplazar vista: ON','hand mode is visible');
+assert.equal(sketchPointerTrial.safePan,true,'hand drag does not add points or mutate undo');
+assert.equal(sketchPointerTrial.panMoved,true,'touch gesture changes the sketch camera');
+assert.equal(sketchPointerTrial.zOk,true,'mobile zoom button applies the new scale');
+assert.equal(sketchPointerTrial.zoomed,true,'zoom + actually enlarges sketch');
+assert.equal(sketchPointerTrial.gridHidden,true,'grid overlay can be switched off');
+assert.equal(sketchPointerTrial.snapStillOn,true,'grid overlay does not disable 5mm snap');
+assert.equal(sketchPointerTrial.exited,true,'switching off hand mode re-enables pencil editing');
+assert.equal(sketchPointerTrial.changed,true,'normal pointer drag edits a selected vertex');
+assert.equal(sketchPointerTrial.undoHistory,true,'entire vertex gesture is one undo step');
+assert.equal(sketchPointerTrial.undid,true,'sketch undo exists after pointer gesture');
+assert.equal(sketchPointerTrial.undone,true,'sketch undo restores the original outline');
+assert.equal(sketchPointerTrial.redid,true,'sketch redo exists after undo');
+assert.equal(sketchPointerTrial.redone,true,'sketch redo restores the edited outline');
+assert.equal(sketchPointerTrial.cleared,true,'closing sketch clears transient touch navigation');
+assert.equal(sketchPointerTrial.projectSafe,true,'temporary sketch changes do not alter solid before pressing extrude');
 
 console.log('3D studio tests passed');

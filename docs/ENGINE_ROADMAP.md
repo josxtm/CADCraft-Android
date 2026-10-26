@@ -176,6 +176,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **C1/B3 — controles de navegación 2D táctiles (26-10-2026):** al encuadre automático del boceto se añaden botones «Zoom +», «Zoom −» y un modo «Desplazar vista», aptos para Android sin rueda de ratón. En modo desplazamiento, arrastrar con un dedo modifica solo el centro temporal de cámara 2D; no agrega vértices, ni modifica el boceto, ni crea historial de edición. Al salir del panel se limpia el gesto y se vuelve a modo normal. Regresiones prueban transformaciones de cámara y rechazo de desplazamientos no finitos. El editor continúa pendiente de pruebas táctiles en APK real.
 
+**C1/B3 — regresión de gestos reales del boceto 2D (26-10-2026):** se añade un lienzo de boceto simulado al test JS del WebView para reproducir los callbacks táctiles, no solo las transformaciones matemáticas: activar la mano, desplazar cámara sin introducir puntos, pulsar zoom, ocultar la rejilla sin desactivar el ajuste, desactivar mano, arrastrar un vértice con una sola entrada en Deshacer, rehacer y cancelar la edición sin modificar el sólido 3D. Validado mediante GitHub Actions, pendiente prueba de pantalla táctil de Android.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.
