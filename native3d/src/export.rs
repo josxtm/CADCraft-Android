@@ -215,4 +215,24 @@ mod tests {
         assert_eq!(s.solids,original);
     }
 
+    #[test]fn repeated_exports_are_byte_stable_and_do_not_mutate_workspace() {
+        let mut state=PreviewState::default();
+        state.select_profile_checked(31,square(0.0,0.0,8.0)).unwrap();
+        let first=state.extrude_selected(6.0).unwrap();
+        let second=state.duplicate_solid(first,Vec3::new(20.0,0.0,0.0)).unwrap();
+        state.set_solid_height(second,-4.0).unwrap();
+        let scene_before=state.solids.clone();
+        let camera_before=state.camera;
+        let selection=[second,first];
+        let obj=state.export_obj(&selection).unwrap();
+        let stl=state.export_ascii_stl(&selection).unwrap();
+        for _ in 0..3 {
+            assert_eq!(state.export_obj(&selection).unwrap(),obj);
+            assert_eq!(state.export_ascii_stl(&selection).unwrap(),stl);
+        }
+        assert_eq!(state.solids,scene_before);
+        assert_eq!(state.camera,camera_before);
+        assert_ne!(state.export_obj(&[first,second]).unwrap(),obj);
+    }
+
 }
