@@ -1719,19 +1719,50 @@ function meshAsObj(solid){
  for(const f of solid.faces){if(f.length!==3||!f.every(i=>Number.isInteger(i)&&i>=0&&i<solid.v.length))throw Error('Cara inválida');lines.push('f '+f.map(i=>i+1).join(' '));}
  return lines.join('\n')+'\n';
 }
+/* Export must never silently deliver a broken individual solid.
+ * Check each body independently; overlapping independent design bodies
+ * are allowed, unlike a single boolean result with internal crossings. */
+function assertSceneExportable(){
+ if(!model)throw Error('No hay modelo que exportar');
+ const parts=allSceneMeshes();
+ if(!parts.length)throw Error('Escena sin sólidos');
+ for(const part of parts){
+  try{inspectMeshTopology(part);}
+  catch(e){throw Error('Pieza '+part.id+': '+e.message);}
+ }
+ return parts.length;
+}
 function exportOBJ(){
  try{
+  assertSceneExportable();
+  const content=meshAsObj(combinedScene());
   const a=document.createElement('a');a.download='CADCraft_3D.obj';
-  a.href=URL.createObjectURL(new Blob([meshAsObj(combinedScene())],{type:'text/plain'}));a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),2000);setStatus('OBJ preparado para guardar');
- }catch(e){setStatus('OBJ: '+e.message);}
+  a.href=URL.createObjectURL(new Blob([content],{type:'text/plain'}));a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);setStatus('OBJ validado y preparado para guardar');
+  return true;
+ }catch(e){setStatus('OBJ: '+e.message);return false;}
 }
 
-function exportSTL(){if(!model)return;const scene=combinedScene();let out='solid cadcraft_android\n';
- for(const f of scene.faces){const a=scene.v[f[0]],b=scene.v[f[1]],c=scene.v[f[2]],u=b.map((v,i)=>v-a[i]),v=c.map((x,i)=>x-a[i]),n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],mag=Math.hypot(...n)||1;
- out+='facet normal '+n.map(x=>x/mag).join(' ')+'\n outer loop\n';
- for(const p of [a,b,c])out+=' vertex '+p.join(' ')+'\n';out+=' endloop\nendfacet\n';}
- out+='endsolid cadcraft_android\n';let a=document.createElement('a');a.download='CADCraft_3D.stl';a.href=URL.createObjectURL(new Blob([out],{type:'model/stl'}));a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);setStatus('STL preparado para guardar');}
+function exportSTL(){
+ try{
+  assertSceneExportable();
+  const scene=combinedScene();let out='solid cadcraft_android\n';
+  for(const f of scene.faces){
+   const a=scene.v[f[0]],b=scene.v[f[1]],c=scene.v[f[2]];
+   const u=b.map((v,i)=>v-a[i]),v=c.map((x,i)=>x-a[i]);
+   const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],mag=Math.hypot(...n);
+   if(!(mag>1e-10))throw Error('Triángulo degenerado');
+   out+='facet normal '+n.map(x=>x/mag).join(' ')+'\n outer loop\n';
+   for(const p of [a,b,c])out+=' vertex '+p.join(' ')+'\n';
+   out+=' endloop\nendfacet\n';
+  }
+  out+='endsolid cadcraft_android\n';
+  const a=document.createElement('a');a.download='CADCraft_3D.stl';
+  a.href=URL.createObjectURL(new Blob([out],{type:'model/stl'}));a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  setStatus('STL validado y preparado para guardar');return true;
+ }catch(e){setStatus('STL: '+e.message);return false;}
+}
 function pickDxf(){document.getElementById('file').click();}
 
 function profileAsDxf(points){

@@ -727,4 +727,17 @@ assert.equal(legacyOrphan.missing,'missing','unverified CSG with missing source 
 assert.equal(legacyOrphan.reported,true,'missing legacy source appears in report');
 assert.equal(legacyOrphan.blocked,false,'batch rejects orphaned legacy inputs even if no results stale');
 
+
+/* C4/A1: every exported piece must pass topology checks before any file is emitted. */
+const guardedExports=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));const one=assertSceneExportable(),obj=exportOBJ(),stl=exportSTL();duplicateSceneSolid();const two=assertSceneExportable(),multiObj=exportOBJ(),multiStl=exportSTL();const modelSnapshot=JSON.stringify(model),other=storedSolids[0],oldFaces=other.mesh.faces;other.mesh.faces=other.mesh.faces.slice(1);const invalidReport=(()=>{try{assertSceneExportable();return ''}catch(e){return e.message}})(),badObj=exportOBJ(),badStl=exportSTL(),label=status.textContent;other.mesh.faces=oldFaces;const restored=modelSnapshot===JSON.stringify(model),validAgain=exportSTL();return {one,obj,stl,two,multiObj,multiStl,invalidReport,badObj,badStl,label,restored,validAgain}})()");
+assert.equal(guardedExports.one,1,'single valid solid passes export gate');
+assert.equal(guardedExports.obj&&guardedExports.stl,true,'valid scene exports both OBJ and STL');
+assert.equal(guardedExports.two,2,'two separate design pieces validate individually');
+assert.equal(guardedExports.multiObj&&guardedExports.multiStl,true,'two-body scene exports both formats');
+assert.equal(guardedExports.invalidReport.includes('Pieza')&&guardedExports.invalidReport.includes('Malla abierta'),true,'invalid source mesh reports its piece');
+assert.equal(guardedExports.badObj,false,'OBJ refuses an open triangulated solid');
+assert.equal(guardedExports.badStl,false,'STL refuses an open triangulated solid');
+assert.equal(guardedExports.label.includes('STL: Pieza'),true,'STL failure provides a clear error');
+assert.equal(guardedExports.restored&&guardedExports.validAgain,true,'repaired scene exports without damaging source model');
+
 console.log('3D studio tests passed');
