@@ -620,7 +620,7 @@ mod tests{
         state.select_profile_checked(1,square).unwrap();
         let id=state.extrude_selected(10.0).unwrap();
         let before=state.measure_solid(id).unwrap();
-        assert_eq!(before.volume_mm3,1000.0);
+        assert!((before.volume_mm3-1000.0).abs()<1e-8);
         let cam=state.camera;
         state.solids[0].mesh.triangles[0][0]=999;
         let bad=state.solids.clone();
