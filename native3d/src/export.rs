@@ -190,4 +190,22 @@ mod tests {
         }
         assert_eq!(count,12);
     }
+    #[test]fn export_rejects_non_manifold_vertex_and_duplicate_shell_coordinates() {
+        let mut s=PreviewState::default();
+        s.select_profile_checked(9,square(0.0,0.0,10.0)).unwrap();
+        let id=s.extrude_selected(4.0).unwrap();
+        let original=s.solids.clone();
+        // A geometrically coincident vertex with a different index is an
+        // unwelded seam, even when all original triangles remain unchanged.
+        let duplicate=s.solids[0].mesh.vertices[0];
+        s.solids[0].mesh.vertices.push(duplicate);
+        assert_eq!(s.export_obj(&[id]),Err(ExportError::InvalidSolid(id)));
+        assert_eq!(s.export_ascii_stl(&[id]),Err(ExportError::InvalidSolid(id)));
+        // A valid mesh remains exportable after restoring the source.
+        s.solids=original.clone();
+        assert!(s.export_obj(&[id]).is_ok());
+        assert!(s.export_ascii_stl(&[id]).is_ok());
+        assert_eq!(s.solids,original);
+    }
+
 }
