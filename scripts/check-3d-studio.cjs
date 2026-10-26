@@ -787,7 +787,7 @@ assert.equal(safeDuplication.good&&safeDuplication.unique&&safeDuplication.valid
 
 
 /* A1/B2: Euler genus distinguishes a through-hole from a sealed cavity. */
-const genusChecks=evaluate("(()=>{const p=[[0,0],[10,0],[10,10],[0,10]],hole=[[3,3],[7,3],[7,7],[3,7]],record=(profile,z=0,h=10)=>({id:1,profile,height:h,offset:[0,0,z],mesh:extrude(profile,h)}),box=record(p),cutter=record(hole),full=inspectMeshTopology(box),ring=inspectMeshTopology(booleanBoxMesh(box,cutter,'subtract')),inner=extrude(hole,6),reversed={v:inner.v.map(q=>q.map((v,i)=>v+(i===2?2:0))),faces:inner.faces.map(f=>[f[0],f[2],f[1]])},cavity=inspectMeshTopology({v:box.mesh.v.concat(reversed.v),faces:box.mesh.faces.concat(reversed.faces.map(f=>f.map(i=>i+box.mesh.v.length)))});return {full,ring,cavity}})()");
+const genusChecks=evaluate("(()=>{const p=[[0,0],[10,0],[10,10],[0,10]],hole=[[3,3],[7,3],[7,7],[3,7]],record=(profile,z=0,h=10)=>({id:1,profile,height:h,offset:[0,0,z],mesh:extrude(profile,h)}),box=record(p),cutter=record(hole),full=inspectMeshTopology(box.mesh),ring=inspectMeshTopology(booleanBoxMesh(box,cutter,'subtract')),inner=extrude(hole,6),reversed={v:inner.v.map(q=>q.map((v,i)=>v+(i===2?2:0))),faces:inner.faces.map(f=>[f[0],f[2],f[1]])},cavity=inspectMeshTopology({v:box.mesh.v.concat(reversed.v),faces:box.mesh.faces.concat(reversed.faces.map(f=>f.map(i=>i+box.mesh.v.length)))});return {full,ring,cavity}})()");
 assert.equal(genusChecks.full.shellGenus.length,1,'solid cube has one connected shell');
 assert.equal(genusChecks.full.shellGenus[0].genus,0,'ordinary cube has no tunnels');
 assert.equal(genusChecks.ring.shells,1,'plate with a through-hole has one connected shell');
