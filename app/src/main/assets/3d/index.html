@@ -1205,13 +1205,19 @@ function duplicateDerivedSolid(){
  if(faceGesture)finishFaceGesture(faceGesture.pointerId,true);
  const item=selectedDerived();
  if(!item||storedSolids.length+derivedSolids.length>=23){setStatus('Selecciona un resultado; máximo 24 piezas');return false;}
- const copy={id:nextSolidId++,mode:item.mode,parents:item.parents.slice(),
-  sourceFingerprints:item.sourceFingerprints?item.sourceFingerprints.slice():null,
-  offset:[item.offset[0]+20,item.offset[1],item.offset[2]],
-  mesh:validateDerivedMesh(item.mesh)};
- derivedSolids.push(copy);selectedDerivedId=copy.id;derivedUndo=[];derivedRedo=[];selectedGeometryFeature=null;selectedFace=-1;
- syncOffsetFields();invalidateSceneContacts();fit();setStatus('Resultado duplicado: '+copy.id);
- return true;
+ try{
+  // Copy must validate without mutating either the original or the ID
+  // counter. Failed mesh validation must not leave a partial scene.
+  const mesh=validateDerivedMesh(item.mesh);
+  const offset=validateOffset([item.offset[0]+20,item.offset[1],item.offset[2]]);
+  const copy={id:nextSolidId,mode:item.mode,parents:item.parents.slice(),
+   sourceFingerprints:item.sourceFingerprints?item.sourceFingerprints.slice():null,
+   offset,mesh};
+  derivedSolids.push(copy);nextSolidId++;
+  selectedDerivedId=copy.id;derivedUndo=[];derivedRedo=[];selectedGeometryFeature=null;selectedFace=-1;
+  syncOffsetFields();invalidateSceneContacts();fit();setStatus('Resultado duplicado: '+copy.id);
+  return true;
+ }catch(e){setStatus('Duplicar resultado: '+e.message);return false;}
 }
 function deleteDerivedSolid(){
  exitGeometryMode();

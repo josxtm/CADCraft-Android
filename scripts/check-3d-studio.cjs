@@ -777,4 +777,12 @@ assert.equal(deletionSafety.deleted,true,'free source can then be deleted');
 assert.equal(deletionSafety.remaining,0,'scene has exactly one extrusion after deletion');
 assert.equal(deletionSafety.historyIntact,true,'source deletion guard preserves movement history');
 
+/* B3/C3: duplication failure is transactional for mesh and origin offset. */
+const safeDuplication=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));duplicateSceneSolid();addBooleanToScene('union');const r=selectedDerived(),faces=r.mesh.faces,originalId=nextSolidId,project=serializeProject();r.mesh.faces=faces.slice(1);const invalidMesh=duplicateDerivedSolid(),message=status.textContent,stillSelected=selectedDerivedId===r.id,unmodifiedId=nextSolidId===originalId,count=derivedSolids.length;r.mesh.faces=faces;const good=duplicateDerivedSolid(),unique=derivedSolids.map(d=>d.id).join('/')===r.id+'/'+originalId,valid=inspectMeshTopology(selectedDerived().mesh).signedVolume>0;return {invalidMesh,message,stillSelected,unmodifiedId,count,good,unique,valid,originalId}})()");
+assert.equal(safeDuplication.invalidMesh,false,'corrupt derived mesh cannot be duplicated');
+assert.equal(safeDuplication.message.includes('Duplicar resultado')&&safeDuplication.message.includes('Malla abierta'),true,'duplication failure reports geometry defect');
+assert.equal(safeDuplication.stillSelected&&safeDuplication.unmodifiedId,true,'rejected duplication keeps selection and identifier sequence');
+assert.equal(safeDuplication.count,1,'no invalid copy is added to scene');
+assert.equal(safeDuplication.good&&safeDuplication.unique&&safeDuplication.valid,true,'repaired mesh duplicates with valid geometry and fresh id');
+
 console.log('3D studio tests passed');
