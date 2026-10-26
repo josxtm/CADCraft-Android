@@ -809,6 +809,15 @@ function inspectMeshTopology(mesh){
   throw Error('Vértices 3D inválidos');
  if(!mesh.faces.every(face=>Array.isArray(face)&&face.length===3&&face.every(i=>Number.isInteger(i)&&i>=0&&i<mesh.v.length)&&new Set(face).size===3))
   throw Error('Caras 3D inválidas');
+ // Two distinct indices at exactly the same 3D point are an unwelded seam.
+ // Reject it before edge/fan checks: index-based topology alone misses this.
+ // Deliberately exact (including signed zero); near-coincident tolerances remain A3 work.
+ const positions=new Set();
+ for(const vertex of mesh.v){
+  const key=vertex.join('|');
+  if(positions.has(key))throw Error('Vértices geométricos duplicados sin soldar');
+  positions.add(key);
+ }
  const seenTriangles=new Set(),edges=new Map();
  const vertexFaces=Array.from({length:mesh.v.length},()=>[]);
  const neighbors=Array.from({length:mesh.faces.length},()=>new Set());

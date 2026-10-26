@@ -544,6 +544,12 @@ assert.equal(evaluate('selectExtrudedSolid()'),true,'can switch away from derive
 assert.equal(evaluate('diagnoseSelectedMesh()'),null,'diagnostics reject missing derived selection');
 
 
+// A1: reject exact coincident coordinates with different vertex indices.
+// A disconnected pair of cubes touching at a point is not a valid welded solid.
+const unweldedVertices=evaluate("(()=>{const box=extrude([[0,0],[10,0],[10,10],[0,10]],10),merge=shift=>({v:box.v.concat(box.v.map(p=>p.map((v,i)=>v+shift[i]))),faces:box.faces.concat(box.faces.map(f=>f.map(i=>i+box.v.length)))});let error='';try{inspectMeshTopology(merge([10,10,10]))}catch(e){error=e.message}return {error,apart:inspectMeshTopology(merge([30,0,0])).shells}})()");
+assert.equal(unweldedVertices.error.includes('Vértices geométricos duplicados'),true,'unwelded coincident shell vertices are rejected explicitly');
+assert.equal(unweldedVertices.apart,2,'separate closed shells with distinct coordinates remain valid');
+
 // A2: definitely intersecting closed shells and folded closed surfaces are rejected.
 const geometryCrossings=evaluate("(()=>{const sq=[[0,0],[10,0],[10,10],[0,10]],base=extrude(sq,10),mk=(x,y,z)=>{const mesh=extrude(sq,10);return {v:mesh.v.map(p=>p.map((v,i)=>v+[x,y,z][i])),faces:mesh.faces}},merge=(x,y,z)=>{const b=mk(x,y,z),n=base.v.length;return {v:base.v.concat(b.v),faces:base.faces.concat(b.faces.map(face=>face.map(i=>i+n)))}};const check=(m)=>{try{return {accepted:true,info:inspectMeshTopology(m)}}catch(e){return {accepted:false,message:e.message}}};const folded={v:base.v.map(p=>p.slice()),faces:base.faces};folded.v[0]=[15,5,5];const foldedOther={v:base.v.map(p=>p.slice()),faces:base.faces};foldedOther.v[2]=[5,5,-5];const invalid={overlap:check(merge(5,5,5)),identical:check(merge(0,0,0)),faceTouch:check(merge(10,0,0)),coplanarOverlap:check(merge(5,0,0)),folded:check(folded),foldedOther:check(foldedOther)};const valid={apart:check(merge(20,0,0)),verticalGap:check(merge(0,0,20)),topology:inspectMeshSelfIntersections(base)};const triA=[[0,0,0],[10,0,0],[0,10,0]],triPierce=[[3,3,-2],[3,3,2],[8,2,2]],triFar=[[30,30,0],[31,30,0],[30,31,0]],triCoplanar=[[2,2,0],[7,2,0],[2,7,0]];return {invalid,valid,piercing:triangleSurfaceIntersection3D(triA,triPierce),far:triangleSurfaceIntersection3D(triA,triFar),coplanar:triangleSurfaceIntersection3D(triA,triCoplanar),outsideAabb:inspectMeshSelfIntersections(merge(20,0,0)).intersectionPairs}})()");
 assert.equal(geometryCrossings.invalid.overlap.accepted,false,'two solid shells interpenetrating at offset 5,5,5 are rejected');
