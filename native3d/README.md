@@ -17,3 +17,7 @@ cargo test
 ```
 
 No compilar APK hasta solicitarlo expresamente. Las incidencias de teclado, guardado y selección quedan aparcadas.
+
+## Edición paramétrica del prototipo (26-10-2026)
+
+El adaptador Rust `PreviewState` permite actualizar la altura de una extrusión existente con `set_solid_height(id, height)`: reconstruye y valida la malla candidata antes de cambiarla, conserva el identificador y el vínculo al perfil 2D, y rechaza alturas no válidas sin modificar la escena. `refresh_source_profile` respeta después esa altura individual. El contador de identificadores evita reutilizaciones cuando alcanza el límite de `u64`. Hay pruebas Rust para cambios válidos, rechazo, integridad de otras piezas y agotamiento de IDs. **Es una API del prototipo; todavía no está integrada en la APK.**

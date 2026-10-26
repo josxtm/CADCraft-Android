@@ -16,6 +16,8 @@ pub enum WorkspaceError {
     NoProfile,
     InvalidHeight,
     Geometry(ExtrudeError),
+    SolidNotFound,
+    IdExhausted,
 }
 
 #[derive(Clone,Debug)]
@@ -49,10 +51,28 @@ impl PreviewState {
         if !height.is_finite()||height.abs()<1e-10{return Err(WorkspaceError::InvalidHeight)}
         let points=self.selected_outline.as_ref().ok_or(WorkspaceError::NoProfile)?;
         let mesh=extrude(points,height).map_err(WorkspaceError::Geometry)?;
+        // Reserve an ID only after geometry succeeds; never silently reuse
+        // u64::MAX after saturating_add, which would create duplicate solids.
         let id=self.next_id;
-        self.next_id=self.next_id.saturating_add(1);
+        let following_id=id.checked_add(1).ok_or(WorkspaceError::IdExhausted)?;
         self.solids.push(Solid{id,source_handle:self.selected_handle,height,outline:points.clone(),mesh});
+        self.next_id=following_id;
         Ok(id)
+    }
+    /// Change an existing extrusion's height without replacing its identity
+    /// or detaching it from its selected 2D source. Failed edits are atomic:
+    /// neither the original height nor its triangles are touched.
+    pub fn set_solid_height(&mut self,id:u64,height:f64)->Result<(),WorkspaceError> {
+        let index=self.solids.iter().position(|solid|solid.id==id)
+            .ok_or(WorkspaceError::SolidNotFound)?;
+        if !height.is_finite()||height.abs()<1e-10 {
+            return Err(WorkspaceError::InvalidHeight)
+        }
+        let candidate=extrude(&self.solids[index].outline,height)
+            .map_err(WorkspaceError::Geometry)?;
+        self.solids[index].mesh=candidate;
+        self.solids[index].height=height;
+        Ok(())
     }
     /// Rebuild every preview solid linked to an edited 2D source profile.
     /// All meshes are checked first: invalid input leaves solids, IDs and
@@ -151,6 +171,53 @@ mod tests{
         assert_eq!(state.solids,vec![original]);
         state.select_profile(9,square);
         assert_eq!(state.extrude_selected(2.0).unwrap(),2);
+    }
+    #[test]fn changing_height_is_atomic_and_preserves_source_link() {
+        let mut state=PreviewState::default();
+        let square=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                        Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile(7,square.clone());
+        assert_eq!(state.extrude_selected(2.0),Ok(1));
+        assert_eq!(state.extrude_selected(5.0),Ok(2));
+        state.select_profile(8,square.clone());
+        assert_eq!(state.extrude_selected(3.0),Ok(3));
+        let before=state.solids.clone();
+        let camera=state.camera;
+        assert_eq!(state.set_solid_height(999,4.0),Err(WorkspaceError::SolidNotFound));
+        assert_eq!(state.set_solid_height(1,0.0),Err(WorkspaceError::InvalidHeight));
+        assert_eq!(state.set_solid_height(1,f64::NAN),Err(WorkspaceError::InvalidHeight));
+        assert_eq!(state.set_solid_height(1,100_000_001.0),
+                   Err(WorkspaceError::Geometry(ExtrudeError::OutOfBounds)));
+        assert_eq!(state.solids,before);
+        assert_eq!(state.camera,camera);
+        assert_eq!(state.set_solid_height(1,-4.0),Ok(()));
+        assert_eq!(state.solids[0].id,1);
+        assert_eq!(state.solids[0].source_handle,Some(7));
+        assert_eq!(state.solids[0].height,-4.0);
+        assert_eq!(state.solids[0].mesh.vertices[4].z,-4.0);
+        assert_eq!(state.solids[0].mesh.triangles.len(),12);
+        assert_eq!(state.solids[1],before[1]);
+        assert_eq!(state.solids[2],before[2]);
+        // A later 2D update respects each solid's *edited* height.
+        let wide=vec![Point2::new(0.0,0.0),Point2::new(20.0,0.0),
+                      Point2::new(20.0,10.0),Point2::new(0.0,10.0)];
+        assert_eq!(state.refresh_source_profile(7,wide),Ok(2));
+        assert_eq!(state.solids[0].height,-4.0);
+        assert_eq!(state.solids[0].mesh.vertices[4].z,-4.0);
+        assert_eq!(state.solids[1].height,5.0);
+        assert_eq!(state.solids[2],before[2]);
+        assert_eq!(state.extrude_selected(1.0),Ok(4));
+    }
+    #[test]fn exhausted_id_space_never_reuses_solid_ids() {
+        let mut state=PreviewState::default();
+        state.select_profile(1,vec![Point2::new(0.0,0.0),Point2::new(2.0,0.0),
+                                    Point2::new(2.0,2.0),Point2::new(0.0,2.0)]);
+        state.next_id=u64::MAX-1;
+        assert_eq!(state.extrude_selected(2.0),Ok(u64::MAX-1));
+        let before=state.solids.clone();
+        assert_eq!(state.extrude_selected(3.0),Err(WorkspaceError::IdExhausted));
+        assert_eq!(state.solids,before);
+        assert_eq!(state.next_id,u64::MAX);
     }
     #[test]fn refreshing_a_2d_source_is_atomic_and_keeps_solid_identity(){
         let mut state=PreviewState::default();
