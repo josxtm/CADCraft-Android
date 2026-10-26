@@ -942,15 +942,15 @@ assert.equal(multiBodySTL.exported,true,'valid multi-body scene exports STL afte
 
 /* C4/B2: never discard DXF loops or silently flatten unsupported curves,
  * tilted planes, missing vertices or mismatched DXF vertex declarations. */
-const dxSquare=(x=0)=>['0','LWPOLYLINE','90','4','70','1','10',String(x),'20','0','10',String(x+10),'20','0','10',String(x+10),'20','10','10',String(x),'20','10'].join('\\n');
+const dxSquare=(x=0)=>['0','LWPOLYLINE','90','4','70','1','10',String(x),'20','0','10',String(x+10),'20','0','10',String(x+10),'20','10','10',String(x),'20','10'].join('\n');
 const dxfCases=[
- {name:'multiple loops',data:dxSquare()+'\\n'+dxSquare(2)+'\\n0\\nEOF',error:'varios perfiles'},
- {name:'bulge arc',data:dxSquare()+'\\n42\\n0.5\\n0\\nEOF',error:'bulge'},
- {name:'missing Y',data:dxSquare().replace('20\\n0','20\\n')+'\\n0\\nEOF',error:'inválido'},
- {name:'wrong vertex count',data:dxSquare().replace('90\\n4','90\\n5')+'\\n0\\nEOF',error:'incoherente'},
- {name:'tilted OCS plane',data:dxSquare()+'\\n210\\n1\\n0\\nEOF',error:'plano inclinado'},
- {name:'nonzero elevation',data:dxSquare()+'\\n38\\n5\\n0\\nEOF',error:'elevación'},
- {name:'open polyline',data:dxSquare().replace('70\\n1','70\\n0')+'\\n0\\nEOF',error:'No hay LWPOLYLINE'}
+ {name:'multiple loops',data:dxSquare()+'\n'+dxSquare(2)+'\n0\nEOF',error:'varios perfiles'},
+ {name:'bulge arc',data:dxSquare()+'\n42\n0.5\n0\nEOF',error:'bulge'},
+ {name:'missing Y',data:dxSquare().replace('20\n0','20\n')+'\n0\nEOF',error:'inválido'},
+ {name:'wrong vertex count',data:dxSquare().replace('90\n4','90\n5')+'\n0\nEOF',error:'incoherente'},
+ {name:'tilted OCS plane',data:dxSquare()+'\n210\n1\n0\nEOF',error:'plano inclinado'},
+ {name:'nonzero elevation',data:dxSquare()+'\n38\n5\n0\nEOF',error:'elevación'},
+ {name:'open polyline',data:dxSquare().replace('70\n1','70\n0')+'\n0\nEOF',error:'No hay LWPOLYLINE'}
 ];
 for(const item of dxfCases){
  const result=evaluate("(()=>{const before=serializeProject();try{importDxfText("+JSON.stringify(item.data)+");return {rejected:false,unchanged:serializeProject()===before}}catch(e){return {rejected:true,unchanged:serializeProject()===before,message:e.message}}})()");
