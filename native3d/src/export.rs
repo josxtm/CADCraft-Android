@@ -129,9 +129,22 @@ mod tests {
         assert_eq!(obj.lines().filter(|line|line.starts_with("f ")).count(),24);
         assert!(obj.contains("v 90000000.12500000000000000"));
         assert!(obj.contains(" -7.00000000000000000"));
-        assert!(obj.lines().any(|line|line=="f 9 10 11"||
-                                 line=="f 11 10 9"||
-                                 line=="f 12 10 9"));
+        // Each object's faces must reference its own globally numbered
+        // vertex range regardless of ear-clipping order or winding.
+        let groups:Vec<&str>=obj.split("o solid_1\n").collect();
+        assert_eq!(groups.len(),2);
+        let first_group=groups[0].split("o solid_2\n").nth(1).unwrap();
+        for (group,lower,upper) in [(first_group,1usize,8usize),(groups[1],9,16)] {
+            let mut faces=0;
+            for line in group.lines().filter(|line|line.starts_with("f ")) {
+                let ids:Vec<usize>=line.split_whitespace().skip(1)
+                    .map(|token|token.parse().unwrap()).collect();
+                assert_eq!(ids.len(),3);
+                assert!(ids.iter().all(|id|*id>=lower&&*id<=upper));
+                faces+=1;
+            }
+            assert_eq!(faces,12);
+        }
         let stl=s.export_ascii_stl(&[second,first]).unwrap();
         assert!(stl.starts_with("solid CADCraft_mm\n"));
         assert!(stl.ends_with("endsolid CADCraft_mm\n"));
