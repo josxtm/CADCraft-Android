@@ -1,0 +1,65 @@
+# CADCraft Android — Hoja de ruta del motor geométrico
+
+**Estado: desarrollo experimental posterior al código 0.5.0.** La versión Android declarada en Gradle sigue siendo `0.5.0`; los cambios entre hitos no generan APK automáticamente. Las pruebas JavaScript no sustituyen una compilación Android ni pruebas táctiles reales.
+
+## Objetivo
+
+Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo de boceto → sólido → edición → exportación, sin confundir una malla triangular cerrada con un sólido paramétrico B-Rep. Las capacidades reales se distinguen de las previstas.
+
+## Qué existe
+
+- **CADCraft 2D integrado como interfaz web** mediante WASM, con selección de algunos perfiles y transferencia al estudio 3D.
+- **Estudio 3D propio:** extrusión de perfiles simples, cilindros aproximados por segmentos, navegación y orientación, ViewCube, selección de piezas/caras y varios sólidos por escena.
+- **Mallas y operaciones:** booleanas para pares de cajas ortogonales; volúmenes compartidos de perfiles extruidos; edición directa limitada de planos; selección de aristas y vértices; cambio de cotas en cajas y escalado afín de mallas más complejas.
+- **Persistencia:** JSON v3 para proyecto y mallas derivadas, y exportaciones trianguladas STL/OBJ.
+- **Validación geométrica actual:** triángulos no degenerados ni repetidos; aristas con dos caras y orientación inversa; abanico de caras conexo por vértice; cascarones cerrados con volumen; diagnóstico de números V/E/F, Euler, cascarones y cavidades orientadas.
+- **Pruebas:** regresiones JavaScript en cada cambio de `main`; APK generada exclusivamente al lanzar manualmente el trabajo Android con `build_apk=true`.
+
+## Bloque A — Motor geométrico fiable (máxima prioridad)
+
+| Paso | Capacidad | Estado | Criterio de aceptación |
+|---|---|---|---|
+| A1 | Manifold, orientación de triángulos, triángulos duplicados, cascarones, cavidades, volumen | **Parcialmente implementado** | Rechazar mallas abiertas, invertidas o con vértices pinchados; aceptar una cavidad interna válida |
+| A2 | Detección de autointersecciones triángulo-triángulo y superficies superpuestas | **Pendiente** | Diagnóstico espacial con casos difíciles y tolerancias verificadas; sin falsos positivos en caras vecinas |
+| A3 | Tolerancias y robustez numérica | **Pendiente** | Casos degenerados, dimensiones extremas y errores acumulados sin pérdida de proyectos |
+| A4 | Operaciones booleanas generales sobre sólidos cerrados | **Limitadas a cajas** | Unión, resta e intersección de perfiles curvos, L y geometrías no convexas; malla válida y volúmenes correctos |
+| A5 | Núcleo geométrico compartido y trazable | **Pendiente** | El editor 2D, visor 3D, almacenamiento y exportación usan resultados consistentes del mismo modelo |
+
+**Nota:** comprobar aristas y orientación no demuestra ausencia de autointersecciones. Una cavidad con shell interior de volumen negativo es válida; no se debe rechazar por tener varias componentes de superficie.
+
+## Bloque B — Modelado CAD
+
+| Paso | Capacidad | Estado | Criterio de aceptación |
+|---|---|---|---|
+| B1 | Restricciones de boceto: horizontal, vertical, coincidencia, tangencia, cotas | Parcial | Solucionador de restricciones estable y perfiles cerrados reproducibles |
+| B2 | Agujeros, islas, perfiles múltiples y extrusiones con vaciados | Pendiente | Crear una placa perforada desde el boceto y medir su volumen |
+| B3 | Historial paramétrico y dependencias | Pendiente | Editar un boceto y regenerar extrusiones/operaciones dependientes sin dejar mallas obsoletas |
+| B4 | Edición directa de caras, vértices y aristas arbitrarios | Parcial | Operaciones sobre sólidos no rectangulares con autocorrección o rechazo sin daño |
+| B5 | Revolución, barrido, chaflán, redondeo, vaciado, patrón y simetría | Pendiente | Geometría validada, deshacer/rehacer y pruebas volumétricas |
+| B6 | Ensamblajes básicos y organización de piezas | Parcial | Árbol de objetos con nombres, visibilidad, selección y transformaciones por pieza |
+
+## Bloque C — App Android, usabilidad y formatos
+
+| Paso | Capacidad | Estado | Criterio de aceptación |
+|---|---|---|---|
+| C1 | Editor 2D y 3D sin transiciones artificiales | Parcial | La edición de boceto conserva asociación con el sólido y sus operaciones |
+| C2 | Manipuladores táctiles, selección precisa, ViewCube y gestos | Parcial | Funcionamiento contrastado en Nothing Phone 2a, sin interferencias con la cámara |
+| C3 | Guardado seguro y recuperación de sesión | Parcial | Autosalvado y restauración tras cierre forzado sin archivos corruptos |
+| C4 | Intercambio CAD: STL/OBJ/DXF y STEP | Parcial | STL/OBJ fiables; DXF más completo; STEP solo si existe un motor CAD capaz de representarlo correctamente |
+| C5 | Rendimiento y memoria en Android | Pendiente | Escenas grandes, benchmarking y comprobaciones en dispositivo |
+| C6 | Integración, firma y distribución privada | Parcial | APK de hito reproducible, artefacto verificado y guion de pruebas de aceptación |
+
+## Reglas de desarrollo y entregas
+
+1. **Corregir errores de integridad antes de habilitar operaciones más peligrosas.** Toda modificación deberá validar su malla candidata antes de reemplazar la anterior.
+2. Cada bloque incluye pruebas de rechazo y casos geométricos válidos; una prueba verde de JavaScript **no demuestra** que el APK compile.
+3. Agrupar commits pequeños sin APK. El trabajo `android` de GitHub Actions solo se ejecuta manualmente con consentimiento explícito `build_apk=true`.
+4. En cada hito importante: comprobar `preflight`, solicitar la compilación de APK, verificar el artefacto y facilitar al usuario una tabla de pruebas concretas para su Nothing Phone 2a.
+5. Documentar los fallos de compilación y su corrección antes de liberar un nuevo hito.
+
+## Próximos pasos de ejecución
+
+1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.
+2. Abordar A2 (autointersección y contacto de triángulos no adyacentes) con pruebas unitarias pequeñas.
+3. Elegir un algoritmo/representación robusta para A4; la descomposición en celdas ortogonales no es suficiente para un motor CAD general.
+4. Unir el modelo del boceto y el sólido antes de desarrollar muchas más herramientas visuales.
