@@ -928,9 +928,13 @@ function sourceFingerprint(record){
  return (hash>>>0).toString(16).padStart(8,'0');
 }
 function derivedSourceStatus(item){
- if(!item||!Array.isArray(item.sourceFingerprints))return 'unknown';
+ if(!item)return 'unknown';
+ // Missing origin takes precedence over legacy/unverified fingerprints.
+ // Otherwise an orphaned CSG mesh from an old project looks merely "unknown".
+ if(!Array.isArray(item.parents)||item.parents.length!==2)return 'missing';
  const sources=item.parents.map(booleanSourceById);
  if(sources.some(src=>!src))return 'missing';
+ if(!Array.isArray(item.sourceFingerprints))return 'unknown';
  return sources.every((src,i)=>sourceFingerprint(src)===item.sourceFingerprints[i])?
   'current':'stale';
 }

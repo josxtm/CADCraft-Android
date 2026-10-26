@@ -712,5 +712,9 @@ assert.equal(batch.legacy.unknown.length,1,'legacy result is detected');
 assert.equal(batch.skipped,0,'legacy result does not regenerate implicitly');
 assert.equal(batch.legacyUntouched,true,'legacy mesh is untouched');
 assert.equal(batch.legacyRestored.unknown.length,1,'legacy status survives JSON roundtrip');
+const legacyOrphan=evaluate("(()=>{const d=derivedSolids[0],old=d.parents[1];d.parents[1]=999999;const missing=derivedSourceStatus(d),report=booleanDependencyReport(),blocked=regenerateStaleBooleans();d.parents[1]=old;return {missing,reported:report.missing.includes(d.id),blocked}})()");
+assert.equal(legacyOrphan.missing,'missing','unverified CSG with missing source is still flagged as missing');
+assert.equal(legacyOrphan.reported,true,'missing legacy source appears in report');
+assert.equal(legacyOrphan.blocked,false,'batch rejects orphaned legacy inputs even if no results stale');
 
 console.log('3D studio tests passed');
