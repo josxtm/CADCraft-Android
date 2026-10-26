@@ -519,16 +519,26 @@ function booleanBoxMesh(first,second,mode){
  return {v,faces};
 }
 function meshOrientedVolume(solid){
- // Signed volume around a local origin (translation-invariant with far less
- // floating-point cancellation than using world coordinate determinants).
+ // Each connected surface has its own local origin. A single global origin
+ // still loses precision for disjoint shells millions of millimetres apart.
  if(!solid||!solid.faces||!solid.faces.length)return 0;
- const origin=solid.v[solid.faces[0][0]];
- return solid.faces.reduce((sum,face)=>{
+ const parent=solid.v.map((_,i)=>i),rank=solid.v.map(()=>0);
+ function find(x){while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x];}return x;}
+ function unite(a,b){
+  let x=find(a),y=find(b);if(x===y)return;
+  if(rank[x]<rank[y]){const t=x;x=y;y=t;}
+  parent[y]=x;if(rank[x]===rank[y])rank[x]++;
+ }
+ for(const [a,b,c] of solid.faces){unite(a,b);unite(a,c);}
+ let total=0;
+ for(const face of solid.faces){
+  const origin=solid.v[find(face[0])];
   const [a,b,c]=face.map(index=>solid.v[index].map((v,i)=>v-origin[i]));
-  return sum+(a[0]*(b[1]*c[2]-b[2]*c[1])+
+  total+=(a[0]*(b[1]*c[2]-b[2]*c[1])+
     a[1]*(b[2]*c[0]-b[0]*c[2])+
     a[2]*(b[0]*c[1]-b[1]*c[0]))/6;
- },0);
+ }
+ return total;
 }
 function exportBooleanOBJ(mode){
  try{
