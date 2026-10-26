@@ -1483,4 +1483,57 @@ const legacyImported=evaluate("(()=>{const before=serializeProject(),m=importDxf
 assert.equal(legacyImported.changed,true,'legacy POLYLINE imports into editable source');
 assert.equal(legacyImported.shells,1,'legacy POLYLINE import remains watertight');
 
+
+/* C4: thick AutoCAD LWPOLYLINE strips must not import as unbounded zero-width
+ * contours. Check entity constant width 43 and per-vertex widths 40/41,
+ * including duplicate/malformed declarations and transactional rollbacks. */
+const lwWidthBody=(widthGroups=[])=>[
+ '0','LWPOLYLINE','90','4','70','1',...widthGroups,
+ '10','0','20','0','10','10','20','0',
+ '10','10','20','10','10','0','20','10','0','EOF'
+].join(dxfNewline);
+const lwVertexWidthBody=(code,width,other=[])=>[
+ '0','LWPOLYLINE','90','4','70','1',
+ '10','0','20','0',code,String(width),...other,
+ '10','10','20','0','10','10','20','10','10','0','20','10','0','EOF'
+].join(dxfNewline);
+const validWidthCases=[
+ {name:'explicit zero constant width',dxf:lwWidthBody(['43','0'])},
+ {name:'explicit zero vertex start/end width',dxf:lwVertexWidthBody('40',0,['41','0'])},
+ {name:'zero widths at successive vertices',dxf:lwVertexWidthBody('41',0,['10','10','20','0','40','0'])}
+];
+for(const item of validWidthCases){
+ // Last fixture intentionally adds an extra vertex and must reject count
+ // mismatches even when the optional width fields themselves are valid.
+ const result=evaluate("(()=>{try{const p=parseDxfProfile("+JSON.stringify(item.dxf)+
+ ");const mesh=extrude(p,10);return {ok:true,volume:meshOrientedVolume(mesh)}}catch(e){return {ok:false,error:e.message}}})()");
+ if(item.name==='zero widths at successive vertices'){
+  assert.equal(result.ok,false,'vertex count mismatch is still checked with width groups');
+  assert.match(result.error,/cantidad|vértices/i,'vertex count failure remains explained');
+ }else{
+  assert.equal(result.ok,true,item.name+' must be valid zero-width contour');
+  assert.ok(Math.abs(result.volume-1000)<1e-6,item.name+' keeps expected solid volume');
+ }
+}
+const invalidWidthCases=[
+ {name:'constant strip width',dxf:lwWidthBody(['43','2'])},
+ {name:'vertex start width',dxf:lwVertexWidthBody('40',2)},
+ {name:'vertex end width',dxf:lwVertexWidthBody('41',1)},
+ {name:'negative strip width',dxf:lwWidthBody(['43','-1'])},
+ {name:'nonfinite strip width',dxf:lwWidthBody(['43','NaN'])},
+ {name:'duplicate constant width',dxf:lwWidthBody(['43','0','43','0'])},
+ {name:'duplicate start width',dxf:lwVertexWidthBody('40',0,['40','0'])},
+ {name:'orphan vertex width',dxf:['0','LWPOLYLINE','70','1','40','0',
+     '10','0','20','0','10','10','20','0',
+     '10','10','20','10','10','0','20','10','0','EOF'].join(dxfNewline)}
+];
+for(const item of invalidWidthCases){
+ const check=evaluate("(()=>{const before=serializeProject();try{importDxfText("+
+  JSON.stringify(item.dxf)+
+  ");return {rejected:false}}catch(e){return {rejected:true,preserved:before===serializeProject(),error:e.message}}})()");
+ assert.equal(check.rejected,true,item.name+' fails closed-profile import');
+ assert.equal(check.preserved,true,item.name+' does not change active geometry or document');
+ assert.match(check.error,/anchura|coordenada|parámetro/i,item.name+' reports width-specific error');
+}
+
 console.log('3D studio tests passed');

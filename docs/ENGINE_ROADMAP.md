@@ -162,6 +162,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **C4/A5 — polilíneas DXF clásicas (26-10-2026):** el importador del estudio 3D Android/WebView reconoce ahora `POLYLINE` 2D cerrada con registros `VERTEX` y terminador `SEQEND`, además de `LWPOLYLINE`, `CIRCLE` y `ELLIPSE`. Conserva el escalado `$INSUNITS`, discretiza los arcos `bulge` de cada vértice y genera una extrusión editable. No interpreta las polilíneas 3D, mallas poligonales/polyface, anchuras/espesores, elevaciones ni contornos múltiples como si fueran perfiles 2D. Ignora bloques y papel, y rechaza secuencias sin terminador o vértices incompletos antes de modificar el sólido actual. Regresiones JavaScript: prisma, altura negativa, pulgadas, bulges, layouts y rechazo transaccional. **Motor WebView integrado, todavía sin prueba táctil de APK ni representación B-Rep analítica.**
 
+**C4 — seguridad de anchuras DXF LWPOLYLINE (26-10-2026):** el importador comprueba ahora anchura constante (grupo 43) y anchuras de inicio/fin de vértice (40/41). Una polilínea con grosor no cero describe una banda y **no debe convertirse silenciosamente en un contorno de grosor cero**: se rechaza con diagnóstico antes de cambiar el proyecto. Las anchuras explícitas de cero se aceptan; parámetros duplicados, negativos o malformados se rechazan. Pruebas cubren importación de contornos sin grosor y rechazo transaccional de perfiles de banda. No se implementan todavía contornos expandidos por grosor variable ni operación B-Rep.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.
