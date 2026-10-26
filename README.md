@@ -243,9 +243,17 @@ El diagnóstico de cascarones añade comprobación de **anidamiento por ángulo 
 
 **Exportación segura:** antes de exportar una unión, resta o intersección OBJ entre cajas, se valida la malla booleana. Si dos cajas se tocan solo por una arista o un vértice, su unión puede ser no manifold; en ese caso se **rechaza la exportación**, en lugar de generar un OBJ geométricamente inválido.
 
-Se añadieron verificaciones de **375 operaciones booleanas parametrizadas** y regresiones de autointersección, cavidades e islas: **482 aserciones JavaScript locales**. La validación es una barrera de seguridad, **no una garantía completa de ausencia de autointersecciones geométricas**, ni equivale a un CAD B-Rep de precisión industrial.
+Se añadieron verificaciones de **375 operaciones booleanas parametrizadas** y regresiones de autointersección, cavidades e islas: **490 aserciones JavaScript locales**. La validación es una barrera de seguridad, **no una garantía completa de ausencia de autointersecciones geométricas**, ni equivale a un CAD B-Rep de precisión industrial.
 
 No se ha solicitado una nueva APK. La prueba Android real continúa pendiente del hito principal.
+
+### Precisión numérica de los volúmenes — Bloque A3
+
+Los volúmenes de mallas trianguladas y sus cascarones se calculan ahora respecto a **orígenes locales independientes por componente conectada**. Esto evita perder precisión al sumar caras de sólidos situados muy lejos del origen de coordenadas, sin cambiar sus vértices ni sus posiciones.
+
+La regresión comprueba cubos de 10 × 10 × 10 mm desplazados hasta **90 millones de milímetros** en las tres coordenadas, componentes separadas por esa distancia y piezas con cavidades. El error de volumen medido permanece inferior a 0,000001 mm³ en estos casos de ensayo.
+
+**Sigue pendiente** resolver todas las tolerancias adaptativas, casi tangencias y predicados geométricos robustos; este avance no convierte el motor en un núcleo CAD industrial.
 
 ## Hoja de ruta
 
