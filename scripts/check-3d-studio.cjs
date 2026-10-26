@@ -850,4 +850,16 @@ assert.equal(transactionalSources.dup,true,'valid source duplication still works
 assert.equal(transactionalSources.duplicateId,transactionalSources.id+1,'subsequent copy receives the next ID');
 assert.equal(transactionalSources.total,3,'scene has two original instances and one valid duplicate');
 
+
+/* A3: detect nearly unwelded seams without a third distant shell
+ * making two genuinely separated local solids appear coincident. */
+const nearWeld=evaluate("(()=>{const sq=[[0,0],[10,0],[10,10],[0,10]],box=extrude(sq,10),move=(dx,dy,dz)=>({v:box.v.map(p=>p.map((v,i)=>v+[dx,dy,dz][i])),faces:box.faces.map(f=>f.slice())}),join=(...ms)=>{const m={v:[],faces:[]};for(const s of ms){const n=m.v.length;m.v.push(...s.v);m.faces.push(...s.faces.map(f=>f.map(i=>i+n)))}return m},read=m=>{try{return {ok:true,report:inspectMeshTopology(m)}}catch(e){return {ok:false,error:e.message}}};return {exact:read(join(box,move(10,0,0))),near:read(join(box,move(10+5e-11,0,0))),safe:read(join(box,move(10+1e-6,0,0))),remote:read(join(box,move(10+1e-8,0,0),move(9e7,0,0))),nearRemote:read(join(move(9e7,0,0),move(9e7+10+3e-8,0,0)))}})()");
+assert.equal(nearWeld.exact.ok,false,'exact unwelded contact is rejected');
+assert.equal(nearWeld.near.ok,false,'near-coincident unwelded shell seam is rejected');
+assert.equal(nearWeld.near.error.includes('casi coincidentes'),true,'near-coincident seam explains failure');
+assert.equal(nearWeld.safe.ok,true,'one-micrometre clearance remains valid');
+assert.equal(nearWeld.remote.ok,true,'remote unrelated solid does not widen local seam tolerance');
+assert.equal(nearWeld.remote.report.shells,3,'all truly separated shells remain independent');
+assert.equal(nearWeld.nearRemote.ok,false,'numerically indistinguishable vertices at distant coordinates are rejected');
+
 console.log('3D studio tests passed');

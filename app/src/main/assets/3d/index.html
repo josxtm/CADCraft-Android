@@ -837,14 +837,30 @@ function inspectMeshTopology(mesh){
   throw Error('Vértices 3D inválidos');
  if(!mesh.faces.every(face=>Array.isArray(face)&&face.length===3&&face.every(i=>Number.isInteger(i)&&i>=0&&i<mesh.v.length)&&new Set(face).size===3))
   throw Error('Caras 3D inválidas');
- // Two distinct indices at exactly the same 3D point are an unwelded seam.
- // Reject it before edge/fan checks: index-based topology alone misses this.
- // Deliberately exact (including signed zero); near-coincident tolerances remain A3 work.
- const positions=new Set();
+ // Distinct vertex IDs with indistinguishable coordinates create unwelded
+ // seams. Use spatial hashing to avoid O(V²) work on dense imported meshes.
+ // The hash cell is a conservative global search radius, but the *actual*
+ // coincidence test uses each pair's local floating-point precision. A
+ // remote third body must not collapse valid fine details near the origin.
+ const maxCoordinate=Math.max(1,...mesh.v.flat().map(Math.abs));
+ const cell=Math.max(1e-10,4*Number.EPSILON*maxCoordinate);
+ const minCoords=[0,1,2].map(axis=>Math.min(...mesh.v.map(point=>point[axis])));
+ const buckets=new Map();
+ const key=(x,y,z)=>x+'|'+y+'|'+z;
  for(const vertex of mesh.v){
-  const key=vertex.join('|');
-  if(positions.has(key))throw Error('Vértices geométricos duplicados sin soldar');
-  positions.add(key);
+  const cellCoords=vertex.map((v,axis)=>Math.floor((v-minCoords[axis])/cell));
+  for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(let dz=-1;dz<=1;dz++){
+   const near=buckets.get(key(cellCoords[0]+dx,cellCoords[1]+dy,cellCoords[2]+dz))||[];
+   for(const other of near){
+    const scale=Math.max(1,...vertex.map(Math.abs),...other.map(Math.abs));
+    const tolerance=Math.max(1e-10,4*Number.EPSILON*scale);
+    if(Math.hypot(...vertex.map((value,i)=>value-other[i]))<=tolerance)
+     throw Error('Vértices geométricos coincidentes o casi coincidentes sin soldar');
+   }
+  }
+  const ownKey=key(...cellCoords);
+  if(!buckets.has(ownKey))buckets.set(ownKey,[]);
+  buckets.get(ownKey).push(vertex);
  }
  const seenTriangles=new Set(),edges=new Map();
  const vertexFaces=Array.from({length:mesh.v.length},()=>[]);
