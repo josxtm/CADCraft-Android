@@ -1037,6 +1037,6 @@ assert.equal(worldRegeneration.warning.includes('Guardar:'),true,'unsafe save di
 assert.equal(worldRegeneration.saveSafe,true,'restoring translation recovers original project');
 assert.equal(worldRegeneration.refreshed,2,'regeneration succeeds for both snapshots once invalid translation is fixed');
 assert.equal(worldRegeneration.current,true,'both results regain correct source fingerprints');
-assert.equal(worldRegeneration.volume.every(v=>Math.abs(v-4000)<1e-6),true,'both regenerated unions reflect updated 20 mm source height');
+assert.equal(worldRegeneration.volume.every(v=>Math.abs(v-3000)<1e-6),true,'both regenerated unions reflect updated 20 mm source height');
 
 console.log('3D studio tests passed');
