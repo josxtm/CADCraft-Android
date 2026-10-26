@@ -20,7 +20,7 @@ const canvas={clientWidth:900,clientHeight:600,width:900,height:600,getContext()
 const file={addEventListener(){},click(){}};
 const document={
  getElementById(id){return id==='scene'?canvas:(id==='file'||id==='projectFile')?file:controls[id]},
- createElement(){return {click(){},style:{}}},
+ createElement(){const link={click(){},style:{}};this.lastDownload=link;return link;},
  addEventListener(name,fn){this.listeners[name]=fn},
  listeners:{},
  visibilityState:'visible',
@@ -813,6 +813,30 @@ assert.equal(staleExport.regeneration&&staleExport.after,true,'manual refresh re
 assert.equal(staleExport.legacy,true,'legacy CSG without fingerprint is not automatically modified or blocked');
 assert.equal(staleExport.missing,false,'missing origin blocks export even for legacy CSG');
 assert.equal(staleExport.missingWarning.includes('origen'),true,'orphaned source error names root cause');
+
+/* C4/B6: single-part exports use the selected world-space body and do not
+ * hide stale CSG or damaged selected meshes. Other invalid bodies only block
+ * full-scene export, not an independent valid manufacturing part. */
+const singlePartExport=evaluate("(()=>{const base={format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10};loadProjectText(JSON.stringify(base));duplicateSceneSolid();moveActiveSolid(40,20,5);const before=serializeProject(),part=selectedSceneExportPart(),obj=sceneAsMultiObjectOBJ([part]),stl=sceneAsMultiSolidSTL([part]),other=storedSolids[0],otherFaces=other.mesh.faces;other.mesh.faces=otherFaces.slice(1);const sceneBlocked=(()=>{try{assertSceneExportable();return false}catch(e){return true}})(),soloObj=exportSelectedOBJ(),objName=document.lastDownload.download,soloStl=exportSelectedSTL(),stlName=document.lastDownload.download,unchanged=serializeProject()===before;other.mesh.faces=otherFaces;const original=model.faces;model.faces=original.slice(1);const invalid=exportSelectedOBJ(),invalidStatus=status.textContent;model.faces=original;return {id:part.id,objects:obj.split('\\n').filter(x=>x.startsWith('o ')),objWorld:obj.includes('v 40 20 5'),stlWorld:stl.includes('vertex 40 20 5'),stlSections:stl.split('\\n').filter(x=>x.startsWith('solid ')).length,sceneBlocked,soloObj,soloStl,objName,stlName,unchanged,invalid,invalidStatus,recovered:exportSelectedSTL()}})()");
+assert.equal(singlePartExport.objects.length,1,'selected OBJ contains only one named object');
+assert.equal(singlePartExport.stlSections,1,'selected STL contains only one solid section');
+assert.equal(singlePartExport.objWorld&&singlePartExport.stlWorld,true,'single-part exports preserve XYZ world offset');
+assert.equal(singlePartExport.sceneBlocked,true,'invalid unrelated body blocks full-scene export');
+assert.equal(singlePartExport.soloObj&&singlePartExport.soloStl,true,'valid selected body can export independently');
+assert.equal(singlePartExport.objName,'CADCraft_pieza_'+singlePartExport.id+'.obj','OBJ filename identifies selected body');
+assert.equal(singlePartExport.stlName,'CADCraft_pieza_'+singlePartExport.id+'.stl','STL filename identifies selected body');
+assert.equal(singlePartExport.unchanged,true,'single-part export does not change scene or selection');
+assert.equal(singlePartExport.invalid,false,'selected open mesh is refused');
+assert.match(singlePartExport.invalidStatus,/Pieza .*Malla abierta/,'single-part export diagnoses selected mesh');
+assert.equal(singlePartExport.recovered,true,'restored selected mesh can export again');
+const selectedCsgExport=evaluate("(()=>{const base={format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10};loadProjectText(JSON.stringify(base));duplicateSceneSolid();const created=addBooleanToScene('union'),fresh=exportSelectedOBJ(),freshName=document.lastDownload.download;selectExtrudedSolid();changeHeight(5);cycleDerivedSolid();const stale=exportSelectedSTL(),staleMessage=status.textContent,regenerated=regenerateSelectedBoolean(),recovered=exportSelectedSTL();const item=selectedDerived(),source=item.parents[1];item.parents[1]=999999;const orphan=exportSelectedOBJ(),orphanMessage=status.textContent;item.parents[1]=source;return {created,fresh,freshName,stale,staleMessage,regenerated,recovered,orphan,orphanMessage}})()");
+assert.equal(selectedCsgExport.fresh,true,'selected CSG result exports without exporting its sources');
+assert.equal(selectedCsgExport.freshName,'CADCraft_pieza_'+selectedCsgExport.created+'.obj','derived export uses its own ID');
+assert.equal(selectedCsgExport.stale,false,'selected stale CSG result is not exported');
+assert.match(selectedCsgExport.staleMessage,/obsoleto/,'stale result explains regeneration');
+assert.equal(selectedCsgExport.regenerated&&selectedCsgExport.recovered,true,'regenerated CSG exports again');
+assert.equal(selectedCsgExport.orphan,false,'orphaned selected CSG cannot export');
+assert.match(selectedCsgExport.orphanMessage,/origen/,'orphaned selected CSG explains missing source');
 
 /* C3: saving is a read-only validation transaction, including stale models. */
 const safeSave=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));duplicateSceneSolid();addBooleanToScene('union');const fresh=saveProject(),before=serializeProject();selectExtrudedSolid();changeHeight(5);const stale=saveProject(),staleStatus=derivedSourceStatus(derivedSolids[0]);const snapshot=serializeProject();const item=derivedSolids[0],allFaces=item.mesh.faces;item.mesh.faces=allFaces.slice(1);const invalid=saveProject(),invalidMessage=status.textContent;item.mesh.faces=allFaces;const repaired=saveProject(),after=serializeProject();return {fresh,before,stale,staleStatus,snapshot,invalid,invalidMessage,repaired,after}})()");
