@@ -133,6 +133,20 @@ Solo se solicitarán cuando preparemos la próxima APK importante para el Nothin
 | D6 | Guardar JSON v3, cerrar y volver a abrir el proyecto | La malla conserva su edición y las extrusiones originales no han cambiado |
 | D7 | Intentar arrastrar una cara de una extrusión normal | La aplicación explica que ese modo solo admite resultados booleanos |
 
+## Pruebas futuras: selección de vértices y aristas
+
+Este guion se reservará para la próxima APK importante, sin generar una ahora.
+
+| Código | Acción en el teléfono | Resultado esperado |
+|---|---|---|
+| V1 | Generar una unión rectangular, activar `Vértices: ON` y tocar una esquina | Se marca el vértice y aparecen sus coordenadas X/Y/Z |
+| V2 | Cambiar a `Aristas: ON` y tocar una arista exterior | Se identifica la arista; no aparecen diagonales interiores de triangulación |
+| V3 | Elegir eje X, distancia 5 mm y pulsar `Cota +` en una esquina | Se mueve el plano exterior correspondiente y cambia la cota del bloque |
+| V4 | Deshacer y rehacer la operación, después guardar y abrir JSON | La dimensión vuelve atrás, se rehace y se conserva tras abrir |
+| V5 | Intentar cambiar la cota siguiendo el propio eje longitudinal de una arista | Se muestra un aviso y no se modifica el sólido |
+| V6 | Crear una resta que forme una L, seleccionar un vértice y pulsar `Cota +` | Se permite inspeccionar pero se rechaza deformar la malla compleja |
+| V7 | Cambiar entre `Mover`, `Seleccionar cara`, `Vértices` y `Aristas` | Los modos son excluyentes y no cambian accidentalmente ni la cámara ni la pieza |
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
