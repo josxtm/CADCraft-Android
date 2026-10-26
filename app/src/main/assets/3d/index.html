@@ -2314,7 +2314,7 @@ function dxfEntityIndices(pairs){
    if(pairs.slice(i+1).some(([c,v])=>c==='0'&&v==='SECTION'))
     throw Error('DXF con datos tras EOF');
    break;
-  }else if(value==='LWPOLYLINE'||value==='CIRCLE'){
+  }else if(value==='LWPOLYLINE'||value==='CIRCLE'||value==='ELLIPSE'){
    candidates.push({index:i,section});
   }
  }
@@ -2383,6 +2383,30 @@ function expandDxfCircleProfile(cx,cy,r,unitScale){
   return [center[0]+radius*Math.cos(a),center[1]+radius*Math.sin(a)];
  });
 }
+/* A DXF ELLIPSE has a major-axis vector (11,21), a minor/major
+ * radius ratio (40), and start/end parameters (41,42). Only complete
+ * ellipses represent closed single-outline sketches; elliptical arcs are
+ * intentionally rejected rather than silently inventing a closing chord.
+ * The parameter-step bound applies physical-mm chord error to any rotation.
+ */
+function expandDxfEllipseProfile(cx,cy,dx,dy,ratio,unitScale){
+ const center=[cx*unitScale,cy*unitScale],major=[dx*unitScale,dy*unitScale];
+ const majorRadius=Math.hypot(...major),minorRadius=majorRadius*ratio;
+ if([...center,...major,majorRadius,minorRadius].some(v=>!Number.isFinite(v))||
+    majorRadius<=1e-7||minorRadius<=1e-7||
+    !Number.isFinite(ratio)||ratio<=0||ratio>1)
+  throw Error('ELLIPSE DXF con ejes o razón no válidos');
+ const tolerance=Math.min(0.5,Math.max(0.05,majorRadius*1e-4));
+ const angle=2*Math.acos(1-Math.min(1,tolerance/majorRadius));
+ const segments=Math.max(12,Math.ceil(2*Math.PI/angle));
+ if(!Number.isFinite(segments)||segments>2048)
+  throw Error('ELLIPSE DXF demasiado compleja: reduce su tamaño o tolerancia');
+ return Array.from({length:segments},(_,i)=>{
+  const theta=2*Math.PI*i/segments,c=Math.cos(theta),sn=Math.sin(theta);
+  return [center[0]+major[0]*c-major[1]*ratio*sn,
+          center[1]+major[1]*c+major[0]*ratio*sn];
+ });
+}
 function parseDxfProfile(text){
  if(typeof text!=='string'||text.length>2000000)throw Error('DXF demasiado grande');
  const lines=text.replace(/\r/g,'').split('\n'),pairs=[];
@@ -2398,6 +2422,47 @@ function parseDxfProfile(text){
  for(let i=0;i<pairs.length;i++){
   if(!entityIndices.has(i))continue;
   const entityType=pairs[i][1];
+  if(entityType==='ELLIPSE'){
+   let cx=null,cy=null,cz=0,dx=null,dy=null,dz=0,ratio=null;
+   let start=0,end=2*Math.PI,layout=null,paperSpace=false;
+   const normal=[0,0,1],seen=new Set();
+   for(i++;i<pairs.length&&pairs[i][0]!=='0';i++){
+    const [code,value]=pairs[i];
+    if(['10','20','30','11','21','31','40','41','42','67','410','210','220','230'].includes(code)){
+     if(seen.has(code))throw Error('Parámetro ELLIPSE DXF duplicado: '+code);
+     seen.add(code);
+    }
+    if(code==='10')cx=numeric(value);
+    else if(code==='20')cy=numeric(value);
+    else if(code==='30')cz=numeric(value);
+    else if(code==='11')dx=numeric(value);
+    else if(code==='21')dy=numeric(value);
+    else if(code==='31')dz=numeric(value);
+    else if(code==='40')ratio=numeric(value);
+    else if(code==='41')start=numeric(value);
+    else if(code==='42')end=numeric(value);
+    else if(code==='67'){
+     const space=numeric(value);
+     if(!Number.isInteger(space)||![0,1].includes(space))
+      throw Error('Espacio ELLIPSE DXF (67) inválido');
+     paperSpace=space===1;
+    }else if(code==='410')layout=value;
+    else if(code==='210')normal[0]=numeric(value);
+    else if(code==='220')normal[1]=numeric(value);
+    else if(code==='230')normal[2]=numeric(value);
+   }
+   i--;
+   if(paperSpace||(layout!==null&&layout!=='Model'))continue;
+   if(cx===null||cy===null||dx===null||dy===null||ratio===null)
+    throw Error('ELLIPSE DXF sin centro, eje mayor o razón');
+   if(cz!==0||dz!==0||normal.some((n,k)=>Math.abs(n-[0,0,1][k])>1e-12))
+    throw Error('ELLIPSE DXF fuera del plano XY');
+   if(Math.abs(start)>1e-7||Math.abs(end-2*Math.PI)>1e-6)
+    throw Error('ELLIPSE DXF parcial: solo elipses completas cerradas');
+   profiles.push(expandDxfEllipseProfile(cx,cy,dx,dy,ratio,unitScale));
+   if(profiles.length>1)throw Error('DXF con varios perfiles cerrados: agujeros/islas aún no compatibles');
+   continue;
+  }
   if(entityType==='CIRCLE'){
    let cx=null,cy=null,cz=0,r=null,thickness=0,layout=null,paperSpace=false;
    const normal=[0,0,1],seen=new Set();
@@ -2483,7 +2548,7 @@ function parseDxfProfile(text){
   profiles.push(millimetres);
   if(profiles.length>1)throw Error('DXF con varios perfiles cerrados: agujeros/islas aún no compatibles');
  }
- if(!profiles.length)throw Error('No hay LWPOLYLINE cerrada o CIRCLE plano compatible');
+ if(!profiles.length)throw Error('No hay LWPOLYLINE, CIRCLE o ELLIPSE cerrada en XY');
  return profiles[0];
 }
 function importDxfText(text){
