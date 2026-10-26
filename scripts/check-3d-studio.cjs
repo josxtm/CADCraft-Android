@@ -1168,4 +1168,21 @@ assert.equal(touchOcclusion.edgeHidden,null,'cannot select a source edge behind 
 assert.equal(touchOcclusion.vertexVisible.kind,'vertex','source vertex becomes selectable when uncovered');
 assert.equal(touchOcclusion.vertexVisible.owner,touchOcclusion.active,'reference owner is unchanged by occlusion');
 
+
+/* A1/A3/B1: a split straight sketch edge must never create zero-area caps
+ * or walls in the exported Android WebView mesh. Both winding directions
+ * and very distant drawing coordinates are preserved. */
+const collinearSketch=evaluate("(()=>{const output=[];for(const [dx,dy] of [[0,0],[90000000,-90000000]])for(const h of [5,-5]){const profile=[[dx,dy],[dx+5,dy],[dx+10,dy],[dx+10,dy+10],[dx,dy+10]];const mesh=extrude(profile,h),report=inspectMeshTopology(mesh);const reversed=extrude(profile.slice().reverse(),h);output.push({v:mesh.v.length,f:mesh.faces.length,outline:mesh.outline.length,volume:meshOrientedVolume(mesh),reverseVolume:meshOrientedVolume(reversed),shells:report.shells});}const backtrack=[[0,0],[10,0],[5,0],[10,10],[0,10]];let rejects=false;try{extrude(backtrack,5)}catch(e){rejects=e.message.includes('superpuestas')}const l=[[0,0],[10,0],[10,4],[4,4],[4,10],[0,10]],lmesh=extrude(l,3);return {output,rejects,lVertices:lmesh.v.length,lVolume:meshOrientedVolume(lmesh)}})()");
+for(const value of collinearSketch.output){
+ assert.equal(value.v,8,'collinear split edge normalizes to 8 prism vertices');
+ assert.equal(value.f,12,'collinear split edge normalizes to 12 triangles');
+ assert.equal(value.outline,4,'triangulation outline drops intermediate straight vertex');
+ assert.ok(Math.abs(value.volume-500)<1e-6,'volume survives collinear normalization');
+ assert.ok(Math.abs(value.reverseVolume-500)<1e-6,'reversed sketch winding stays outward');
+ assert.equal(value.shells,1,'extruded mesh remains a single closed shell');
+}
+assert.equal(collinearSketch.rejects,true,'overlapping backtracking edge is rejected');
+assert.equal(collinearSketch.lVertices,12,'concave L corners are not stripped');
+assert.ok(Math.abs(collinearSketch.lVolume-192)<1e-6,'concave L volume remains unchanged');
+
 console.log('3D studio tests passed');

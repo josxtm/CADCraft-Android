@@ -192,6 +192,26 @@ pub fn extrude(profile:&[Point2],height:f64)->Result<Mesh,ExtrudeError> {
     let mut p:Vec<Point2>=Vec::new();
     for &pt in profile {if p.last().map_or(true,|last| (last.x-pt.x).abs()>1e-10||(last.y-pt.y).abs()>1e-10){p.push(pt)}}
     if p.len()>1 && (p[0].x-p[p.len()-1].x).abs()<1e-10&&(p[0].y-p[p.len()-1].y).abs()<1e-10 {p.pop();}
+    // CAD sketches often split a straight edge into several collinear
+    // segments. Remove only *exactly* straight, forward-going intermediate
+    // vertices before ear clipping; otherwise a zero-area triangle may be
+    // emitted by the final ear or the vertical wall. Do not silently erase
+    // a reversed segment (an overlapping backtrack).
+    let mut i=0usize;
+    while p.len()>3 && i<p.len() {
+        let n=p.len();
+        let a=p[(i+n-1)%n];let b=p[i];let c=p[(i+1)%n];
+        if orient(a,b,c)==0.0 {
+            let forward=(b.x-a.x)*(c.x-b.x)+(b.y-a.y)*(c.y-b.y);
+            if forward<0.0{return Err(ExtrudeError::SelfIntersection)}
+            if forward>0.0 {
+                p.remove(i);
+                i=i.saturating_sub(1);
+                continue
+            }
+        }
+        i+=1;
+    }
     let n=p.len();
     if n<3{return Err(ExtrudeError::NotEnoughVertices)}
     if n>u32::MAX as usize/2{return Err(ExtrudeError::TooManyVertices)}
@@ -489,4 +509,40 @@ mod tests {
         assert_eq!(extrude(&sq(),-MAX_WORLD_COORD-1.0),Err(ExtrudeError::OutOfBounds));
         assert_eq!(extrude(&sq(),f64::INFINITY),Err(ExtrudeError::NonFiniteInput));
     }
+    #[test]fn collinear_sketch_segments_normalize_to_watertight_prism() {
+        // Five 2D points describe a four-corner rectangle: no zero-area
+        // end-cap or wall triangles must survive the extrusion.
+        for (dx,dy) in [(0.0,0.0),(90_000_000.0,-90_000_000.0)] {
+            let profile=vec![
+                Point2::new(dx,dy),Point2::new(dx+5.0,dy),
+                Point2::new(dx+10.0,dy),Point2::new(dx+10.0,dy+10.0),
+                Point2::new(dx,dy+10.0)];
+            for height in [5.0,-5.0] {
+                let mesh=extrude(&profile,height).unwrap();
+                assert_eq!(mesh.vertices.len(),8);
+                assert_eq!(mesh.triangles.len(),12);
+                assert_eq!(inspect_closed_mesh(&mesh).unwrap().genus,0);
+                assert!((mesh_signed_volume(&mesh)-500.0).abs()<1e-6);
+            }
+            let mut reversed=profile.clone();
+            reversed.reverse();
+            assert_eq!(inspect_closed_mesh(&extrude(&reversed,5.0).unwrap()).unwrap().shells,1);
+        }
+    }
+    #[test]fn collinear_backtracking_is_not_silently_accepted() {
+        let backtrack=[
+            Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+            Point2::new(5.0,0.0),Point2::new(10.0,10.0),
+            Point2::new(0.0,10.0)];
+        assert_eq!(extrude(&backtrack,5.0),Err(ExtrudeError::SelfIntersection));
+        // A noncollinear concave L must not be flattened.
+        let l=[Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+               Point2::new(10.0,4.0),Point2::new(4.0,4.0),
+               Point2::new(4.0,10.0),Point2::new(0.0,10.0)];
+        let mesh=extrude(&l,3.0).unwrap();
+        assert_eq!(mesh.vertices.len(),12);
+        assert!(inspect_closed_mesh(&mesh).is_ok());
+        assert!((mesh_signed_volume(&mesh)-192.0).abs()<1e-6);
+    }
+
 }
