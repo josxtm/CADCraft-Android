@@ -515,4 +515,32 @@ assert.equal(evaluate("toggleMoveMode()"),true,"move mode can be enabled after t
 assert.equal(evaluate("geometryMode"),null,"mode exit clears vertex/edge inspection");
 assert.equal(evaluate("selectedGeometryFeature"),null,"no stale vertex references after changing tools");
 
+
+// Topology integrity for multiple watertight shells and malformed meshes.
+const topology=evaluate("(()=>{const square=[[0,0],[10,0],[10,10],[0,10]],r=(p,h=10,x=0,y=0,z=0)=>({id:1,profile:p,height:h,offset:[x,y,z],mesh:extrude(p,h)}),a=r(square),inner=r([[2,2],[8,2],[8,8],[2,8]],6,0,0,2),away=r(square,10,20),cube=booleanBoxMesh(a,a,'union'),cavity=booleanBoxMesh(a,inner,'subtract'),separate=booleanBoxMesh(a,away,'union');const valid={cube:inspectMeshTopology(cube),cavity:inspectMeshTopology(cavity),separate:inspectMeshTopology(separate)};const clone=m=>({v:m.v.map(p=>p.slice()),faces:m.faces.map(f=>f.slice())}),bad={};const flipped=clone(cube);[flipped.faces[0][1],flipped.faces[0][2]]=[flipped.faces[0][2],flipped.faces[0][1]];bad.flipped=flipped;const duplicate=clone(cube);duplicate.faces.push(duplicate.faces[0].slice());bad.duplicate=duplicate;const opened=clone(cube);opened.faces.pop();bad.opened=opened;const unused=clone(cube);unused.v.push([100,100,100]);bad.unused=unused;const degenerate=clone(cube);degenerate.v[degenerate.faces[0][1]]=degenerate.v[degenerate.faces[0][0]].slice();bad.degenerate=degenerate;const b=booleanBoxMesh(r(square,10,10,10,10),r(square,10,10,10,10),'union'),cornerA=cube.v.findIndex(p=>p.every(v=>v===10)),cornerB=b.v.findIndex(p=>p.every(v=>v===10)),index=k=>k===cornerB?cornerA:cube.v.length+k-(k>cornerB?1:0);bad.bowtie={v:cube.v.concat(b.v.filter((_,i)=>i!==cornerB)),faces:cube.faces.concat(b.faces.map(f=>f.map(index)))};const rejected={};for(const [name,m] of Object.entries(bad))try{inspectMeshTopology(m);rejected[name]=false}catch(e){rejected[name]=true}return {valid,rejected}})()");
+assert.equal(topology.valid.cube.vertices,8,'solid box counts 8 vertices');
+assert.equal(topology.valid.cube.edges,18,'triangulated box counts 18 edges');
+assert.equal(topology.valid.cube.triangles,12,'solid box counts 12 triangles');
+assert.equal(topology.valid.cube.shells,1,'solid box is one shell');
+assert.equal(topology.valid.cube.euler,2,'solid box Euler characteristic');
+assert.equal(Math.round(topology.valid.cube.signedVolume),1000,'solid box volume');
+assert.equal(topology.valid.cavity.shells,2,'hollow block has two surfaces');
+assert.equal(topology.valid.cavity.cavities,1,'hollow block preserves inward facing cavity surface');
+assert.equal(Math.round(topology.valid.cavity.signedVolume),784,'outer volume minus inner cavity');
+assert.equal(topology.valid.separate.shells,2,'disconnected watertight components are allowed');
+assert.equal(topology.valid.separate.cavities,0,'two disconnected solid shells are not cavities');
+assert.equal(Math.round(topology.valid.separate.signedVolume),2000,'sum of disjoint solids');
+assert.equal(topology.rejected.flipped,true,'reversed triangle winding fails validation');
+assert.equal(topology.rejected.duplicate,true,'duplicate triangle fails validation');
+assert.equal(topology.rejected.opened,true,'open edge fails validation');
+assert.equal(topology.rejected.unused,true,'orphan vertex fails validation');
+assert.equal(topology.rejected.degenerate,true,'zero-area triangle fails validation');
+assert.equal(topology.rejected.bowtie,true,'bowtie vertex fans fail validation');
+assert.equal(evaluate('diagnoseSelectedMesh()?.shells>=1'),true,'diagnostic button analyzes selected valid mesh');
+const beforeCorruptLoad=evaluate('serializeProject()');
+assert.equal(evaluate("(()=>{const p=JSON.parse(serializeProject()),mesh=p.derivedSolids[0].mesh;[mesh.faces[0][1],mesh.faces[0][2]]=[mesh.faces[0][2],mesh.faces[0][1]];try{loadProjectText(JSON.stringify(p));return false}catch(e){return true}})()"),true,'JSON rejects derived solid with incoherently oriented faces');
+assert.equal(evaluate('serializeProject()'),beforeCorruptLoad,'bad JSON import does not replace valid scene');
+assert.equal(evaluate('selectExtrudedSolid()'),true,'can switch away from derived mesh');
+assert.equal(evaluate('diagnoseSelectedMesh()'),null,'diagnostics reject missing derived selection');
+
 console.log('3D studio tests passed');
