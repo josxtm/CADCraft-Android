@@ -132,6 +132,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **A1/A5 — cierre topológico comprobable en Rust (26-10-2026):** `native3d::inspect_closed_mesh` verifica referencias a vértices, triángulos degenerados/duplicados, ausencia de aristas abiertas o compartidas por más de dos caras, orientación opuesta de las caras a cada lado y conectividad de los abanicos de triángulos alrededor de cada vértice. La medición del `PreviewState` rechaza ahora mallas abiertas o invertidas antes de informar volumen/superficie. Pruebas cubren prismas positivos y negativos, traslación a 90 millones de mm, triángulos corruptos, aristas abiertas y vértices con topología de lazo no manifold. **No** detecta todas las autointersecciones ni reemplaza el verificador JavaScript/una representación B-Rep; este núcleo Rust sigue experimental y separado del APK.
 
+**A1/A5 — cascarones y túneles en el núcleo Rust (26-10-2026):** sobre las mallas cuya clausura, orientación y abanico de vértices pasan las verificaciones nuevas, `inspect_closed_mesh` cuenta componentes de superficie conectados por aristas (`shells`) y género topológico (`genus`) mediante la característica de Euler. Se añadieron casos de dos prismas separados (dos cascarones, género cero) y un toro triangulado (un cascarón, género uno). El diagnóstico no implica que se detecten todas las superficies intersectantes ni que exista modelado paramétrico de agujeros en Android; sigue siendo un núcleo experimental.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.

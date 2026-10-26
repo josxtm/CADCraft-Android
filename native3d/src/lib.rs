@@ -31,13 +31,15 @@ pub struct Mesh {pub vertices:Vec<Vec3>,pub triangles:Vec<[u32;3]>}
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum MeshTopologyError {
     Empty, InvalidVertex, InvalidFace, DuplicateFace, OpenOrNonManifoldEdge,
-    InconsistentWinding, NonManifoldVertex, UnusedVertex,
+    InconsistentWinding, NonManifoldVertex, UnusedVertex, InvalidEuler,
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct MeshTopology {
     pub vertices:usize,
     pub edges:usize,
     pub faces:usize,
+    pub shells:usize,
+    pub genus:usize,
 }
 pub fn inspect_closed_mesh(mesh:&Mesh)->Result<MeshTopology,MeshTopologyError> {
     use std::collections::{HashMap,HashSet};
@@ -111,7 +113,35 @@ pub fn inspect_closed_mesh(mesh:&Mesh)->Result<MeshTopology,MeshTopologyError> {
             return Err(MeshTopologyError::NonManifoldVertex)
         }
     }
-    Ok(MeshTopology{vertices:vertex_count,edges:edges.len(),faces:mesh.triangles.len()})
+    // Once closure and all vertex fans are verified, the triangle adjacency
+    // graph splits into true edge-connected surface shells. For each closed
+    // orientable shell: V - E + F = 2 - 2g. Aggregate this across shells.
+    let mut visited=HashSet::new();
+    let mut shells=0usize;
+    for start in 0..mesh.triangles.len() {
+        if visited.contains(&start){continue}
+        shells+=1;
+        let mut stack=vec![start];
+        while let Some(fi)=stack.pop() {
+            if !visited.insert(fi){continue}
+            let [a,b,c]=mesh.triangles[fi];
+            for (u,v) in [(a,b),(b,c),(c,a)] {
+                let key=(u.min(v),u.max(v));
+                if let Some(neighbors)=edges.get(&key) {
+                    for &(_,_,adjacent) in neighbors {
+                        if !visited.contains(&adjacent){stack.push(adjacent);}
+                    }
+                }
+            }
+        }
+    }
+    let euler=vertex_count as i64-edges.len() as i64+mesh.triangles.len() as i64;
+    let double_genus=2*shells as i64-euler;
+    if double_genus<0||double_genus%2!=0 {
+        return Err(MeshTopologyError::InvalidEuler)
+    }
+    Ok(MeshTopology{vertices:vertex_count,edges:edges.len(),
+                    faces:mesh.triangles.len(),shells,genus:(double_genus/2) as usize})
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -298,11 +328,49 @@ mod tests {
         for h in [5.0,-5.0] {
             let mesh=extrude(&rect,h).unwrap();
             assert_eq!(inspect_closed_mesh(&mesh),
-                       Ok(MeshTopology{vertices:8,edges:18,faces:12}));
+                       Ok(MeshTopology{vertices:8,edges:18,faces:12,shells:1,genus:0}));
         }
         let shifted:Vec<Point2>=rect.iter().map(|p|Point2::new(p.x+9e7,p.y-9e7)).collect();
         assert_eq!(inspect_closed_mesh(&extrude(&shifted,-7.0).unwrap()),
-                   Ok(MeshTopology{vertices:8,edges:18,faces:12}));
+                   Ok(MeshTopology{vertices:8,edges:18,faces:12,shells:1,genus:0}));
+    }
+    #[test]fn rust_topology_counts_disconnected_shells_and_handles() {
+        let profile=[Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                     Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        let first=extrude(&profile,10.0).unwrap();
+        let second=extrude(&profile,10.0).unwrap();
+        let mut apart=first.clone();
+        let shift=apart.vertices.len() as u32;
+        apart.vertices.extend(second.vertices.iter().map(|p|*p+Vec3::new(30.0,0.0,0.0)));
+        apart.triangles.extend(second.triangles.iter().map(|f|[f[0]+shift,f[1]+shift,f[2]+shift]));
+        assert_eq!(inspect_closed_mesh(&apart),
+                   Ok(MeshTopology{vertices:16,edges:36,faces:24,shells:2,genus:0}));
+        // Torus: one watertight genus-1 shell (Euler characteristic zero).
+        let around=12usize;
+        let tube=10usize;
+        let mut vertices=Vec::new();
+        for i in 0..around {
+            let theta=2.0*std::f64::consts::PI*i as f64/around as f64;
+            for j in 0..tube {
+                let phi=2.0*std::f64::consts::PI*j as f64/tube as f64;
+                let radius=20.0+5.0*phi.cos();
+                vertices.push(Vec3::new(radius*theta.cos(),radius*theta.sin(),5.0*phi.sin()));
+            }
+        }
+        let mut triangles=Vec::new();
+        for i in 0..around {
+            for j in 0..tube {
+                let a=(i*tube+j) as u32;
+                let b=(((i+1)%around)*tube+j) as u32;
+                let c=(i*tube+(j+1)%tube) as u32;
+                let d=(((i+1)%around)*tube+(j+1)%tube) as u32;
+                triangles.push([a,b,c]);
+                triangles.push([b,d,c]);
+            }
+        }
+        let torus=Mesh{vertices,triangles};
+        assert_eq!(inspect_closed_mesh(&torus),
+                   Ok(MeshTopology{vertices:120,edges:360,faces:240,shells:1,genus:1}));
     }
     #[test]fn rust_mesh_topology_catches_holes_winding_duplicates_and_bad_faces() {
         let rect=[Point2::new(0.0,0.0),Point2::new(10.0,0.0),
