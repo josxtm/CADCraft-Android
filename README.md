@@ -190,6 +190,19 @@ El control JavaScript alcanza **180 pruebas de regresión**, incluidas creación
 
 **Alcance:** esta edición desplaza vértices que comparten un mismo plano alineado con los ejes y valida la malla resultante. No implementa operaciones B-Rep generales, arrastre de caras curvas, redondeos ni relaciones paramétricas de Shapr3D. Sigue sin requerirse una APK nueva hasta el siguiente hito aprobado.
 
+### Selección de vértices y aristas en mallas 3D — fase posterior a v0.5.0
+
+- Modos **Vértices: ON/OFF** y **Aristas: ON/OFF**, independientes del giro de cámara, movimiento de piezas, selección de caras y arrastre de planos. Tocando el modelo en pantalla se selecciona un vértice o una arista del resultado booleano activo.
+- Las aristas visibles que el selector maneja son **aristas geométricas de la malla**; se descartan las diagonales interiores utilizadas solo para triangular caras coplanares. En un bloque rectangular se reconocen **12 aristas**, no 18.
+- Se indican el elemento seleccionado, sus índices, sus coordenadas globales X/Y/Z en mm y los ejes compatibles con su selección. Si el eje elegido no pertenece al plano exterior de una arista, la interfaz propone uno válido.
+- **Cota + / Cota −** cambian un plano exterior entero en el eje X/Y/Z especificado, tomando un vértice o una arista como referencia. Esta operación modifica únicamente **mallas que siguen siendo ortoedros macizos** (volumen coincidente con su caja rectangular, superficies ortogonales y sin agujeros). No desplaza vértices aislados ni deforma libremente los triángulos.
+- Los intentos de editar siguiendo el propio eje longitudinal de una arista, superar otra cara, usar distancias no válidas o modificar una pieza con huecos o forma en L se **rechazan sin alterar la geometría**.
+- Las modificaciones se pueden **deshacer/rehacer** con el historial de edición de malla y se conservan al guardar y volver a abrir el proyecto **JSON v3**. Los croquis y las extrusiones de origen no cambian.
+- Los resultados booleanos complejos admiten **selección e inspección**, pero su deformación libre seguirá bloqueada hasta contar con validación de autointersecciones y topología más completa.
+- La regresión JavaScript cuenta con **386 comprobaciones**, incluidas pruebas táctiles simuladas de selección de vértice/arista, rechazo de diagonales, edición por cotas, deshacer/rehacer, JSON y conservación tras errores.
+
+No se ha generado ninguna nueva APK. La experiencia táctil real se comprobará únicamente en el siguiente hito de pruebas aprobado.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
