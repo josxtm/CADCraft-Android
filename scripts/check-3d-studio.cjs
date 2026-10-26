@@ -1152,4 +1152,20 @@ const backgroundRecovery=evaluate("(()=>{const current=serializeProject();docume
 assert.equal(backgroundRecovery.saved,true,'backgrounding the WebView flushes recovery');
 assert.equal(backgroundRecovery.flushed,true,'navigating away flushes latest validated geometry');
 
+
+/* C2/B4: foreground geometry must block touch-selection of a different
+ * solid's hidden vertices and edges, without changing face picking. */
+const featureOcclusion=evaluate("(()=>{const scene={points:[[0,0,30],[100,0,30],[0,100,30],[0,0,0],[100,0,0],[0,100,0]],faces:[[0,1,2],[3,4,5]],owners:[2,1]};return {hidden:visibleFeatureAgainstOtherSolids(10,10,0,1,scene),front:visibleFeatureAgainstOtherSolids(10,10,30,2,scene),sameDepth:visibleFeatureAgainstOtherSolids(10,10,30,1,scene),outside:visibleFeatureAgainstOtherSolids(150,150,0,1,scene),nearDepth:projectedTriangleDepth(10,10,...scene.faces[0].map(i=>scene.points[i]))}})()");
+assert.equal(featureOcclusion.hidden,false,'foreground part occludes a background reference');
+assert.equal(featureOcclusion.front,true,'frontmost owner reference remains pickable');
+assert.equal(featureOcclusion.sameDepth,true,'coplanar reference remains selectable');
+assert.equal(featureOcclusion.outside,true,'uncovered reference is not hidden');
+assert.equal(featureOcclusion.nearDepth,30,'occlusion uses actual triangle depth');
+const touchOcclusion=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));const second=duplicateSceneSolid();moveActiveSolid(0,0,20);cycleSceneSolid();snap('top');toggleGeometryMode('vertex');const points=geometryFeatureProjection(model,activeOffset),vertexHidden=nearestGeometryFeature(points[0][0],points[0][1]);toggleGeometryMode('edge');const edges=meshFeatureEdges(model),a=points[edges[0][0]],b=points[edges[0][1]],edgeHidden=nearestGeometryFeature((a[0]+b[0])/2,(a[1]+b[1])/2);const upper=storedSolids.find(item=>item.id!==activeSolidId);updateOffsetById(upper.id,[50,0,20]);toggleGeometryMode('vertex');const vertexVisible=nearestGeometryFeature(points[0][0],points[0][1]);return {second,vertexHidden,edgeHidden,vertexVisible,active:activeSolidId}})()");
+assert.equal(touchOcclusion.second,true,'overlapping source duplicate is created');
+assert.equal(touchOcclusion.vertexHidden,null,'cannot select a source vertex behind another solid');
+assert.equal(touchOcclusion.edgeHidden,null,'cannot select a source edge behind another solid');
+assert.equal(touchOcclusion.vertexVisible.kind,'vertex','source vertex becomes selectable when uncovered');
+assert.equal(touchOcclusion.vertexVisible.owner,touchOcclusion.active,'reference owner is unchanged by occlusion');
+
 console.log('3D studio tests passed');

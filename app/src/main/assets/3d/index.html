@@ -1447,15 +1447,40 @@ function geometryFeatureProjection(mesh,offset){
 function selectedFeatureRecord(){
  return selectedDerived()||{id:activeSolidId,mesh:model,offset:activeOffset};
 }
+/* Touch references must not be selected through a different foreground solid.
+ * The geometry is projected once per hit-test; occlusion uses the same
+ * per-pixel barycentric face depth as the face picker. A source's own hidden
+ * vertices are still inspectable for editing compatibility. */
+function projectedSceneForFeaturePicking(){
+ const scene=combinedScene(),project=makeProjection(scene),scale=zoom*(devicePixelRatio||1);
+ const points=scene.v.map(p=>{
+  const q=project(p);
+  return [canvas.width/2+q.x*scale,canvas.height/2-q.y*scale,q.z];
+ });
+ return {points,faces:scene.faces,owners:scene.owners};
+}
+function visibleFeatureAgainstOtherSolids(x,y,z,owner,scene){
+ const front=frontmostProjectedFace(x,y,scene.points,scene.faces);
+ if(front<0||scene.owners[front]===owner)return true;
+ const triangle=scene.faces[front];
+ const depth=projectedTriangleDepth(x,y,...triangle.map(i=>scene.points[i]));
+ if(depth===null)return true;
+ const tolerance=1e-8+64*Number.EPSILON*Math.max(1,Math.abs(depth),Math.abs(z));
+ return z>=depth-tolerance;
+}
 function nearestGeometryFeature(px,py,type=geometryMode,record=selectedFeatureRecord()){
  if(!record||!['vertex','edge'].includes(type)||!Number.isFinite(px)||!Number.isFinite(py))return null;
  const projected=geometryFeatureProjection(record.mesh,record.offset),d=devicePixelRatio||1;
  const limit=(type==='vertex'?18:14)*d;
- let best=null,bestDistance=limit,bestDepth=-Infinity;
+ let best=null,bestDistance=limit,bestDepth=-Infinity,sceneProjection=null;
+ const visible=(x,y,z)=>{
+  if(!sceneProjection)sceneProjection=projectedSceneForFeaturePicking();
+  return visibleFeatureAgainstOtherSolids(x,y,z,record.id,sceneProjection);
+ };
  if(type==='vertex'){
   projected.forEach((p,index)=>{
    const length=Math.hypot(px-p[0],py-p[1]);
-   if(length<bestDistance-1e-7||(Math.abs(length-bestDistance)<1e-7&&p[2]>bestDepth)){
+   if((length<bestDistance-1e-7||(Math.abs(length-bestDistance)<1e-7&&p[2]>bestDepth))&&visible(p[0],p[1],p[2])){
     best={kind:'vertex',owner:record.id,indices:[index]};bestDistance=length;bestDepth=p[2];
    }
   });
@@ -1467,7 +1492,7 @@ function nearestGeometryFeature(px,py,type=geometryMode,record=selectedFeatureRe
    const t=Math.max(0,Math.min(1,((px-a[0])*dx+(py-a[1])*dy)/length2));
    const x=a[0]+t*dx,y=a[1]+t*dy,dist=Math.hypot(px-x,py-y);
    const depth=a[2]+t*(b[2]-a[2]);
-   if(dist<bestDistance-1e-7||(Math.abs(dist-bestDistance)<1e-7&&depth>bestDepth)){
+   if((dist<bestDistance-1e-7||(Math.abs(dist-bestDistance)<1e-7&&depth>bestDepth))&&visible(x,y,depth)){
     best={kind:'edge',owner:record.id,indices:indices.slice()};bestDistance=dist;bestDepth=depth;
    }
   }
@@ -1690,20 +1715,24 @@ function toggleGeometryMode(kind){
  * barycentric weights apply equally to Z in the projected camera frame.
  * This helper is pure and accepts projected [screenX,screenY,cameraZ] vertices.
  */
+function projectedTriangleDepth(px,py,a,b,c){
+ if(!a||!b||!c||!Number.isFinite(px)||!Number.isFinite(py))return null;
+ const x1=b[0]-a[0],y1=b[1]-a[1],x2=c[0]-a[0],y2=c[1]-a[1];
+ const den=x1*y2-y1*x2;
+ if(!Number.isFinite(den)||Math.abs(den)<1e-9)return null;
+ const vx=px-a[0],vy=py-a[1],v=(vx*y2-vy*x2)/den,w=(x1*vy-y1*vx)/den,u=1-v-w;
+ if(u< -1e-8||v< -1e-8||w< -1e-8)return null;
+ const depth=u*a[2]+v*b[2]+w*c[2];
+ return Number.isFinite(depth)?depth:null;
+}
 function frontmostProjectedFace(px,py,projected,faces,owners=null,onlyOwner=null){
  if(!Number.isFinite(px)||!Number.isFinite(py))return -1;
  let result=-1,bestDepth=-Infinity;
  for(let index=0;index<faces.length;index++){
   if(onlyOwner!==null&&owners[index]!==onlyOwner)continue;
-  const face=faces[index],a=projected[face[0]],b=projected[face[1]],c=projected[face[2]];
-  if(!a||!b||!c)continue;
-  const x1=b[0]-a[0],y1=b[1]-a[1],x2=c[0]-a[0],y2=c[1]-a[1];
-  const den=x1*y2-y1*x2;
-  if(!Number.isFinite(den)||Math.abs(den)<1e-9)continue;
-  const vx=px-a[0],vy=py-a[1],v=(vx*y2-vy*x2)/den,w=(x1*vy-y1*vx)/den,u=1-v-w;
-  if(u< -1e-8||v< -1e-8||w< -1e-8)continue;
-  const depth=u*a[2]+v*b[2]+w*c[2];
-  if(Number.isFinite(depth)&&depth>bestDepth+1e-9){
+  const face=faces[index],depth=projectedTriangleDepth(px,py,
+   projected[face[0]],projected[face[1]],projected[face[2]]);
+  if(depth!==null&&depth>bestDepth+1e-9){
    bestDepth=depth;result=index;
   }
  }
