@@ -29,7 +29,7 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **Regresión ampliada:** 490 verificaciones JavaScript, con pruebas de 375 combinaciones de posiciones y operaciones booleanas, más 8 pruebas de estabilidad volumétrica numérica sobre dos cajas (266 válidas, 10 uniones no manifold correctamente rechazadas, 99 resultados vacíos). La exportación OBJ booleana valida ahora la geometría antes de entregar el archivo. Ninguna de estas pruebas sustituye a GitHub Actions ni al APK Android.
 
-**Mejora A3 adicional:** área 2D, triangulación de bocetos, volumen y recorte de contornos usan productos relativos al origen local para evitar cancelaciones cuando las coordenadas absolutas están a ±90 millones de mm. Se añadieron 10 regresiones JavaScript de perfiles cóncavos remotos, cotas, intersección y volúmenes; el núcleo de prototipo Rust tiene regresiones equivalentes, sin afirmar que ya sea el motor del APK.
+**Mejora A3 adicional:** área 2D, triangulación de bocetos, volumen y recorte de contornos usan productos relativos al origen local para evitar cancelaciones cuando las coordenadas absolutas están a ±90 millones de mm. La detección de contacto emplea además tolerancias por pareja de triángulos, no el tamaño de toda la escena, para no confundir huecos pequeños con intersecciones cuando hay otras piezas a gran distancia. Se añadieron 10 regresiones JavaScript de perfiles cóncavos remotos, cotas, intersección y volúmenes; el núcleo de prototipo Rust tiene regresiones equivalentes, sin afirmar que ya sea el motor del APK.
 
 **Siguiente secuencia:** profundizar en contactos tangenciales, robustez de intersección coplanar, tolerancias numéricas y validación cruzada con mallas grandes antes de proponer booleanas generales.
 

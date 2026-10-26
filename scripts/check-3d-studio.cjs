@@ -631,4 +631,12 @@ assert.equal(boundaryTouch.edge,true,'inclusive predicate detects coplanar edge-
 assert.equal(boundaryTouch.vertical,true,'inclusive predicate detects noncoplanar endpoint contact');
 assert.equal(boundaryTouch.detectedWithoutShellDifference,true,'broad-phase catches disjoint-index point contact even within one labelled shell');
 
+
+// A3: distant third shell must not expand tolerance between two almost-touching cubes.
+const localPrecision=evaluate("(()=>{const sq=[[0,0],[10,0],[10,10],[0,10]],box=extrude(sq,10),copy=(dx,dy,dz)=>({v:box.v.map(p=>p.map((v,i)=>v+[dx,dy,dz][i])),faces:box.faces.map(f=>f.slice())}),join=(...meshes)=>{const out={v:[],faces:[]};for(const m of meshes){const base=out.v.length;out.v.push(...m.v);out.faces.push(...m.faces.map(f=>f.map(i=>i+base)))}return out},clear=join(box,copy(10.0005,0,0),copy(9e7,0,0)),touch=join(box,copy(10,0,0),copy(9e7,0,0)),nearPair=inspectMeshSelfIntersections(clear),ok=inspectMeshTopology(clear);let rejectedTouch=false;try{inspectMeshTopology(touch)}catch(e){rejectedTouch=true}return {shells:ok.shells,volume:ok.signedVolume,sweepEpsilon:nearPair.epsilon,rejectedTouch}})()");
+assert.equal(localPrecision.shells,3,'three disconnected shells with 0.0005 mm air gap remain separate');
+assert.equal(Math.abs(localPrecision.volume-3000)<1e-5,true,'thin air gap and remote body do not alter total volume');
+assert.equal(localPrecision.sweepEpsilon<1e-5,true,'broad-phase precision no longer scales with full scene diagonal');
+assert.equal(localPrecision.rejectedTouch,true,'true tangent face is still rejected with a remote shell present');
+
 console.log('3D studio tests passed');

@@ -691,22 +691,29 @@ function triangleSurfaceIntersection3D(first,second,epsilon=1e-8,inclusive=false
 function inspectMeshSelfIntersections(mesh,faceShells=null){
  const faceCount=mesh.faces.length;
  const triangles=mesh.faces.map(indices=>indices.map(i=>mesh.v[i]));
- const boxes=triangles.map((points,index)=>({index,...triangle3DBounds(points)}));
+ // Derive tolerances from each face's *local* size and floating-point
+ // resolution at its coordinates. A remote shell must not widen the
+ // tolerance between two small nearby but non-touching solids.
+ const boxes=triangles.map((points,index)=>{
+  const bounds=triangle3DBounds(points);
+  const span=Math.hypot(...bounds.max.map((v,i)=>v-bounds.min[i]));
+  const maxCoordinate=Math.max(1,...points.flat().map(Math.abs));
+  const precision=Math.max(1e-9,span*1e-11,
+                           16*Number.EPSILON*maxCoordinate);
+  return {index,...bounds,precision};
+ });
  const order=boxes.slice().sort((a,b)=>a.min[0]-b.min[0]);
- const extent=[Infinity,Infinity,Infinity],upper=[-Infinity,-Infinity,-Infinity];
- for(const p of mesh.v)for(let k=0;k<3;k++){
-  extent[k]=Math.min(extent[k],p[k]);upper[k]=Math.max(upper[k],p[k]);
- }
- const diagonal=Math.hypot(...upper.map((v,i)=>v-extent[i]));
- const epsilon=Math.max(1e-9,diagonal*1e-11);
+ // Conservative broad-phase bound; narrow phase uses per-pair precision.
+ const sweepEpsilon=Math.max(...boxes.map(b=>b.precision));
  let candidates=0,checked=0;
  // Cost guard prevents a pathological imported mesh from hanging the UI.
  const maxCandidates=2500000;
  for(let i=0;i<order.length;i++){
   const a=order[i],aFace=mesh.faces[a.index];
-  for(let j=i+1;j<order.length&&order[j].min[0]<=a.max[0]+epsilon;j++){
-   const b=order[j];
-   if(a.min[1]>b.max[1]+epsilon||b.min[1]>a.max[1]+epsilon||
+  for(let j=i+1;j<order.length&&order[j].min[0]<=a.max[0]+sweepEpsilon;j++){
+   const b=order[j],epsilon=Math.max(a.precision,b.precision);
+   if(a.min[0]>b.max[0]+epsilon||b.min[0]>a.max[0]+epsilon||
+      a.min[1]>b.max[1]+epsilon||b.min[1]>a.max[1]+epsilon||
       a.min[2]>b.max[2]+epsilon||b.min[2]>a.max[2]+epsilon)continue;
    candidates++;
    if(candidates>maxCandidates)throw Error('Malla demasiado compleja para verificar autointersecciones');
@@ -724,7 +731,7 @@ function inspectMeshSelfIntersections(mesh,faceShells=null){
     throw Error('Autointersección entre triángulos '+(a.index+1)+' y '+(b.index+1));
   }
  }
- return {candidatePairs:candidates,checkedPairs:checked,epsilon,
+ return {candidatePairs:candidates,checkedPairs:checked,epsilon:sweepEpsilon,
   intersectionPairs:0};
 }
 
