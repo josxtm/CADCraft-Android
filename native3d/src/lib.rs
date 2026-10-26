@@ -25,9 +25,13 @@ pub struct Mesh {pub vertices:Vec<Vec3>,pub triangles:Vec<[u32;3]>}
 pub enum ExtrudeError {NotEnoughVertices,ZeroHeight,DegeneratePolygon,SelfIntersection,NonFiniteInput,TooManyVertices}
 
 fn area(p:&[Point2])->f64 {
-    let mut a=0.0;
-    for i in 0..p.len(){let j=(i+1)%p.len();a+=p[i].x*p[j].y-p[j].x*p[i].y;}
-    a*0.5
+    // Use a profile-local origin. Absolute shoelace products catastrophically
+    // cancel for a small sketch far from the drawing origin.
+    if p.len()<3 {return 0.0}
+    let origin=p[0];
+    let mut twice_area=0.0;
+    for i in 1..p.len()-1 {twice_area+=orient(origin,p[i],p[i+1]);}
+    twice_area*0.5
 }
 fn orient(a:Point2,b:Point2,c:Point2)->f64 {(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)}
 fn between(a:Point2,b:Point2,c:Point2)->bool {
@@ -160,4 +164,37 @@ mod tests {
     #[test]fn rejects_crossed_polygon(){let p=[Point2::new(0.0,0.0),Point2::new(3.0,3.0),Point2::new(0.0,3.0),Point2::new(3.0,0.0)];assert!(extrude(&p,1.0).is_err());}
     #[test]fn camera_views(){let mut c=Camera::new();c.snap(View::Top);assert!(c.eye().z>c.target.z);c.snap(View::Front);assert!((c.eye().z-c.target.z).abs()<1e-9);}
     #[test]fn camera_orbit(){let mut c=Camera::new();let a=c.azimuth;c.orbit(40.0,15.0,0.01);assert_ne!(c.azimuth,a);assert!(c.elevation.abs()<std::f64::consts::FRAC_PI_2);}
+    fn mesh_signed_volume(mesh:&Mesh)->f64 {
+        let origin=mesh.vertices[0];
+        mesh.triangles.iter().map(|f| {
+            let a=mesh.vertices[f[0] as usize]-origin;
+            let b=mesh.vertices[f[1] as usize]-origin;
+            let c=mesh.vertices[f[2] as usize]-origin;
+            a.dot(b.cross(c))/6.0
+        }).sum()
+    }
+    #[test]fn distant_square_and_reverse_winding() {
+        for (x,y) in [(9e7,-9e7),(-9e7,9e7)] {
+            let shifted:Vec<Point2>=sq().iter().map(|p|Point2::new(p.x+x,p.y+y)).collect();
+            for height in [5.0,-5.0] {
+                let mesh=extrude(&shifted,height).expect("far square remains valid");
+                assert_eq!(mesh.triangles.len(),12);
+                assert!((mesh_signed_volume(&mesh)-500.0).abs()<1e-6);
+                let reverse:Vec<Point2>=shifted.iter().rev().copied().collect();
+                let mirrored=extrude(&reverse,height).expect("reverse far square remains valid");
+                assert!((mesh_signed_volume(&mirrored)-500.0).abs()<1e-6);
+            }
+        }
+    }
+    #[test]fn distant_concave_profile_and_collinear_rejection() {
+        let l=[Point2::new(0.0,0.0),Point2::new(10.0,0.0),Point2::new(10.0,4.0),
+               Point2::new(4.0,4.0),Point2::new(4.0,10.0),Point2::new(0.0,10.0)];
+        let p:Vec<Point2>=l.iter().map(|v|Point2::new(v.x+9e7,v.y-9e7)).collect();
+        let mesh=extrude(&p,7.0).expect("far concave profile triangulates");
+        assert_eq!(mesh.triangles.len(),20);
+        assert!((mesh_signed_volume(&mesh)-448.0).abs()<1e-6);
+        let line=[Point2::new(9e7,-9e7),Point2::new(9e7+1.0,-9e7+1.0),
+                  Point2::new(9e7+2.0,-9e7+2.0)];
+        assert_eq!(extrude(&line,7.0),Err(ExtrudeError::DegeneratePolygon));
+    }
 }
