@@ -855,7 +855,7 @@ function inspectMeshTopology(mesh){
     const scale=Math.max(1,...vertex.map(Math.abs),...other.map(Math.abs));
     const tolerance=Math.max(1e-10,4*Number.EPSILON*scale);
     if(Math.hypot(...vertex.map((value,i)=>value-other[i]))<=tolerance)
-     throw Error('Vértices geométricos coincidentes o casi coincidentes sin soldar');
+     throw Error('Vértices geométricos duplicados o casi coincidentes sin soldar');
    }
   }
   const ownKey=key(...cellCoords);
