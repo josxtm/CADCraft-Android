@@ -608,7 +608,7 @@ function addBooleanToScene(mode){
   if(storedSolids.length+derivedSolids.length>=23)throw Error('Límite de 24 piezas');
   const mesh=validateDerivedMesh(booleanBoxMesh(captureActiveSolid(),storedSolids[0],mode));
   const item={id:nextSolidId,mode,parents:[activeSolidId,storedSolids[0].id],offset:[0,0,0],mesh};
-  derivedSolids.push(item);nextSolidId++;derivedUndo=[];derivedRedo=[];
+  derivedSolids.push(item);nextSolidId++;derivedUndo=[];derivedRedo=[];selectedGeometryFeature=null;
   selectedDerivedId=item.id;selectedFace=-1;syncOffsetFields();invalidateSceneContacts();fit();
   setStatus('Resultado '+item.id+' creado y seleccionado · '+mode);
   return item.id;
@@ -781,7 +781,7 @@ function duplicateDerivedSolid(){
  const copy={id:nextSolidId++,mode:item.mode,parents:item.parents.slice(),
   offset:[item.offset[0]+20,item.offset[1],item.offset[2]],
   mesh:validateDerivedMesh(item.mesh)};
- derivedSolids.push(copy);selectedDerivedId=copy.id;derivedUndo=[];derivedRedo=[];selectedFace=-1;
+ derivedSolids.push(copy);selectedDerivedId=copy.id;derivedUndo=[];derivedRedo=[];selectedGeometryFeature=null;selectedFace=-1;
  syncOffsetFields();invalidateSceneContacts();fit();setStatus('Resultado duplicado: '+copy.id);
  return true;
 }
