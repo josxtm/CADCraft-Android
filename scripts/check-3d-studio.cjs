@@ -500,7 +500,7 @@ assert.equal(evaluate("moveActiveSolid(50,25,0)"),true,"create partially overlap
 assert.equal(evaluate("Number.isInteger(addBooleanToScene('subtract'))"),true,"create nonrectangular boolean mesh");
 assert.equal(evaluate("axisAlignedCuboid(selectedDerived().mesh)"),null,"noncuboid is correctly detected");
 assert.equal(evaluate("toggleGeometryMode('vertex')"),"vertex","complex mesh can be inspected");
-assert.equal(evaluate("(()=>{const p=geometryFeatureProjection(selectedDerived().mesh,selectedDerived().offset)[0];return selectGeometryFeatureAt(p[0],p[1])})()"),true,"vertex remains selectable on noncuboid");
+assert.equal(evaluate("(()=>{const record=selectedDerived(),points=geometryFeatureProjection(record.mesh,record.offset),scene=projectedSceneForFeaturePicking(),index=points.findIndex(p=>visibleFeatureAgainstOtherSolids(p[0],p[1],p[2],record.id,scene));return index>=0&&selectGeometryFeatureAt(points[index][0],points[index][1])})()"),true,"visible noncuboid vertex remains selectable; hidden back vertices are occluded");
 assert.equal(evaluate("(()=>{document.getElementById('featureAxis').value='X';const volume=meshOrientedVolume(selectedDerived().mesh);return !editSelectedGeometryFeature(1)&&meshOrientedVolume(selectedDerived().mesh)===volume})()"),true,"noncuboid edit refused without damage");
 assert.equal(evaluate("loadProjectText(serializeProject()).faces.length"),12,"complex derived mesh remains saveable");
 
