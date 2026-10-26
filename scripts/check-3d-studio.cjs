@@ -1574,4 +1574,26 @@ assert.equal(faceDragBoundary.released,false,'pointer release cannot commit stal
 assert.equal(faceDragBoundary.done,true,'release clears the gesture state');
 assert.equal(faceDragBoundary.unchanged,true,'cancelled gesture preserves the original project');
 
+
+/* B3 — touch navigation: two fingers translate the orthographic camera with
+ * their midpoint and pinch changes zoom; one finger orbits only in its own
+ * gesture. Geometry and JSON data must be unaffected by camera gestures. */
+const cameraTouchGestures=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));moveMode=false;faceMode=false;faceDragMode=false;geometryMode=null;snap('top');const before=serializeProject(),initialZoom=zoom,initialAz=az,initialEl=el;const screen=()=>{const scene=combinedScene(),v=makeProjection(scene)(scene.v[0]);return [canvas.width/2+v.x*zoom,canvas.height/2-v.y*zoom]};const p0=screen();canvas.listeners.pointerdown({pointerId:700,clientX:100,clientY:100});canvas.listeners.pointerdown({pointerId:701,clientX:200,clientY:100});canvas.listeners.pointermove({pointerId:700,clientX:120,clientY:110});canvas.listeners.pointermove({pointerId:701,clientX:220,clientY:110});const p1=screen(),afterPan=serializeProject()===before,panZoom=zoom,panAz=az,panEl=el,cam=cameraCenter.slice();canvas.listeners.pointerup({pointerId:701});canvas.listeners.pointermove({pointerId:700,clientX:140,clientY:140});const orbitAfterPinch=az===initialAz&&el===initialEl,camAfterPinch=cameraCenter.slice();canvas.listeners.pointerup({pointerId:700});const released=pointers.size===0&&!multitouchOrbitBlocked;canvas.listeners.pointerdown({pointerId:702,clientX:100,clientY:100});canvas.listeners.pointermove({pointerId:702,clientX:120,clientY:90});canvas.listeners.pointerup({pointerId:702});const orbit=az!==initialAz&&el!==initialEl;const geometrySafe=serializeProject()===before;const pure=cameraPanWorldDelta(20,10,-Math.PI/2,0,2);const badInput=(()=>{try{cameraPanWorldDelta(1,0,0,0,0);return false}catch(e){return true}})();snap('top');const mid=cameraCenter.slice();const z0=zoom;canvas.listeners.pointerdown({pointerId:703,clientX:100,clientY:100});canvas.listeners.pointerdown({pointerId:704,clientX:200,clientY:100});canvas.listeners.pointermove({pointerId:704,clientX:250,clientY:100});const pinchZoom=zoom;canvas.listeners.pointerup({pointerId:703});canvas.listeners.pointerup({pointerId:704});return {dx:p1[0]-p0[0],dy:p1[1]-p0[1],afterPan,panZoom,initialZoom,panAz,panEl,initialAz,initialEl,cam,orbitAfterPinch,camAfterPinch,released,orbit,geometrySafe,pure,badInput,pinchZoom,z0,finalZoom:zoom,mid}})()");
+assert.ok(Math.abs(cameraTouchGestures.dx-20)<1e-6,'two-finger midpoint drags viewport horizontally');
+assert.ok(Math.abs(cameraTouchGestures.dy-10)<1e-6,'two-finger midpoint drags viewport vertically');
+assert.equal(cameraTouchGestures.afterPan,true,'viewport gesture leaves project JSON unchanged');
+assert.equal(cameraTouchGestures.panZoom,cameraTouchGestures.initialZoom,'pure midpoint drag does not zoom');
+assert.equal(cameraTouchGestures.panAz,cameraTouchGestures.initialAz,'two-finger drag does not orbit azimuth');
+assert.equal(cameraTouchGestures.panEl,cameraTouchGestures.initialEl,'two-finger drag does not orbit elevation');
+assert.equal(cameraTouchGestures.orbitAfterPinch,true,'remaining finger cannot accidentally orbit before release');
+assert.equal(JSON.stringify(cameraTouchGestures.camAfterPinch),JSON.stringify(cameraTouchGestures.cam),'releasing one finger does not pan');
+assert.equal(cameraTouchGestures.released,true,'ending pinch resets multi-touch suppression state');
+assert.equal(cameraTouchGestures.orbit,true,'a new one-finger gesture orbits normally');
+assert.equal(cameraTouchGestures.geometrySafe,true,'orbit and pan never alter model geometry');
+assert.ok(Math.abs(cameraTouchGestures.pure[0]+10)<1e-7,'pan projects horizontal translation to right-axis inverse');
+assert.ok(Math.abs(cameraTouchGestures.pure[2]-5)<1e-7,'pan projects vertical translation to camera up axis');
+assert.equal(cameraTouchGestures.badInput,true,'invalid pan zoom values are rejected');
+assert.ok(cameraTouchGestures.pinchZoom>cameraTouchGestures.z0*1.49,'two-finger distance change still zooms');
+assert.equal(cameraTouchGestures.finalZoom,cameraTouchGestures.pinchZoom,'pinch release retains camera zoom');
+
 console.log('3D studio tests passed');

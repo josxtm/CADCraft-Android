@@ -168,6 +168,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **B3 — cancelar arrastres de caras inválidos (26-10-2026):** se ha corregido el caso en que el usuario desplazaba una cara a una posición válida, seguía arrastrando hasta traspasar el límite espacial y levantaba el dedo. Antes podía confirmarse por error la última malla intermedia válida; ahora cualquier vista previa inválida restaura la malla inicial y desarma el gesto, sin guardar historia de deshacer. Se ha añadido una regresión con una pieza booleana cerca del límite +100 millones de mm, incluyendo vista previa válida, rechazo posterior y liberación del puntero. **Código WebView, no APK nueva.**
 
+**B3/C5 — navegación táctil a dos dedos en el estudio WebView (26-10-2026):** al apoyar dos dedos en el lienzo 3D, desplazar su punto medio produce *pan* real de la cámara según los ejes proyectados y separar/juntar dedos conserva el *pinch zoom*. La nueva cámara no modifica vértices, ID, bocetos ni el JSON de piezas. El giro con un dedo queda inhibido al levantar primero solo un dedo de un gesto múltiple y se reanuda en el siguiente gesto nuevo. Se limita el zoom y se rechaza un desplazamiento numérico no finito. Regresiones JavaScript reproducen eventos `pointerdown/move/up`, comprueban desplazamiento de pantalla en X/Y, no giro accidental, zoom y persistencia sin cambios. Pendiente de compilar una nueva APK y probar el tacto real.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.
