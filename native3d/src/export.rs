@@ -199,6 +199,13 @@ mod tests {
         // unwelded seam, even when all original triangles remain unchanged.
         let duplicate=s.solids[0].mesh.vertices[0];
         s.solids[0].mesh.vertices.push(duplicate);
+        // Rewire a face to the duplicate: identical geometry, broken indexing.
+        let duplicate_index=(s.solids[0].mesh.vertices.len()-1) as u32;
+        let face=s.solids[0].mesh.triangles.iter_mut()
+            .find(|face|face.contains(&0)).expect("extruded square uses vertex zero");
+        for vertex in face.iter_mut() {
+            if *vertex==0 { *vertex=duplicate_index; break; }
+        }
         assert_eq!(s.export_obj(&[id]),Err(ExportError::InvalidSolid(id)));
         assert_eq!(s.export_ascii_stl(&[id]),Err(ExportError::InvalidSolid(id)));
         // A valid mesh remains exportable after restoring the source.
