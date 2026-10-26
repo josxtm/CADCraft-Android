@@ -1361,4 +1361,67 @@ assert.equal(circleImport.changed,true,'native CIRCLE import updates source only
 assert.equal(circleImport.shells,1,'imported CIRCLE remains watertight');
 assert.ok(circleImport.vertices>=24,'native CIRCLE is a tessellated extruded solid');
 
+
+/* C4: native DXF ELLIPSE parameterization is a rotated, unit-aware,
+ * tessellated complete loop. Partial elliptical arcs remain unsupported. */
+const ellipseShape=(ratio=0.5,cx=3,cy=-4,majorX=10,majorY=0,extra=[])=>[
+ '0','ELLIPSE','10',String(cx),'20',String(cy),'11',String(majorX),
+ '21',String(majorY),'40',String(ratio),...extra
+].join(dxfNewline);
+const ellipseDoc=(ratio=0.5,cx=3,cy=-4,majorX=10,majorY=0,extra=[])=>ellipseShape(
+ ratio,cx,cy,majorX,majorY,extra)+dxfNewline+['0','EOF'].join(dxfNewline);
+const ellipseMeasure=evaluate("(()=>{const p=parseDxfProfile("+JSON.stringify(ellipseDoc())+
+ ");const m=extrude(p,10),report=inspectMeshTopology(m);return {count:p.length,volume:meshOrientedVolume(m),shells:report.shells,bounds:report.bounds}})()");
+assert.ok(ellipseMeasure.count>=12&&ellipseMeasure.count<=2048,'DXF ELLIPSE has bounded samples');
+assert.equal(ellipseMeasure.shells,1,'complete ELLIPSE extrudes watertight shell');
+assert.ok(Math.abs(ellipseMeasure.volume-Math.PI*10*5*10)<30,'ELLIPSE area integrates into 3D volume');
+assert.ok(Math.abs(ellipseMeasure.bounds.min[0]+7)<0.02,'ELLIPSE xmin includes centre');
+assert.ok(Math.abs(ellipseMeasure.bounds.max[0]-13)<0.02,'ELLIPSE xmax includes centre');
+assert.ok(Math.abs(ellipseMeasure.bounds.min[1]+9)<0.02,'ELLIPSE ymin includes minor radius');
+const ellipseRotated=evaluate("(()=>{const p=parseDxfProfile("+
+ JSON.stringify(ellipseDoc(0.5,0,0,8,6,['41','0','42',String(2*Math.PI)]))+
+ "),solid=extrude(p,-10);return {area:meshOrientedVolume(solid),shells:inspectMeshTopology(solid).shells,bounds:inspectMeshTopology(solid).bounds}})()");
+assert.equal(ellipseRotated.shells,1,'rotated ELLIPSE remains a closed watertight shell');
+assert.ok(Math.abs(ellipseRotated.area-Math.PI*10*5*10)<30,'rotation and negative height conserve ellipse volume');
+assert.ok(ellipseRotated.bounds.max[0]>8&&ellipseRotated.bounds.max[0]<9,'rotated major axis applies coordinate transform');
+const ellipseInches=evaluate("(()=>{const p=parseDxfProfile("+
+ JSON.stringify(dxfUnitDocument(1,ellipseShape(0.5,0,0,1,0)))+
+ "),solid=extrude(p,10);return {maxX:Math.max(...p.map(q=>q[0])),volume:meshOrientedVolume(solid)}})()");
+assert.ok(Math.abs(ellipseInches.maxX-25.4)<0.02,'ellipse major-axis length honours DXF inches');
+assert.ok(Math.abs(ellipseInches.volume-Math.PI*25.4*12.7*10)<130,'ellipse INSUNITS scales area correctly');
+const ellLayouts=['0','SECTION','2','BLOCKS',ellipseShape(0.5,0,0,20,0),
+ '0','ENDSEC','0','SECTION','2','ENTITIES',
+ ellipseShape(0.5,0,0,30,0,['67','1']),
+ ellipseShape(0.5,0,0,40,0,['410','Paper']),
+ ellipseShape(0.5,0,0,7,0,['410','Model']),
+ '0','ENDSEC','0','EOF'].join(dxfNewline);
+const ellLayoutRadius=evaluate("Math.max(...parseDxfProfile("+JSON.stringify(ellLayouts)+").map(p=>Math.hypot(...p)))");
+assert.ok(Math.abs(ellLayoutRadius-7)<0.02,'ellipse ignores BLOCKS and paper-space layouts');
+const invalidEllipses=[
+ {name:'missing ratio',input:['0','ELLIPSE','10','0','20','0','11','10','21','0','0','EOF'].join(dxfNewline)},
+ {name:'empty major axis',input:ellipseDoc(0.5,0,0,0,0)},
+ {name:'ratio above one',input:ellipseDoc(1.5)},
+ {name:'zero ratio',input:ellipseDoc(0)},
+ {name:'partial ellipse start',input:ellipseDoc(0.5,0,0,10,0,['41','0.2'])},
+ {name:'partial ellipse end',input:ellipseDoc(0.5,0,0,10,0,['42','3.14159'])},
+ {name:'out-of-plane normal',input:ellipseDoc(0.5,0,0,10,0,['210','1'])},
+ {name:'raised elevation',input:ellipseDoc(0.5,0,0,10,0,['30','1'])},
+ {name:'skew axis in Z',input:ellipseDoc(0.5,0,0,10,0,['31','1'])},
+ {name:'duplicate axis ratio',input:ellipseDoc(0.5,0,0,10,0,['40','0.4'])},
+ {name:'several source loops',input:ellipseShape()+dxfNewline+circleDxfDocument(5)}
+];
+for(const entry of invalidEllipses) {
+ const checked=evaluate("(()=>{const before=serializeProject();try{importDxfText("+
+  JSON.stringify(entry.input)+");return {rejected:false}}catch(e){return {rejected:true,preserved:serializeProject()===before,message:e.message}}})()");
+ assert.equal(checked.rejected,true,entry.name+' rejected');
+ assert.equal(checked.preserved,true,entry.name+' does not modify live 3D project');
+ assert.ok(checked.message.length>5,entry.name+' gives an explanation');
+}
+const ellipseImported=evaluate("(()=>{const before=serializeProject(),mesh=importDxfText("+
+ JSON.stringify(ellipseDoc())+
+ ");return {changed:before!==serializeProject(),shells:inspectMeshTopology(mesh).shells,v:mesh.v.length}})()");
+assert.equal(ellipseImported.changed,true,'valid ELLIPSE becomes an editable source extrusion');
+assert.equal(ellipseImported.shells,1,'ELLIPSE source remains closed after handoff');
+assert.ok(ellipseImported.v>=24,'ELLIPSE source is an approximated mesh');
+
 console.log('3D studio tests passed');
