@@ -1081,4 +1081,27 @@ assert.equal(partInspection.bad,null,'damaged derived mesh cannot be measured');
 assert.equal(partInspection.badMessage.includes('Medición de pieza'),true,'failure is explained in status');
 assert.equal(partInspection.badUnchanged,true,'failed inspection never mutates damaged model');
 
+
+/* Reference picking applies to linked source extrusions as well as CSG.
+ * Source points remain inspection-only; parametric changes use the 2D editor. */
+const sourceReferenceSelection=evaluate("(()=>{const square=[[0,0],[10,0],[10,10],[0,10]];loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:square,height:10}));moveActiveSolid(40,20,5);const before=serializeProject(),enabled=toggleGeometryMode('vertex');const coords=geometryFeatureProjection(model,activeOffset);const vertex=selectGeometryFeatureAt(coords[0][0],coords[0][1]),v=selectedGeometryFeature,vertexInfo=status.textContent,unchanged=serializeProject()===before;const edgeMode=toggleGeometryMode('edge'),edges=meshFeatureEdges(model),p=coords[edges[0][0]],q=coords[edges[0][1]],edge=selectGeometryFeatureAt((p[0]+q[0])/2,(p[1]+q[1])/2),e=selectedGeometryFeature,edgeInfo=status.textContent,edit=editSelectedGeometryFeature(1),safe=serializeProject()===before;toggleGeometryMode('edge');const disabled=geometryMode===null;duplicateSceneSolid();const derived=addBooleanToScene('union');const mode=toggleGeometryMode('vertex'),record=selectedFeatureRecord(),points=geometryFeatureProjection(record.mesh,record.offset),picked=selectGeometryFeatureAt(points[0][0],points[0][1]),owner=selectedGeometryFeature?.owner;return {enabled,vertex,v,vertexInfo,unchanged,edgeMode,edge,e,edgeInfo,edit,safe,disabled,derived,mode,recordId:record.id,picked,owner}})()");
+assert.equal(sourceReferenceSelection.enabled,'vertex','source allows vertex selection');
+assert.equal(sourceReferenceSelection.vertex,true,'source vertex tap resolves geometry');
+assert.equal(sourceReferenceSelection.v.kind,'vertex','source reference is vertex');
+assert.equal(sourceReferenceSelection.v.owner,1,'source reference retains solid id');
+assert.equal(sourceReferenceSelection.vertexInfo.includes('pieza 1'),true,'source coordinates display owner');
+assert.equal(sourceReferenceSelection.vertexInfo.includes('boceto 2D'),true,'source editing refers to 2D sketch');
+assert.equal(sourceReferenceSelection.unchanged,true,'picking must not mutate original source');
+assert.equal(sourceReferenceSelection.edgeMode,'edge','source allows edge selection');
+assert.equal(sourceReferenceSelection.edge,true,'edge tap resolves geometry');
+assert.equal(sourceReferenceSelection.e.kind,'edge','source edge selection kind');
+assert.equal(sourceReferenceSelection.e.owner,1,'edge references original source ID');
+assert.equal(sourceReferenceSelection.edgeInfo.includes('boceto 2D'),true,'edge selection explains edit model');
+assert.equal(sourceReferenceSelection.edit,false,'direct CSG edit remains disabled on source');
+assert.equal(sourceReferenceSelection.safe,true,'rejected source edit cannot mutate project');
+assert.equal(sourceReferenceSelection.disabled,true,'geometry reference mode can be disabled');
+assert.equal(sourceReferenceSelection.mode,'vertex','derived vertex mode remains available');
+assert.equal(sourceReferenceSelection.picked,true,'derived reference remains selectable');
+assert.equal(sourceReferenceSelection.owner,sourceReferenceSelection.recordId,'derived picking keeps its owner');
+
 console.log('3D studio tests passed');

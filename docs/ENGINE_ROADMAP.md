@@ -140,6 +140,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **A1/A5 — costuras exactas no soldadas en Rust (26-10-2026):** el inspector de mallas Rust rechaza vértices con coordenadas XYZ exactamente coincidentes pero índices distintos antes de aceptar topología de cascarones. Normaliza los bits de +0/−0 y detecta también dos prismas completamente superpuestos con índices separados; mantiene válidos cascarones cercanos pero realmente separados (hueco de 0,000001 mm). Regresiones para duplicación aislada, solape, ceros con signo y piezas separadas. Esta comprobación no resuelve contactos casi coincidentes ni todas las autointersecciones A2 y todavía no está conectada a la APK.
 
+**B1/B3 — puntos de referencia de extrusiones fuente (26-10-2026):** el estudio 3D del WebView ahora permite tocar e inspeccionar vértices y aristas de las extrusiones editables, además de los resultados booleanos. Muestra el ID y la posición XYZ mundial, respetando la traslación. Las fuentes permanecen **solo de lectura** en esos modos: la geometría paramétrica sigue editándose en el boceto 2D, mientras que las herramientas de cotas sobre resultados booleanos se mantienen separadas. Regresiones JavaScript cubren selección, cambios de modo, protección ante edición inapropiada y selección de resultados. Pendiente de compilación y validación táctil Android.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.
