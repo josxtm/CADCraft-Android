@@ -19,13 +19,17 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 | Paso | Capacidad | Estado | Criterio de aceptación |
 |---|---|---|---|
-| A1 | Manifold, orientación de triángulos, triángulos duplicados, cascarones, cavidades, volumen | **Parcialmente implementado** | Rechazar mallas abiertas, invertidas o con vértices pinchados; aceptar una cavidad interna válida |
-| A2 | Detección de autointersecciones triángulo-triángulo y superficies superpuestas | **Pendiente** | Diagnóstico espacial con casos difíciles y tolerancias verificadas; sin falsos positivos en caras vecinas |
+| A1 | Manifold, orientación de triángulos, triángulos duplicados, cascarones, cavidades, volumen | **Implementado con límites** | Valida el abanico local de vértices, aristas dirigidas y alternancia de cascarones anidados (+ exterior / − cavidad / + isla) |
+| A2 | Detección de autointersecciones triángulo-triángulo y superficies superpuestas | **Parcial, en desarrollo** | Barrido por cajas 3D, cruce de superficies y solape coplanar implementados; faltan contactos límite dentro de un mismo cascarón y tolerancias numéricas rigurosas |
 | A3 | Tolerancias y robustez numérica | **Pendiente** | Casos degenerados, dimensiones extremas y errores acumulados sin pérdida de proyectos |
 | A4 | Operaciones booleanas generales sobre sólidos cerrados | **Limitadas a cajas** | Unión, resta e intersección de perfiles curvos, L y geometrías no convexas; malla válida y volúmenes correctos |
 | A5 | Núcleo geométrico compartido y trazable | **Pendiente** | El editor 2D, visor 3D, almacenamiento y exportación usan resultados consistentes del mismo modelo |
 
-**Nota:** comprobar aristas y orientación no demuestra ausencia de autointersecciones. Una cavidad con shell interior de volumen negativo es válida; no se debe rechazar por tener varias componentes de superficie.
+**Nota de precisión:** la detección actual encuentra penetraciones de triángulos, superficies coplanares con área compartida, contactos entre cascarones separados y cascarones anidados con signos incorrectos. **Aún no certifica una malla arbitraria como libre de todo contacto degenerado**, especialmente contactos tangenciales entre triángulos del mismo cascarón, coincidencias geométricas de vértices no soldados y errores en escalas extremas. El control de coste interrumpe geometrías cuya cantidad de parejas candidatas supera 2,5 millones. Una cavidad válida tiene orientación interior opuesta y no debe confundirse con dos sólidos solapados.
+
+**Regresión ampliada:** 482 verificaciones JavaScript, con pruebas de 375 combinaciones de posiciones y operaciones booleanas sobre dos cajas (266 válidas, 10 uniones no manifold correctamente rechazadas, 99 resultados vacíos). La exportación OBJ booleana valida ahora la geometría antes de entregar el archivo. Ninguna de estas pruebas sustituye a GitHub Actions ni al APK Android.
+
+**Siguiente secuencia:** profundizar en contactos tangenciales, robustez de intersección coplanar, tolerancias numéricas y validación cruzada con mallas grandes antes de proponer booleanas generales.
 
 ## Bloque B — Modelado CAD
 
