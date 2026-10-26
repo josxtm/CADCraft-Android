@@ -25,3 +25,7 @@ El adaptador Rust `PreviewState` permite actualizar la altura de una extrusión 
 ## Boceto actualizado antes de extruir (26-10-2026)
 
 Si la fuente 2D seleccionada cambia antes de crear el primer sólido, `refresh_source_profile(handle, outline)` valida el nuevo contorno y actualiza la selección aun cuando devuelve `Ok(0)` (cero sólidos regenerados). Ante un contorno inválido, conserva el perfil previo y el siguiente ID. Una actualización de otra fuente no toca la selección. Incluye regresión Rust; aún no está conectado al editor Android.
+
+## Entrega 2D validada al prototipo (26-10-2026)
+
+`PreviewState::select_profile_checked(handle, outline)` realiza una extrusión de prueba de altura 1 mm antes de aceptar una nueva selección 2D. Rechaza contornos degenerados, cruzados o fuera de rango sin modificar la selección previa, cámara, piezas ni IDs. Después, `extrude_selected(height)` valida la altura final de forma independiente. La API antigua `select_profile` sigue disponible por compatibilidad, pero la integración futura con el editor 2D debe usar la variante comprobada. Hay dos pruebas Rust de regresión. **Aún no se conecta a Android ni requiere APK.**

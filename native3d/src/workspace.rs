@@ -41,6 +41,19 @@ impl PreviewState {
     /// Send a CADCraft selected closed profile (rectangle or closed LWPOLYLINE)
     /// into the 3D preview. Coordinates are in the drawing's native units.
     /// A DXF bulge/arc must first be tessellated by the caller.
+    /// Checked entry point for handing a selected 2D sketch to the 3D preview.
+    /// The preflight uses a unit-height extrusion; the requested final height
+    /// is validated separately by extrude_selected. Invalid input cannot
+    /// overwrite a valid selection or consume a solid ID.
+    pub fn select_profile_checked(&mut self,source_handle:u64,outline:Vec<Point2>)
+        ->Result<(),WorkspaceError> {
+        let candidate=extrude(&outline,1.0).map_err(WorkspaceError::Geometry)?;
+        Self::validate_world_mesh(&candidate,Vec3::new(0.0,0.0,0.0))?;
+        self.select_profile(source_handle,outline);
+        Ok(())
+    }
+    /// Legacy unchecked selection setter; use select_profile_checked at the
+    /// 2D-to-3D boundary for transactional input validation.
     pub fn select_profile(&mut self,source_handle:u64,outline:Vec<Point2>){
         self.selected_handle=Some(source_handle);
         self.selected_outline=Some(outline);
@@ -197,6 +210,48 @@ impl PreviewState {
 #[cfg(test)]
 mod tests{
     use super::*;
+    #[test]fn checked_2d_handoff_rejects_invalid_without_losing_selection() {
+        let mut state=PreviewState::default();
+        let square=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                        Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile_checked(7,square.clone()).unwrap();
+        let id=state.extrude_selected(5.0).unwrap();
+        let old_solids=state.solids.clone();
+        let old_camera=state.camera;
+        let crossed=vec![Point2::new(0.0,0.0),Point2::new(10.0,10.0),
+                         Point2::new(0.0,10.0),Point2::new(10.0,0.0)];
+        assert!(state.select_profile_checked(8,crossed).is_err());
+        let outside=vec![Point2::new(MAX_WORLD_COORD+1.0,0.0),
+                         Point2::new(MAX_WORLD_COORD+11.0,0.0),
+                         Point2::new(MAX_WORLD_COORD+11.0,10.0),
+                         Point2::new(MAX_WORLD_COORD+1.0,10.0)];
+        assert_eq!(state.select_profile_checked(8,outside),
+                   Err(WorkspaceError::Geometry(ExtrudeError::OutOfBounds)));
+        assert_eq!(state.selected_handle,Some(7));
+        assert_eq!(state.selected_outline,Some(square));
+        assert_eq!(state.solids,old_solids);
+        assert_eq!(state.camera,old_camera);
+        let rectangle=vec![Point2::new(0.0,0.0),Point2::new(20.0,0.0),
+                           Point2::new(20.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile_checked(8,rectangle.clone()).unwrap();
+        assert_eq!(state.extrude_selected(3.0).unwrap(),id+1);
+        assert_eq!(state.solids[0],old_solids[0]);
+        assert_eq!(state.solids[1].source_handle,Some(8));
+        assert_eq!(state.solids[1].outline,rectangle);
+    }
+
+    #[test]fn checked_2d_handoff_preserves_empty_state_on_rejection() {
+        let mut state=PreviewState::default();
+        assert!(state.select_profile_checked(4,vec![]).is_err());
+        assert!(!state.has_profile());
+        assert!(state.solids.is_empty());
+        assert_eq!(state.next_id,1);
+        let triangle=vec![Point2::new(0.0,0.0),Point2::new(5.0,0.0),
+                          Point2::new(0.0,5.0)];
+        state.select_profile_checked(4,triangle).unwrap();
+        assert_eq!(state.extrude_selected(2.0),Ok(1));
+    }
+
     #[test]fn selected_rectangle_to_solid(){
         let mut state=PreviewState::default();
         state.select_profile(0x101,vec![Point2::new(0.0,0.0),Point2::new(100.0,0.0),Point2::new(100.0,60.0),Point2::new(0.0,60.0)]);
