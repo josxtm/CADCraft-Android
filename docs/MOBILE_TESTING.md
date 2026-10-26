@@ -162,6 +162,20 @@ Reservadas para la siguiente APK de hito, **no para cada commit**.
 | E7 | Seleccionar un vértice interior o una arista longitudinal en el eje que se intenta escalar | Se muestra aviso y no se altera el volumen |
 | E8 | Comparar `Cota` en bloque rectangular frente a `Escalar eje` en pieza en L | La primera mueve un plano exterior; la segunda modifica proporcionalmente toda la pieza |
 
+## Pruebas pendientes: diagnóstico de integridad de mallas (próxima APK de hito)
+
+La herramienta **Diagnóstico malla** no necesita una compilación independiente. Estas pruebas se incorporarán al siguiente paquete importante:
+
+| Código | Acción | Resultado esperado |
+|---|---|---|
+| M1 | Crear una unión de dos bloques y elegir `Diagnóstico malla` | Informa de vértices, aristas, triángulos, un cascarón y volumen positivo |
+| M2 | Crear un resultado booleano con cavidad interna y ejecutar el diagnóstico | Identifica cascarón exterior e interior sin rechazarlos como error |
+| M3 | Escalar una pieza en L y repetir el diagnóstico | Conserva topología cerrada y actualiza volumen |
+| M4 | Abrir un proyecto JSON antiguo y diagnosticar las piezas derivadas | Las mallas válidas siguen cargando sin alteraciones |
+| M5 | Intentar importar un JSON de prueba previamente preparado con una cara invertida | Se rechaza el archivo y el proyecto abierto permanece intacto |
+
+**Seguridad:** no modificar manualmente un proyecto de trabajo para fabricar datos corruptos; usar exclusivamente un archivo de pruebas separado.
+
 ## Cómo comunicar los resultados
 
 Responder preferentemente con los números y el estado: `1 OK, 2 OK, 3 FALLA, 4 SIN PROBAR...`. En las pruebas fallidas, indicar lo que ocurrió y adjuntar una captura si el error es visual; la captura no es obligatoria.
