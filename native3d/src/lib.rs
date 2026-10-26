@@ -3,6 +3,9 @@
 
 pub mod workspace;
 
+/// Same conservative world-coordinate limit as the Android 3D studio (drawing units: mm).
+pub const MAX_WORLD_COORD: f64 = 100_000_000.0;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec3 { pub x:f64, pub y:f64, pub z:f64 }
 impl Vec3 {
@@ -22,7 +25,7 @@ impl Point2 {pub const fn new(x:f64,y:f64)->Self{Self{x,y}}}
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mesh {pub vertices:Vec<Vec3>,pub triangles:Vec<[u32;3]>}
 #[derive(Clone, Debug, PartialEq)]
-pub enum ExtrudeError {NotEnoughVertices,ZeroHeight,DegeneratePolygon,SelfIntersection,NonFiniteInput,TooManyVertices}
+pub enum ExtrudeError {NotEnoughVertices,ZeroHeight,DegeneratePolygon,SelfIntersection,NonFiniteInput,TooManyVertices,OutOfBounds}
 
 fn area(p:&[Point2])->f64 {
     // Use a profile-local origin. Absolute shoelace products catastrophically
@@ -52,6 +55,7 @@ fn point_in_triangle(p:Point2,a:Point2,b:Point2,c:Point2)->bool {
 /// Triangles are outward facing for either extrusion direction.
 pub fn extrude(profile:&[Point2],height:f64)->Result<Mesh,ExtrudeError> {
     if !height.is_finite()||profile.iter().any(|p|!p.x.is_finite()||!p.y.is_finite()){return Err(ExtrudeError::NonFiniteInput)}
+    if height.abs()>MAX_WORLD_COORD || profile.iter().any(|p|p.x.abs()>MAX_WORLD_COORD||p.y.abs()>MAX_WORLD_COORD){return Err(ExtrudeError::OutOfBounds)}
     if height.abs()<1e-10{return Err(ExtrudeError::ZeroHeight)}
     let mut p:Vec<Point2>=Vec::new();
     for &pt in profile {if p.last().map_or(true,|last| (last.x-pt.x).abs()>1e-10||(last.y-pt.y).abs()>1e-10){p.push(pt)}}
@@ -196,5 +200,21 @@ mod tests {
         let line=[Point2::new(9e7,-9e7),Point2::new(9e7+1.0,-9e7+1.0),
                   Point2::new(9e7+2.0,-9e7+2.0)];
         assert_eq!(extrude(&line,7.0),Err(ExtrudeError::DegeneratePolygon));
+    }
+
+    #[test]fn extrusion_respects_world_bounds() {
+        let near_limit=[
+            Point2::new(99_999_990.0,0.0),Point2::new(MAX_WORLD_COORD,0.0),
+            Point2::new(MAX_WORLD_COORD,10.0),Point2::new(99_999_990.0,10.0)
+        ];
+        assert!(extrude(&near_limit,-5.0).is_ok());
+        let outside=[
+            Point2::new(MAX_WORLD_COORD+1.0,0.0),Point2::new(MAX_WORLD_COORD+11.0,0.0),
+            Point2::new(MAX_WORLD_COORD+11.0,10.0),Point2::new(MAX_WORLD_COORD+1.0,10.0)
+        ];
+        assert_eq!(extrude(&outside,5.0),Err(ExtrudeError::OutOfBounds));
+        assert_eq!(extrude(&sq(),MAX_WORLD_COORD+1.0),Err(ExtrudeError::OutOfBounds));
+        assert_eq!(extrude(&sq(),-MAX_WORLD_COORD-1.0),Err(ExtrudeError::OutOfBounds));
+        assert_eq!(extrude(&sq(),f64::INFINITY),Err(ExtrudeError::NonFiniteInput));
     }
 }

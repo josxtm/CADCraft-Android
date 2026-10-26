@@ -108,4 +108,24 @@ mod tests{
         assert_eq!(state.extrude_selected(5.0),Err(WorkspaceError::NoProfile));
         assert_eq!(state.extrude_selected(0.0),Err(WorkspaceError::InvalidHeight));
     }
+
+    #[test]fn out_of_range_extrusion_preserves_solids_and_ids(){
+        let mut state=PreviewState::default();
+        let square=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                        Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile(7,square.clone());
+        assert_eq!(state.extrude_selected(100_000_001.0),
+                   Err(WorkspaceError::Geometry(ExtrudeError::OutOfBounds)));
+        assert!(state.solids.is_empty());
+        assert_eq!(state.extrude_selected(2.0).unwrap(),1);
+        let original=state.solids[0].clone();
+        state.select_profile(8,vec![Point2::new(100_000_001.0,0.0),
+            Point2::new(100_000_011.0,0.0),Point2::new(100_000_011.0,10.0),
+            Point2::new(100_000_001.0,10.0)]);
+        assert_eq!(state.extrude_selected(2.0),
+                   Err(WorkspaceError::Geometry(ExtrudeError::OutOfBounds)));
+        assert_eq!(state.solids,vec![original]);
+        state.select_profile(9,square);
+        assert_eq!(state.extrude_selected(2.0).unwrap(),2);
+    }
 }

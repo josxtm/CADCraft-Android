@@ -110,6 +110,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 4. En cada hito importante: comprobar `preflight`, solicitar la compilación de APK, verificar el artefacto y facilitar al usuario una tabla de pruebas concretas para su Nothing Phone 2a.
 5. Documentar los fallos de compilación y su corrección antes de liberar un nuevo hito.
 
+**A3/C1 — límite espacial del prototipo Rust (26-10-2026):** `native3d::extrude` rechaza perfiles XY y alturas que excedan ±100 millones de mm, además de los valores no finitos, antes de crear una malla. El adaptador `PreviewState` no añade sólidos ni consume identificadores tras el rechazo; se incluyen regresiones de límite válido, exceso positivo/negativo y conservación del estado. **Este núcleo Rust sigue siendo experimental y no está conectado al APK ni sustituye la validación JavaScript existente.** No se solicita APK.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.
