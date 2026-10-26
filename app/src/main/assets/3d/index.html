@@ -2032,6 +2032,9 @@ for(const ev of ['pointerup','pointercancel'])canvas.addEventListener(ev,e=>{
  if(faceDragMode)finishFaceGesture(e.pointerId,ev==='pointercancel');
  if(moveMode)finishMoveGesture(e.pointerId,ev==='pointercancel');
  let resetIsometric=false;
+ // One cancelled pointer invalidates the whole multi-touch tap, even if
+ // the remaining fingers are later lifted normally.
+ if(ev==='pointercancel')threeFingerTap=null;
  if(threeFingerTap&&threeFingerTap.ids.has(e.pointerId)){
   const initial=threeFingerTap.initial.get(e.pointerId);
   if(Number.isFinite(e.clientX)&&Number.isFinite(e.clientY)&&

@@ -1608,6 +1608,9 @@ assert.equal(isoThreeTap.preserved,true,'three-finger reset changes camera only,
 assert.equal(isoThreeTap.movementIgnored,true,'three-finger drag never counts as a tap');
 assert.equal(isoThreeTap.fourIgnored,true,'fourth finger cancels the reset gesture');
 assert.equal(isoThreeTap.finalClean,true,'canceled multi-touch gestures clear all transient state');
+const cancelledIso=evaluate("(()=>{snap('front');const pd=(id,x)=>canvas.listeners.pointerdown({pointerId:id,clientX:x,clientY:100});const pu=(id,x)=>canvas.listeners.pointerup({pointerId:id,clientX:x,clientY:100});pd(821,100);pd(822,130);pd(823,160);canvas.listeners.pointercancel({pointerId:822,clientX:130,clientY:100});pu(821,100);pu(823,160);return {notReset:az===-Math.PI/2&&el===0,clean:pointers.size===0&&threeFingerTap===null}})()");
+assert.equal(cancelledIso.notReset,true,'OS pointercancel must not trigger isometric reset');
+assert.equal(cancelledIso.clean,true,'cancelled three-finger gesture releases transient state');
 
 /* Finger-centred zoom: compare world coordinates underneath the changing
  * midpoint before and after sequential (not simultaneous) pointer events. */
