@@ -567,4 +567,19 @@ const savedBeforeCrossing=evaluate('serializeProject()');
 assert.equal(evaluate("(()=>{const p=JSON.parse(serializeProject()),m=p.derivedSolids[0].mesh;const cube=extrude([[0,0],[10,0],[10,10],[0,10]],10),n=cube.v.length;const other={v:cube.v.map(point=>point.map((v,i)=>v+[5,5,5][i])),faces:cube.faces};p.derivedSolids[0].mesh={v:cube.v.concat(other.v),faces:cube.faces.concat(other.faces.map(f=>f.map(i=>i+n)))};try{loadProjectText(JSON.stringify(p));return false}catch(e){return e.message.includes('Autointersección')}})()"),true,'project import refuses internally intersecting manifold shells');
 assert.equal(evaluate('serializeProject()'),savedBeforeCrossing,'invalid intersecting shell import preserves previous project');
 
+
+// Nested shell parity: outward exterior, inward cavity, outward island.
+const nestedShells=evaluate("(()=>{const box=(side,offset,reverse=false)=>{const m=extrude([[0,0],[side,0],[side,side],[0,side]],side);return {v:m.v.map(p=>p.map(x=>x+offset)),faces:reverse?m.faces.map(([a,b,c])=>[a,c,b]):m.faces}},merge=(...parts)=>{const r={v:[],faces:[]};for(const p of parts){const n=r.v.length;r.v.push(...p.v);r.faces.push(...p.faces.map(f=>f.map(i=>i+n)))}return r};const outer=box(10,0),cavity=box(6,2,true),island=box(2,4),wrong=box(6,2);const inspect=m=>{try{return {accepted:true,report:inspectMeshTopology(m)}}catch(e){return {accepted:false,error:e.message}}};return {nestedWrong:inspect(merge(outer,wrong)),hollow:inspect(merge(outer,cavity)),island:inspect(merge(outer,cavity,island)),nestedWrongThree:inspect(merge(outer,wrong,island))}})()");
+assert.equal(nestedShells.nestedWrong.accepted,false,'nested duplicate solid material must not be accepted as cavity');
+assert.equal(nestedShells.nestedWrong.error.includes('Orientación de cascarón'),true,'report explains bad nesting');
+assert.equal(nestedShells.hollow.accepted,true,'correctly wound internal cavity remains valid');
+assert.equal(nestedShells.hollow.report.cavities,1,'inward shell is recognized as cavity');
+assert.equal(nestedShells.hollow.report.nestingDepths.join('/'),'0/1','one inner cavity has depth one');
+assert.equal(Math.round(nestedShells.hollow.report.signedVolume),784,'nested cavity volume subtracts');
+assert.equal(nestedShells.island.accepted,true,'nested solid island inside cavity is supported');
+assert.equal(nestedShells.island.report.shells,3,'island creates third shell');
+assert.equal(nestedShells.island.report.nestingDepths.join('/'),'0/1/2','shell containment reports parity 0,1,2');
+assert.equal(Math.round(nestedShells.island.report.signedVolume),792,'island contributes positive material volume');
+assert.equal(nestedShells.nestedWrongThree.accepted,false,'wrong internal shell winding rejected even with positive island');
+
 console.log('3D studio tests passed');
