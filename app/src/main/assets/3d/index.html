@@ -1862,15 +1862,36 @@ function loadProjectText(text){
  fit();setStatus('Proyecto cargado · '+ids.length+' pieza(s)');
  return model;
 }
+/* Project-save gate mirrors the loader checks without modifying active
+ * scene state. Unlike OBJ/STL export, stale CSG is intentionally allowed
+ * here: save the editable sources before opting into regeneration. */
+function verifiedProjectJSON(){
+ const content=serializeProject();
+ if(content.length>2000000)throw Error('El proyecto supera 2 MB; reduce la complejidad antes de guardarlo');
+ const project=JSON.parse(content);
+ const source=[{id:project.activeSolidId,profile:project.profile,height:project.height,
+  sourceHandle:project.sourceHandle,offset:project.activeOffset},...project.solids];
+ const ids=[];
+ for(const item of source){
+  validateProjectSolid(item,item.id,item.offset);
+  ids.push(item.id);
+ }
+ for(const item of project.derivedSolids){
+  validateProjectDerived(item);
+  ids.push(item.id);
+ }
+ if(new Set(ids).size!==ids.length)throw Error('ID de pieza duplicado');
+ if(ids.length>24)throw Error('Límite de 24 piezas');
+ return content;
+}
 function saveProject(){
  try{
-  const content=serializeProject();
-  if(content.length>2000000)throw Error('El proyecto supera 2 MB; reduce la complejidad antes de guardarlo');
+  const content=verifiedProjectJSON();
   const blob=new Blob([content],{type:'application/json'});
   const a=document.createElement('a');a.download='CADCraft_proyecto.json';
   a.href=URL.createObjectURL(blob);a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-  setStatus('Proyecto preparado para guardar');return true;
+  setStatus('Proyecto validado y preparado para guardar');return true;
  }catch(e){setStatus('Guardar: '+e.message);return false;}
 }
 function pickProject(){document.getElementById('projectFile').click();}

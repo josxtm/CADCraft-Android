@@ -750,4 +750,14 @@ assert.equal(staleExport.legacy,true,'legacy CSG without fingerprint is not auto
 assert.equal(staleExport.missing,false,'missing origin blocks export even for legacy CSG');
 assert.equal(staleExport.missingWarning.includes('origen'),true,'orphaned source error names root cause');
 
+/* C3: saving is a read-only validation transaction, including stale models. */
+const safeSave=evaluate("(()=>{loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10}));duplicateSceneSolid();addBooleanToScene('union');const fresh=saveProject(),before=serializeProject();selectExtrudedSolid();changeHeight(5);const stale=saveProject(),staleStatus=derivedSourceStatus(derivedSolids[0]);const snapshot=serializeProject();const item=derivedSolids[0],allFaces=item.mesh.faces;item.mesh.faces=allFaces.slice(1);const invalid=saveProject(),invalidMessage=status.textContent;item.mesh.faces=allFaces;const repaired=saveProject(),after=serializeProject();return {fresh,before,stale,staleStatus,snapshot,invalid,invalidMessage,repaired,after}})()");
+assert.equal(safeSave.fresh,true,'new project saves after structural validation');
+assert.equal(safeSave.stale,true,'source and outdated derived result can still be saved for future regeneration');
+assert.equal(safeSave.staleStatus,'stale','stale derivation status preserved');
+assert.equal(safeSave.invalid,false,'damaged derived geometry blocks JSON save before file creation');
+assert.equal(safeSave.invalidMessage.includes('Guardar:')&&safeSave.invalidMessage.includes('Malla abierta'),true,'invalid save explains damaged topology');
+assert.equal(safeSave.repaired,true,'repaired scene saves successfully');
+assert.equal(safeSave.after,safeSave.snapshot,'save validator does not mutate project or provenance');
+
 console.log('3D studio tests passed');

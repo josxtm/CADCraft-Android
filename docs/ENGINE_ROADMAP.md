@@ -57,6 +57,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 | C1 | Editor 2D y 3D sin transiciones artificiales | Parcial | La edición de boceto conserva asociación con el sólido y sus operaciones |
 | C2 | Manipuladores táctiles, selección precisa, ViewCube y gestos | Parcial | Funcionamiento contrastado en Nothing Phone 2a, sin interferencias con la cámara |
 | C3 | Guardado seguro y recuperación de sesión | Parcial | Autosalvado y restauración tras cierre forzado sin archivos corruptos |
+
+**C3 — guardado validado:** antes de descargar el proyecto JSON, el guardado comprueba los perfiles de origen, las mallas booleanas, las coordenadas y la unicidad de IDs sin alterar la escena. Si una malla está rota, se rechaza el guardado y se conserva el trabajo en pantalla. Una dependencia CSG obsoleta sigue pudiendo guardarse para no perder cambios pendientes; solo se bloquea su exportación geométrica. El autosalvado/recuperación tras cierre sigue pendiente.
 | C4 | Intercambio CAD: STL/OBJ/DXF y STEP | Parcial | STL/OBJ fiables; DXF más completo; STEP solo si existe un motor CAD capaz de representarlo correctamente |
 
 **C4 — coherencia de dependencias:** los resultados CSG obsoletos o sin pieza de origen impiden la exportación general OBJ/STL con un mensaje explicativo. Se conserva la escena y se requiere regeneración explícita. Los resultados heredados sin huella y con fuente existente se siguen pudiendo exportar tras validación geométrica, sin recalcular nada automáticamente.
