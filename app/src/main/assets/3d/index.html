@@ -1440,7 +1440,12 @@ function geometryFeatureProjection(mesh,offset){
   return [canvas.width/2+p.x*scale,canvas.height/2-p.y*scale,p.z];
  });
 }
-function nearestGeometryFeature(px,py,type=geometryMode,record=selectedDerived()){
+/* Inspect vertices and edges of both source extrusions and CSG results.
+ * Source geometry stays parametric: direct 3D edits remain CSG-only. */
+function selectedFeatureRecord(){
+ return selectedDerived()||{id:activeSolidId,mesh:model,offset:activeOffset};
+}
+function nearestGeometryFeature(px,py,type=geometryMode,record=selectedFeatureRecord()){
  if(!record||!['vertex','edge'].includes(type)||!Number.isFinite(px)||!Number.isFinite(py))return null;
  const projected=geometryFeatureProjection(record.mesh,record.offset),d=devicePixelRatio||1;
  const limit=(type==='vertex'?18:14)*d;
@@ -1473,19 +1478,23 @@ function selectGeometryFeatureAt(px,py){
  selectedGeometryFeature=selected;
  render();
  if(!selected){setStatus('No se encontró un '+(geometryMode==='vertex'?'vértice':'borde')+' próximo');return false;}
- const mesh=selectedDerived().mesh;
+ const record=selectedFeatureRecord(),mesh=record.mesh;
  const points=selected.indices.map(i=>mesh.v[i]),fmt=x=>Number(x.toFixed(2)).toLocaleString('es-ES');
  const available=['X','Y','Z'].filter((axis,i)=>points.every(p=>Math.abs(p[i]-points[0][i])<1e-8));
  const axisInput=document.getElementById('featureAxis');
  if(axisInput&&available.length&&!available.includes(axisInput.value))axisInput.value=available[0];
- const middle=[0,1,2].map(i=>points.reduce((sum,p)=>sum+p[i],0)/points.length+selectedDerived().offset[i]);
+ const middle=[0,1,2].map(i=>points.reduce((sum,p)=>sum+p[i],0)/points.length+record.offset[i]);
  setStatus((selected.kind==='vertex'?'Vértice ':'Arista ')+selected.indices.map(i=>i+1).join('–')+
-  ' · X '+fmt(middle[0])+' Y '+fmt(middle[1])+' Z '+fmt(middle[2])+' mm · planos '+available.join('/'));
+  ' · pieza '+record.id+' · X '+fmt(middle[0])+' Y '+fmt(middle[1])+' Z '+fmt(middle[2])+
+  ' mm · planos '+available.join('/')+
+  (selectedDerived()?' · cota de resultado editable':' · edita la extrusión desde el boceto 2D'));
  return true;
 }
 function drawGeometryFeatures(ctx){
- if(!geometryMode||!selectedDerived())return;
- const record=selectedDerived(),points=geometryFeatureProjection(record.mesh,record.offset);
+ if(!geometryMode)return;
+ const record=selectedFeatureRecord();
+ if(!record.mesh)return;
+ const points=geometryFeatureProjection(record.mesh,record.offset);
  const d=devicePixelRatio||1,selected=selectedGeometryFeature;
  if(geometryMode==='vertex'){
   // Limit purely decorative dots; hit-testing still covers every vertex.
@@ -1668,7 +1677,8 @@ function toggleGeometryMode(kind){
  if(vertex)vertex.textContent=kind==='vertex'?'Vértices: ON':'Vértices: OFF';
  if(edge)edge.textContent=kind==='edge'?'Aristas: ON':'Aristas: OFF';
  render();
- setStatus(selectedDerived()?'Toca un '+(kind==='vertex'?'vértice':'borde')+' de la malla':'Selecciona primero un resultado booleano');
+ setStatus('Toca un '+(kind==='vertex'?'vértice':'borde')+
+  (selectedDerived()?' · los resultados admiten cotas':' · extrusión fuente: edición desde boceto'));
  return kind;
 }
 
