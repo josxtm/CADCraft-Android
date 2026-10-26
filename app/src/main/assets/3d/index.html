@@ -531,7 +531,20 @@ function booleanBoxMesh(first,second,mode){
   if(!has(i,j,k-1))quad([[x0,y0,z0],[x0,y1,z0],[x1,y1,z0],[x1,y0,z0]]);
   if(!has(i,j,k+1))quad([[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]]);
  }
- return {v,faces};
+ // Cross-check the grid CSG with independently clipped profile volumes.
+ // This guards against meshes whose topology looks closed but volumes differ.
+ const metrics=prismOverlapMetrics(first,second);
+ const expected=mode==='union'?metrics.unionVolume:
+                mode==='subtract'?metrics.differenceA:metrics.intersectionVolume;
+ return assertBooleanVolume({v,faces},expected);
+}
+function assertBooleanVolume(mesh,expected){
+ const actual=meshOrientedVolume(mesh);
+ const tolerance=Math.max(1e-6,Math.abs(expected)*1e-7);
+ if(!Number.isFinite(expected)||expected<0||
+    !Number.isFinite(actual)||Math.abs(actual-expected)>tolerance)
+  throw Error('Resultado CSG incoherente: el volumen calculado no coincide con la geometría');
+ return mesh;
 }
 function meshOrientedVolume(solid){
  // Each connected surface has its own local origin. A single global origin

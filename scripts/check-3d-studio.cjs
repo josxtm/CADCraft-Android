@@ -653,4 +653,12 @@ assert.equal(orthogonalBoolean.cavity.shells,2,'sealed interior cavity creates t
 assert.equal(orthogonalBoolean.cavity.cavities,1,'interior orthogonal cavity has reversed winding');
 assert.equal(orthogonalBoolean.rejectsSlant,true,'non-orthogonal polygon continues to be explicitly rejected');
 
+
+// Cross-verify orthogonal CSG results against independently clipped prism volumes.
+const csgCrosscheck=evaluate("(()=>{const L=[[0,0],[10,0],[10,4],[4,4],[4,10],[0,10]],R=[[0,0],[6,0],[6,6],[0,6]],rec=(p,x=0,y=0,z=0,h=10)=>({id:1,profile:p,height:h,offset:[x,y,z],mesh:extrude(p,h)}),a=rec(L),positions=[[-3,-3,0],[1,1,0],[3,3,2],[12,12,0],[1,1,15]],output=[];for(const [x,y,z] of positions){const b=rec(R,x,y,z),m=prismOverlapMetrics(a,b);for(const mode of ['union','subtract','intersect']){const solid=booleanBoxMesh(a,b,mode),expected=mode==='union'?m.unionVolume:mode==='subtract'?m.differenceA:m.intersectionVolume,valid=solid.faces.length?inspectMeshTopology(solid).signedVolume:0;output.push({mode,expected,actual:meshOrientedVolume(solid),valid})}}const mesh=booleanBoxMesh(a,rec(R,1,1),'union');let rejected=false;try{assertBooleanVolume(mesh,0)}catch(e){rejected=e.message.includes('incoherente')}return {output,rejected}})()");
+assert.equal(csgCrosscheck.output.length,15,'15 orthogonal CSG regression combinations');
+assert.equal(csgCrosscheck.output.every(x=>Math.abs(x.actual-x.expected)<1e-5),true,'grid-generated surfaces match analytic clipping volumes');
+assert.equal(csgCrosscheck.output.every(x=>Math.abs(x.valid-x.expected)<1e-5),true,'orthogonal CSG surfaces validate across offsets and Z gaps');
+assert.equal(csgCrosscheck.rejected,true,'integrity guard blocks CSG mesh with contradictory volume');
+
 console.log('3D studio tests passed');
