@@ -117,10 +117,10 @@ El paquete JavaScript del estudio 3D suma **115 comprobaciones locales correctas
 Implementadas en el estudio 3D, todavía **sin solicitar una nueva APK**:
 
 - **Calcular unión/resta** muestra los volúmenes teóricos en mm³ de dos extrusiones, incluso con perfiles cóncavos y alturas negativas. El volumen común se calcula triangulando los contornos y recortando triángulos en XY, multiplicando el área compartida por el intervalo común en Z.
-- **Unión OBJ · bloques**, **Resta OBJ · bloques** e **Intersección OBJ · bloques** generan un archivo de malla real de dos prismas **rectangulares y alineados a los ejes XYZ**, sin superficies interiores redundantes. Se prueban casos superpuestos, disjuntos, idénticos y uno contenido dentro del otro. Los bordes de las mallas producidas en esos casos son cerrados.
+- **Unión OBJ · bloques**, **Resta OBJ · bloques** e **Intersección OBJ · bloques** generan un archivo de malla real de dos prismas **de perfil ortogonal en XY, extruidos en Z**, sin superficies interiores redundantes. Se prueban casos superpuestos, disjuntos, idénticos y uno contenido dentro del otro. Los bordes de las mallas producidas en esos casos son cerrados.
 - Los dos operandos son la **pieza activa** y la **primera pieza almacenada** de la escena. Si no hay segunda pieza, no hay operación.
 - Las geometrías se exportan a **OBJ** como resultado independiente. **No reemplazan la escena actual, no se pueden editar como una entidad paramétrica y no se guardan en el JSON del proyecto**.
-- Los perfiles circulares, inclinados, cóncavos o los booleanos entre más de dos piezas siguen **sin generar una malla booleana**. Las mediciones de volumen de dos perfiles concavos sí están admitidas.
+- Los perfiles circulares, inclinados o las booleanas entre más de dos piezas siguen **sin generar una malla booleana**; los perfiles cóncavos de aristas ortogonales (como una L) sí admiten malla. Las mediciones de volumen de dos perfiles concavos sí están admitidas.
 - Una resta que no deja volumen, o una intersección vacía, se indica como resultado vacío y no intenta exportar una malla inexistente.
 
 Estas operaciones son una etapa limitada y explícita antes de integrar un motor CSG/B-Rep general. Las pruebas JavaScript de geometría no sustituyen la compilación Android ni las pruebas manuales en el teléfono.
@@ -137,7 +137,7 @@ El estudio 3D incorpora ahora un flujo de resultados booleanos **persistentes**:
 - Antes de importar una malla, se comprueban coordenadas, índices, caras degeneradas, bordes abiertos, volumen y límites de tamaño. Un error no reemplaza la escena en memoria.
 - Se separan explícitamente los controles de extrusión paramétrica y de malla booleana: las mallas resultantes pueden **moverse, seleccionarse, duplicarse y borrarse**. Además, ahora admiten un desplazamiento geométrico **limitado de un plano de caras**, con deshacer/rehacer, pero siguen sin admitir croquis paramétricos, extrusión paramétrica ni edición B-Rep general. No hay todavía historial de operaciones reconstruible ni recomputación automática al cambiar sus fuentes.
 - Máximo de **24 piezas totales** entre extrusiones y resultados booleanos.
-- Las operaciones booleanas de creación de malla se limitan a **dos prismas rectangulares alineados a XYZ**. El volumen de intersección sí puede calcularse para perfiles extruidos más generales, pero eso no genera una malla booleana editable.
+- Las operaciones booleanas de creación de malla se limitan a **dos prismas con perfiles rectilíneos alineados a X/Y**. El volumen de intersección sí puede calcularse para perfiles extruidos más generales, pero eso no genera una malla booleana editable.
 - Para evitar proyectos imposibles de reabrir, el guardado JSON rechaza un archivo demasiado grande (límite de 2 MB).
 
 El control JavaScript alcanza **180 pruebas de regresión**, incluidas creación, desplazamiento, exportación, duplicación, persistencia y rechazo de proyectos corruptos. Este bloque **no modifica la versión APK (0.5.0)**. GitHub Actions mantiene el trabajo de compilación Android reservado al disparo manual.

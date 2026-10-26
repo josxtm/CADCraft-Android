@@ -639,4 +639,18 @@ assert.equal(Math.abs(localPrecision.volume-3000)<1e-5,true,'thin air gap and re
 assert.equal(localPrecision.sweepEpsilon<1e-5,true,'broad-phase precision no longer scales with full scene diagonal');
 assert.equal(localPrecision.rejectedTouch,true,'true tangent face is still rejected with a remote shell present');
 
+
+// A4: orthogonal concave profiles now produce genuine manifold CSG meshes.
+const orthogonalBoolean=evaluate("(()=>{const L=[[0,0],[10,0],[10,4],[4,4],[4,10],[0,10]],rect=[[2,2],[6,2],[6,6],[2,6]],inner=[[1,1],[3,1],[3,3],[1,3]],rotated=[[0,5],[5,0],[10,5],[5,10]],rec=(p,h=10,x=0,y=0,z=0)=>({id:1,profile:p,height:h,offset:[x,y,z],mesh:extrude(p,h)}),a=rec(L),b=rec(rect),out={};for(const op of ['union','subtract','intersect']){const m=booleanBoxMesh(a,b,op);out[op]={volume:meshOrientedVolume(m),topology:inspectMeshTopology(m).signedVolume,faces:m.faces.length}}const cavity=booleanBoxMesh(a,rec(inner,5,0,0,2),'subtract');out.cavity={volume:meshOrientedVolume(cavity),shells:inspectMeshTopology(cavity).shells,cavities:inspectMeshTopology(cavity).cavities};let rejectsSlant=false;try{booleanBoxMesh(a,rec(rotated),'union')}catch(e){rejectsSlant=/ortogonales/.test(e.message)}return {...out,rejectsSlant}})()");
+assert.equal(orthogonalBoolean.union.volume,680,'L-shaped union with an overlapping rectangle computes 680 mm3');
+assert.equal(orthogonalBoolean.union.topology,680,'L-shaped union passes manifold topology checks');
+assert.equal(orthogonalBoolean.subtract.volume,520,'L-shaped subtract computes exact concave remainder');
+assert.equal(orthogonalBoolean.subtract.topology,520,'concave subtraction stays watertight');
+assert.equal(orthogonalBoolean.intersect.volume,120,'L-shape and rectangle intersection is 120 mm3');
+assert.equal(orthogonalBoolean.intersect.topology,120,'concave intersection passes topology validation');
+assert.equal(orthogonalBoolean.cavity.volume,620,'submerged orthogonal cut produces correct void volume');
+assert.equal(orthogonalBoolean.cavity.shells,2,'sealed interior cavity creates two shells');
+assert.equal(orthogonalBoolean.cavity.cavities,1,'interior orthogonal cavity has reversed winding');
+assert.equal(orthogonalBoolean.rejectsSlant,true,'non-orthogonal polygon continues to be explicitly rejected');
+
 console.log('3D studio tests passed');
