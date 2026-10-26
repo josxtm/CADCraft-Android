@@ -1637,4 +1637,15 @@ assert.equal(JSON.stringify(viewportTest.snapped),JSON.stringify([10,15]),'grid 
 assert.equal(JSON.stringify(viewportTest.snappedAgain),JSON.stringify([10,15]),'hiding visual grid does not disable snap');
 assert.equal(viewportTest.untouched,true,'changing sketch camera never changes 2D profile or saved 3D scene');
 
+
+/* C1/B3: touch-only Android sketch navigation may pan without creating or
+ * dragging a vertex. Camera changes are transient and never enter undo/JSON. */
+const sketchPanRegression=evaluate("(()=>{const original3d=serializeProject();sketchActive=true;sketchPoints=[[0,0],[100,0],[100,100],[0,100]];fitSketchViewport(800,600);const before=JSON.stringify(sketchPoints),a=sketchWorldToScreen(sketchPoints[0],800,600),originalCenter=sketchCenter.slice(),originalScale=sketchScale;const moved=panSketchViewport(75,-35),b=sketchWorldToScreen(sketchPoints[0],800,600);const restored=panSketchViewport(-75,35),after=sketchWorldToScreen(sketchPoints[0],800,600),wrong=(()=>{try{panSketchViewport(Infinity,5);return false}catch(e){return true}})();const noMutation=serializeProject()===original3d&&JSON.stringify(sketchPoints)===before;sketchActive=false;return {delta:[b[0]-a[0],b[1]-a[1]],moved,restored,after,a,originalCenter,originalScale,wrong,noMutation}})()");
+assert.ok(Math.abs(sketchPanRegression.delta[0]-75)<1e-8,'finger movement moves 2D canvas horizontally');
+assert.ok(Math.abs(sketchPanRegression.delta[1]+35)<1e-8,'finger movement moves 2D canvas vertically');
+assert.ok(Math.hypot(...sketchPanRegression.after.map((x,i)=>x-sketchPanRegression.a[i]))<1e-8,'opposite pan restores original screen position');
+assert.ok(Math.hypot(...sketchPanRegression.restored.map((x,i)=>x-sketchPanRegression.originalCenter[i]))<1e-8,'camera centre returns to start');
+assert.equal(sketchPanRegression.wrong,true,'invalid 2D camera displacement is rejected');
+assert.equal(sketchPanRegression.noMutation,true,'sketch pan changes neither profile nor saved solid');
+
 console.log('3D studio tests passed');

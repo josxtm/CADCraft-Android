@@ -174,6 +174,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **C1/B3 — encuadre y zoom del editor de bocetos 2D (26-10-2026):** el editor local de contornos XY ahora calcula el encuadre del perfil al abrirlo, admite un botón «Encajar boceto» y zoom con rueda/gesto equivalente del navegador anclado al punto de cursor. Las coordenadas mundiales ↔ pantalla usan el mismo centro/escala en dibujo y edición táctil, incluso en planos importados lejos del origen. Se separa **visibilidad de la cuadrícula** y **ajuste a 5 mm**, que antes compartían etiqueta y estado; los trazados de rejilla se omiten a escalas demasiado finas para proteger rendimiento. Pruebas CI verifican perfil desplazado y de gran extensión, transformaciones inversas, zoom anclado, integridad de geometría y snap independiente. Este cambio pertenece a la capa WebView; aún requiere APK y ensayo táctil real.
 
+**C1/B3 — controles de navegación 2D táctiles (26-10-2026):** al encuadre automático del boceto se añaden botones «Zoom +», «Zoom −» y un modo «Desplazar vista», aptos para Android sin rueda de ratón. En modo desplazamiento, arrastrar con un dedo modifica solo el centro temporal de cámara 2D; no agrega vértices, ni modifica el boceto, ni crea historial de edición. Al salir del panel se limpia el gesto y se vuelve a modo normal. Regresiones prueban transformaciones de cámara y rechazo de desplazamientos no finitos. El editor continúa pendiente de pruebas táctiles en APK real.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.

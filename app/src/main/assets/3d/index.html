@@ -3,7 +3,7 @@
 <body><header><button onclick="location.href='../web/index.html'">CAD 2D</button><strong>CADCraft · 3D</strong><button onclick="exportSTL()">Exportar STL</button><button onclick="exportOBJ()">Exportar OBJ</button></header>
 <main><canvas id="scene"></canvas><aside id="toolsPanel"><button onclick="toggleTools()">Ocultar herramientas</button><label>Ancho <input id="width" type="number" value="100" min="0.01" step="1"></label><label>Largo <input id="length" type="number" value="60" min="0.01" step="1"></label><label>Altura <input id="height" type="number" value="25" step="1"></label><button onclick="extrudeForm()">APLICAR EXTRUSIÓN</button><button onclick="changeHeight(-5)">Altura −5 mm</button><button onclick="changeHeight(5)">Altura +5 mm</button><button onclick="createSceneSolid()">Nueva pieza</button><button onclick="duplicateSceneSolid()">Duplicar pieza</button><button onclick="detachActiveSketchSource()">Desvincular boceto 2D</button><button onclick="cycleSceneSolid()">Siguiente pieza</button><button onclick="deleteSceneSolid()">Eliminar pieza</button><label>Despl. X <input id="offsetX" type="number" value="0" step="1"></label><label>Despl. Y <input id="offsetY" type="number" value="0" step="1"></label><label>Despl. Z <input id="offsetZ" type="number" value="0" step="1"></label><button onclick="applyOffset()">Mover pieza activa</button><label>Eje al arrastrar <select id="moveAxis" aria-label="Eje de desplazamiento"><option value="XY">Plano XY</option><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label><label>Rejilla (mm) <input id="moveSnap" type="number" value="0" min="0" max="100" step="1"></label><label>Sensibilidad <input id="moveSensitivity" type="number" min="0.1" max="5" value="1" step="0.1"></label><button onclick="inspectSceneContacts()">Comprobar contactos</button><button onclick="inspectSelectedSolid()">Medir pieza activa/resultado</button><button onclick="diagnoseSelectedMesh()">Diagnóstico malla</button><button onclick="previewBooleanVolumes()">Calcular unión/resta</button><button onclick="exportBooleanOBJ('union')">Unión OBJ · perfiles XY</button><button onclick="exportBooleanOBJ('subtract')">Resta OBJ · perfiles XY</button><button onclick="exportBooleanOBJ('intersect')">Intersección OBJ · perfiles XY</button><button onclick="addBooleanToScene('union')">Añadir unión a escena</button><button onclick="addBooleanToScene('subtract')">Añadir resta a escena</button><button onclick="addBooleanToScene('intersect')">Añadir intersección a escena</button><button onclick="cycleDerivedSolid()">Seleccionar resultado</button><button onclick="regenerateSelectedBoolean()">Regenerar resultado</button><button onclick="showBooleanDependencies()">Estado de dependencias</button><button onclick="regenerateStaleBooleans()">Regenerar obsoletos</button><button onclick="selectExtrudedSolid()">Volver a extrusión</button><button onclick="duplicateDerivedSolid()">Duplicar resultado</button><button onclick="deleteDerivedSolid()">Eliminar resultado</button><label>Desplazar cara (mm) <input id="faceDistance" type="number" value="5" min="0.01" step="1"></label><label>Eje de cota <select id="featureAxis"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label><label>Cambiar cota (mm) <input id="featureDistance" type="number" value="5" min="0.01" step="1"></label><button onclick="editSelectedGeometryFeature(1)">Cota +</button><button onclick="editSelectedGeometryFeature(-1)">Cota −</button><button onclick="scaleSelectedGeometryFeature(1)">Escalar eje +</button><button onclick="scaleSelectedGeometryFeature(-1)">Escalar eje −</button><button onclick="pushPullSelectedFace(1)">Mover plano +</button><button onclick="pushPullSelectedFace(-1)">Mover plano −</button><button onclick="undoDerivedEdit()">Deshacer cara</button><button onclick="redoDerivedEdit()">Rehacer cara</button><button onclick="separateActiveSolid()">Separar pieza +10 mm</button><button onclick="openSketch()">DIBUJAR PERFIL 2D</button><button onclick="pickDxf()">Abrir DXF</button><button onclick="exportProfileDxf()">Exportar DXF 2D</button><button onclick="saveProject()">Guardar proyecto</button><button onclick="pickProject()">Abrir proyecto</button><button onclick="restoreRecoverySnapshot()">Recuperar sesión</button><button onclick="discardRecoverySnapshot()">Borrar copia local</button><input type="file" id="projectFile" accept=".json,application/json" hidden><input type="file" id="file" accept=".dxf" hidden></aside>
 <div id="cube"><span></span><button onclick="snap('top')">SUP</button><span></span><button onclick="snap('left')">IZQ</button><button onclick="snap('iso')">3D</button><button onclick="snap('right')">DER</button><span></span><button onclick="snap('front')">FTE</button><span></span></div>
-<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button><button onclick="updateSelectedPoint()">Mover seleccionado</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="redoSketch()">Rehacer</button><button onclick="makeRectangleSketch()">Rectángulo exacto</button><label>Ø mm <input id="sketchDiameter" type="number" min="0.01" value="40" step="1"></label><button onclick="makeCircleSketch()">Círculo exacto</button><button onclick="deleteSelectedVertex()">Borrar vértice</button><button id="sketchSnapButton" onclick="toggleSketchSnap()">Ajuste 5 mm: ON</button><button id="sketchGridButton" onclick="toggleSketchGrid()">Cuadrícula: ON</button><button onclick="fitSketch()">Encajar boceto</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="contactInfo" aria-live="polite" style="position:absolute;right:8px;bottom:108px;background:#17293ae8;padding:7px;border-radius:6px;max-width:60%;font-size:12px;max-height:64px;overflow:auto">Contactos sin analizar</div><div id="measurements" aria-live="polite" style="position:absolute;right:8px;bottom:52px;background:#141c2de8;padding:7px;border-radius:6px;max-width:60%;font-size:12px">Medidas del sólido</div><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="focusSelectedSolid()">Centrar pieza</button><button id="toolsToggle" onclick="toggleTools()">Panel: ON</button><button id="moveModeButton" onclick="toggleMoveMode()">Mover: OFF</button><button onclick="undoMove()">Deshacer mover</button><button onclick="redoMove()">Rehacer mover</button><button id="selectFaceButton" onclick="toggleFaceMode()">Seleccionar cara</button><button id="dragFaceButton" onclick="toggleFaceDragMode()">Arrastrar plano: OFF</button><button id="vertexModeButton" onclick="toggleGeometryMode('vertex')">Vértices: OFF</button><button id="edgeModeButton" onclick="toggleGeometryMode('edge')">Aristas: OFF</button><button onclick="clearFaceSelection()">Deseleccionar</button><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
+<section id="sketchPanel" aria-label="Editor de perfil 2D"><strong>Perfil 2D · planta XY (mm)</strong><div id="sketchInfo">Pulsa para añadir vértices · cuadrícula 5 mm</div><div class="toolbar"><label>X (mm) <input id="sketchX" type="number" value="0" step="1"></label><label>Y (mm) <input id="sketchY" type="number" value="0" step="1"></label><button onclick="addPrecisePoint()">Añadir XY</button><button onclick="updateSelectedPoint()">Mover seleccionado</button></div><canvas id="sketchCanvas"></canvas><div class="toolbar"><button onclick="undoSketch()">Deshacer</button><button onclick="redoSketch()">Rehacer</button><button onclick="makeRectangleSketch()">Rectángulo exacto</button><label>Ø mm <input id="sketchDiameter" type="number" min="0.01" value="40" step="1"></label><button onclick="makeCircleSketch()">Círculo exacto</button><button onclick="deleteSelectedVertex()">Borrar vértice</button><button id="sketchSnapButton" onclick="toggleSketchSnap()">Ajuste 5 mm: ON</button><button id="sketchGridButton" onclick="toggleSketchGrid()">Cuadrícula: ON</button><button onclick="fitSketch()">Encajar boceto</button><button onclick="zoomSketchByFactor(1.5)">Zoom +</button><button onclick="zoomSketchByFactor(1/1.5)">Zoom −</button><button id="sketchPanButton" onclick="toggleSketchPan()">Desplazar vista: OFF</button><button onclick="clearSketch()">Borrar</button><button onclick="closeSketch()">Cancelar</button><button onclick="finishSketch()">Cerrar y extruir</button></div></section><div id="contactInfo" aria-live="polite" style="position:absolute;right:8px;bottom:108px;background:#17293ae8;padding:7px;border-radius:6px;max-width:60%;font-size:12px;max-height:64px;overflow:auto">Contactos sin analizar</div><div id="measurements" aria-live="polite" style="position:absolute;right:8px;bottom:52px;background:#141c2de8;padding:7px;border-radius:6px;max-width:60%;font-size:12px">Medidas del sólido</div><div id="status" role="status">Arrastra para girar · Pellizca para zoom</div></main><footer><button onclick="focusSelectedSolid()">Centrar pieza</button><button id="toolsToggle" onclick="toggleTools()">Panel: ON</button><button id="moveModeButton" onclick="toggleMoveMode()">Mover: OFF</button><button onclick="undoMove()">Deshacer mover</button><button onclick="redoMove()">Rehacer mover</button><button id="selectFaceButton" onclick="toggleFaceMode()">Seleccionar cara</button><button id="dragFaceButton" onclick="toggleFaceDragMode()">Arrastrar plano: OFF</button><button id="vertexModeButton" onclick="toggleGeometryMode('vertex')">Vértices: OFF</button><button id="edgeModeButton" onclick="toggleGeometryMode('edge')">Aristas: OFF</button><button onclick="clearFaceSelection()">Deseleccionar</button><button onclick="snap('iso')">Isométrica</button><button onclick="snap('top')">Superior</button><button onclick="snap('front')">Frontal</button><button onclick="fit()">Encuadrar</button></footer>
 <script>
 'use strict';
 const canvas=document.getElementById('scene'),ctx=canvas.getContext('2d');
@@ -2882,6 +2882,7 @@ function receiveSelectedProfile(){
    This is deliberately separate from upstream CADCraft's document model. */
 let sketchPoints=[],sketchActive=false,selectedSketchVertex=-1,sketchDragId=null,sketchDragRecorded=false;
 let sketchHistory=[],sketchRedoHistory=[],sketchSnapping=true,sketchGridVisible=true;
+let sketchPanMode=false,sketchPanGesture=null;
 const sketchStep=5;
 let sketchScale=2,sketchCenter=[0,0];
 /* The sketch viewport is a temporary 2D camera, not part of the saved
@@ -2929,6 +2930,28 @@ function fitSketch(){
  try{fitSketchViewport(rect.width,rect.height);drawSketch();return true;}
  catch(e){document.getElementById('sketchInfo').textContent=e.message;return false;}
 }
+function panSketchViewport(dx,dy){
+ if(!Number.isFinite(dx)||!Number.isFinite(dy)||!Number.isFinite(sketchScale)||sketchScale<=0)
+  throw Error('Desplazamiento 2D no válido');
+ const next=[sketchCenter[0]-dx/sketchScale,sketchCenter[1]+dy/sketchScale];
+ if(next.some(n=>!Number.isFinite(n)||Math.abs(n)>1e10))
+  throw Error('Vista 2D fuera de límites');
+ sketchCenter=next;return sketchCenter;
+}
+function zoomSketchByFactor(factor){
+ const sc=document.getElementById('sketchCanvas');
+ if(!sketchActive||!sc)return false;
+ const rect=sc.getBoundingClientRect();
+ try{zoomSketchViewport(rect.width/2,rect.height/2,factor,rect.width,rect.height);drawSketch();return true;}
+ catch(e){document.getElementById('sketchInfo').textContent=e.message;return false;}
+}
+function toggleSketchPan(){
+ if(!sketchActive)return false;
+ sketchPanMode=!sketchPanMode;sketchPanGesture=null;sketchDragId=null;
+ const btn=document.getElementById('sketchPanButton');
+ if(btn)btn.textContent=sketchPanMode?'Desplazar vista: ON':'Desplazar vista: OFF';
+ drawSketch();return sketchPanMode;
+}
 function cloneSketch(points){return points.map(p=>p.slice());}
 function pushSketchHistory(){sketchHistory.push(cloneSketch(sketchPoints));if(sketchHistory.length>100)sketchHistory.shift();sketchRedoHistory=[];}
 function undoSketchState(){if(!sketchHistory.length)return false;sketchRedoHistory.push(cloneSketch(sketchPoints));sketchPoints=sketchHistory.pop();selectedSketchVertex=-1;return true;}
@@ -2968,6 +2991,11 @@ function openSketch(){
  if(!sc.dataset.ready){
   sc.addEventListener('pointerdown',e=>{
    if(!sketchActive)return;
+   if(sketchPanMode){
+    sketchPanGesture={pointerId:e.pointerId,x:e.clientX,y:e.clientY};
+    if(sc.setPointerCapture)sc.setPointerCapture(e.pointerId);
+    return;
+   }
    const rect=sc.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
    let nearest=-1,best=15;
    for(let i=0;i<sketchPoints.length;i++){
@@ -2984,14 +3012,27 @@ function openSketch(){
    drawSketch();
   });
   sc.addEventListener('pointermove',e=>{
-   if(!sketchActive||e.pointerId!==sketchDragId||selectedSketchVertex<0)return;
+   if(!sketchActive)return;
+   if(sketchPanMode&&sketchPanGesture&&sketchPanGesture.pointerId===e.pointerId){
+    try{
+     const dx=e.clientX-sketchPanGesture.x,dy=e.clientY-sketchPanGesture.y;
+     panSketchViewport(dx,dy);
+     sketchPanGesture.x=e.clientX;sketchPanGesture.y=e.clientY;
+     drawSketch();
+    }catch(err){document.getElementById('sketchInfo').textContent=err.message;}
+    return;
+   }
+   if(e.pointerId!==sketchDragId||selectedSketchVertex<0)return;
    const rect=sc.getBoundingClientRect(),p=snapSketchPoint(...sketchScreenToWorld(e.clientX-rect.left,e.clientY-rect.top,rect.width,rect.height));
    const old=sketchPoints[selectedSketchVertex];
    if(old[0]===p[0]&&old[1]===p[1])return;
    if(!sketchDragRecorded){pushSketchHistory();sketchDragRecorded=true;}
    sketchPoints[selectedSketchVertex]=p;drawSketch();
   });
-  for(const event of ['pointerup','pointercancel'])sc.addEventListener(event,e=>{if(e.pointerId===sketchDragId)sketchDragId=null;});
+  for(const event of ['pointerup','pointercancel'])sc.addEventListener(event,e=>{
+   if(e.pointerId===sketchDragId)sketchDragId=null;
+   if(sketchPanGesture&&e.pointerId===sketchPanGesture.pointerId)sketchPanGesture=null;
+  });
   sc.addEventListener('wheel',e=>{
    if(!sketchActive)return;
    e.preventDefault();
@@ -3062,7 +3103,12 @@ function toggleSketchGrid(){
 function undoSketch(){if(undoSketchState())drawSketch();}
 function redoSketch(){if(redoSketchState())drawSketch();}
 function clearSketch(){pushSketchHistory();sketchPoints=[];selectedSketchVertex=-1;drawSketch();}
-function closeSketch(){sketchActive=false;sketchDragId=null;document.getElementById('sketchPanel').classList.remove('open');}
+function closeSketch(){
+ sketchActive=false;sketchDragId=null;sketchPanGesture=null;sketchPanMode=false;
+ const button=document.getElementById('sketchPanButton');
+ if(button)button.textContent='Desplazar vista: OFF';
+ document.getElementById('sketchPanel').classList.remove('open');
+}
 function finishSketch(){
  try{setSketchProfile(sketchPoints);closeSketch();}
  catch(e){document.getElementById('sketchInfo').textContent='Error: '+e.message;}
