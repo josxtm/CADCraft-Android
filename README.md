@@ -235,6 +235,18 @@ La batería local suma **445 comprobaciones JavaScript**, pero estas pruebas **n
 
 El trabajo `android` sigue bloqueado en cambios ordinarios y solo se ejecuta mediante lanzamiento manual de una APK de hito.
 
+### Detección de autointersecciones, anidamiento y exportación segura
+
+El motor examina parejas candidatas de triángulos mediante un **barrido de cajas de contorno 3D** y una comprobación geométrica posterior. Se rechazan penetraciones claras entre triángulos, solapes coplanares con área, dos cascarones que se cruzan o tocan, y mallas plegadas que atraviesan su propia superficie.
+
+El diagnóstico de cascarones añade comprobación de **anidamiento por ángulo sólido**: la superficie exterior tiene orientación positiva, una cavidad interior negativa y una isla de material dentro de la cavidad positiva. Dos cascarones sólidos anidados con orientación positiva ya no se aceptan como si representaran dos piezas válidas.
+
+**Exportación segura:** antes de exportar una unión, resta o intersección OBJ entre cajas, se valida la malla booleana. Si dos cajas se tocan solo por una arista o un vértice, su unión puede ser no manifold; en ese caso se **rechaza la exportación**, en lugar de generar un OBJ geométricamente inválido.
+
+Se añadieron verificaciones de **375 operaciones booleanas parametrizadas** y regresiones de autointersección, cavidades e islas: **482 aserciones JavaScript locales**. La validación es una barrera de seguridad, **no una garantía completa de ausencia de autointersecciones geométricas**, ni equivale a un CAD B-Rep de precisión industrial.
+
+No se ha solicitado una nueva APK. La prueba Android real continúa pendiente del hito principal.
+
 ## Hoja de ruta
 
 | Versión | Objetivo | Estado |
