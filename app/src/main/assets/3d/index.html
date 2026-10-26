@@ -77,11 +77,16 @@ function validateOffset(value){
 function createSceneSolid(){
  if(!model||storedSolids.length+derivedSolids.length>=23){setStatus('Límite de 24 piezas');return false;}
  try{
-  const next=extrude([[0,0],[100,0],[100,60],[0,60]],25);
+  // Prepare every failure-prone element before changing the live scene.
+  if(!Number.isSafeInteger(nextSolidId)||nextSolidId<1)throw Error('ID de pieza no válido');
+  const newProfile=[[0,0],[100,0],[100,60],[0,60]];
+  const next=extrude(newProfile,25);
   const farthestX=Math.max(...allSceneMeshes().flatMap(item=>item.v.map(p=>p[0])));
-  storedSolids.push(captureActiveSolid());invalidateSceneContacts();
-  activeSolidId=nextSolidId++;selectedDerivedId=null;activeOffset=[farthestX+20,0,0];
-  poly=[[0,0],[100,0],[100,60],[0,60]];height=25;model=next;sourceHandle=null;profileFromDXF=true;selectedFace=-1;
+  const candidateOffset=validateOffset([farthestX+20,0,0]);
+  const previous=captureActiveSolid();
+  storedSolids.push(previous);invalidateSceneContacts();
+  activeSolidId=nextSolidId++;selectedDerivedId=null;activeOffset=candidateOffset;
+  poly=newProfile;height=25;model=next;sourceHandle=null;profileFromDXF=true;selectedFace=-1;
   document.getElementById('height').value='25';syncOffsetFields();
   fit();setStatus('Nueva pieza '+activeSolidId+' · '+(storedSolids.length+1)+' en escena');return true;
  }catch(e){setStatus('Nueva pieza: '+e.message);return false;}
@@ -90,11 +95,14 @@ function duplicateSceneSolid(){
  if(selectedDerived()){setStatus('Para duplicar una malla usa Duplicar resultado');return false;}
  if(!model||storedSolids.length+derivedSolids.length>=23){setStatus('Límite de 24 piezas');return false;}
  try{
+  if(!Number.isSafeInteger(nextSolidId)||nextSolidId<1)throw Error('ID de pieza no válido');
   const xs=model.v.map(p=>p[0]),width=Math.max(...xs)-Math.min(...xs);
-  const copy=captureActiveSolid();copy.id=nextSolidId++;
-  copy.offset=[activeOffset[0]+width+20,activeOffset[1],activeOffset[2]];
-  copy.profile=copy.profile.map(p=>p.slice());
-  copy.mesh=extrude(copy.profile,copy.height);storedSolids.push(copy);selectedDerivedId=null;syncOffsetFields();invalidateSceneContacts();
+  const copy=captureActiveSolid();
+  const offset=validateOffset([activeOffset[0]+width+20,activeOffset[1],activeOffset[2]]);
+  const mesh=extrude(copy.profile,copy.height);
+  copy.id=nextSolidId;copy.offset=offset;copy.mesh=mesh;
+  storedSolids.push(copy);nextSolidId++;
+  selectedDerivedId=null;syncOffsetFields();invalidateSceneContacts();
   fit();setStatus('Duplicada como pieza '+copy.id);return true;
  }catch(e){setStatus('Duplicar: '+e.message);return false;}
 }

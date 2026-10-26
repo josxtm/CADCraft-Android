@@ -832,4 +832,22 @@ assert.equal(nestedShellChecks.valid.materialComponents,2,'nested material islan
 assert.equal(Math.abs(nestedShellChecks.valid.signedVolume-920)<1e-5,true,'nested cavity and island have correct net volume');
 assert.equal(nestedShellChecks.invertedRejected,true,'incorrect island winding is rejected');
 
+
+/* C3/A3: copying/creating sources near coordinate bounds must never mutate
+ * the project, dependency IDs or undo state before validating offsets. */
+const transactionalSources=evaluate("(()=>{const project={format:'cadcraft-android-3d',version:2,profile:[[0,0],[10,0],[10,10],[0,10]],height:10,activeSolidId:1,activeOffset:[99999985,0,0],solids:[]};loadProjectText(JSON.stringify(project));const before=serializeProject(),id=nextSolidId;const rejectedNew=createSceneSolid(),newError=status.textContent,afterNew=serializeProject(),idNew=nextSolidId;const rejectedCopy=duplicateSceneSolid(),copyError=status.textContent,afterCopy=serializeProject(),idCopy=nextSolidId;moveActiveSolid(0,0,0);const created=createSceneSolid(),newId=activeSolidId,validOffset=activeOffset[0];const dup=duplicateSceneSolid(),duplicateId=storedSolids[storedSolids.length-1].id;return {before,afterNew,afterCopy,id,idNew,idCopy,rejectedNew,rejectedCopy,newError,copyError,created,newId,validOffset,dup,duplicateId,total:storedSolids.length+1}})()");
+assert.equal(transactionalSources.rejectedNew,false,'new extrusion rejects out-of-range placement');
+assert.equal(transactionalSources.rejectedCopy,false,'duplicate extrusion rejects out-of-range placement');
+assert.equal(transactionalSources.before,transactionalSources.afterNew,'rejected new piece preserves original project');
+assert.equal(transactionalSources.before,transactionalSources.afterCopy,'rejected duplicate preserves original project');
+assert.equal(transactionalSources.id,transactionalSources.idNew,'rejected new piece does not consume ID');
+assert.equal(transactionalSources.id,transactionalSources.idCopy,'rejected duplicate does not consume ID');
+assert.equal(transactionalSources.newError.includes('Nueva pieza:')&&transactionalSources.copyError.includes('Duplicar:'),true,'both errors are shown in status bar');
+assert.equal(transactionalSources.created,true,'new piece can be created once source is moved safely');
+assert.equal(transactionalSources.newId,transactionalSources.id,'first valid creation receives the expected ID');
+assert.equal(transactionalSources.validOffset,30,'new extruded box uses a legal displacement');
+assert.equal(transactionalSources.dup,true,'valid source duplication still works');
+assert.equal(transactionalSources.duplicateId,transactionalSources.id+1,'subsequent copy receives the next ID');
+assert.equal(transactionalSources.total,3,'scene has two original instances and one valid duplicate');
+
 console.log('3D studio tests passed');
