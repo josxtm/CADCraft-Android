@@ -122,6 +122,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **B3/C1 — duplicación vinculada en el prototipo Rust (26-10-2026):** `PreviewState::duplicate_solid(id, offset)` copia una extrusión con nuevo identificador y desplazamiento XYZ independiente, conservando su vínculo con el mismo boceto 2D. Al modificar el boceto, ambas copias se recalculan, pero cada una mantiene su propia altura y traslación. Las validaciones de ID, coordenadas no finitas y límites mundiales se realizan antes de crear la copia: los rechazos no modifican piezas, cámara ni secuencia de IDs. Incluye regresiones de actualización vinculada, alturas independientes y agotamiento de IDs. **Solo prototipo Rust; todavía no integrado en la APK.**
 
+**A1/A5 — mediciones geométricas del prototipo Rust (26-10-2026):** `PreviewState::measure_solid(id)` devuelve volumen orientado (mm³), superficie (mm²) y caja XYZ mundial de una pieza triangulada, con cálculo por triángulos relativo a un origen local para soportar coordenadas de ±90 millones de mm. Las consultas son de solo lectura y devuelven un error ante caras inválidas o ID inexistente. Incluye pruebas con extrusión negativa, alturas editadas y desplazamientos. No reemplaza la validación manifold completa de JavaScript ni constituye un núcleo B-Rep; **todavía no se conecta al Android WebView**.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.

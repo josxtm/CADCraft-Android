@@ -21,6 +21,17 @@ pub enum WorkspaceError {
     Geometry(ExtrudeError),
     SolidNotFound,
     IdExhausted,
+    InvalidMesh,
+}
+
+/// Read-only dimension report for a closed triangulated preview solid.
+/// Surface area and volume are in mm²/mm³; AABB is in world coordinates.
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub struct SolidMeasurements {
+    pub volume_mm3:f64,
+    pub surface_area_mm2:f64,
+    pub bounds_min:Vec3,
+    pub bounds_max:Vec3,
 }
 
 #[derive(Clone,Debug)]
@@ -172,6 +183,49 @@ impl PreviewState {
     pub fn solid_world_vertex(&self,id:u64,vertex_index:usize)->Option<Vec3> {
         let solid=self.solids.iter().find(|solid|solid.id==id)?;
         solid.mesh.vertices.get(vertex_index).map(|point|*point+solid.offset)
+    }
+    /// Return manufacturing-oriented measurements of one selected extrusion.
+    /// Compute face geometry relative to a local mesh origin so a part many
+    /// kilometres from (0,0,0) does not lose small areas or volumes through
+    /// cancellation. World bounds include the independent XYZ offset.
+    /// Invalid faces are rejected; this query never changes model or camera.
+    pub fn measure_solid(&self,id:u64)->Result<SolidMeasurements,WorkspaceError> {
+        let solid=self.solids.iter().find(|item|item.id==id)
+            .ok_or(WorkspaceError::SolidNotFound)?;
+        let mesh=&solid.mesh;
+        let origin=*mesh.vertices.first().ok_or(WorkspaceError::InvalidMesh)?;
+        if mesh.triangles.is_empty(){return Err(WorkspaceError::InvalidMesh)}
+        let mut min=Vec3::new(f64::INFINITY,f64::INFINITY,f64::INFINITY);
+        let mut max=Vec3::new(f64::NEG_INFINITY,f64::NEG_INFINITY,f64::NEG_INFINITY);
+        for &local in &mesh.vertices {
+            let p=local+solid.offset;
+            if !p.x.is_finite()||!p.y.is_finite()||!p.z.is_finite()||
+               [p.x,p.y,p.z].iter().any(|v|v.abs()>MAX_WORLD_COORD) {
+                return Err(WorkspaceError::InvalidMesh)
+            }
+            min.x=min.x.min(p.x);min.y=min.y.min(p.y);min.z=min.z.min(p.z);
+            max.x=max.x.max(p.x);max.y=max.y.max(p.y);max.z=max.z.max(p.z);
+        }
+        let mut oriented_volume=0.0;
+        let mut surface_area=0.0;
+        for face in &mesh.triangles {
+            let a=*mesh.vertices.get(face[0] as usize).ok_or(WorkspaceError::InvalidMesh)?-origin;
+            let b=*mesh.vertices.get(face[1] as usize).ok_or(WorkspaceError::InvalidMesh)?-origin;
+            let c=*mesh.vertices.get(face[2] as usize).ok_or(WorkspaceError::InvalidMesh)?-origin;
+            let normal=(b-a).cross(c-a);
+            let double_area=normal.norm();
+            if !double_area.is_finite()||double_area<=1e-12 {
+                return Err(WorkspaceError::InvalidMesh)
+            }
+            surface_area+=double_area/2.0;
+            oriented_volume+=a.dot(b.cross(c))/6.0;
+        }
+        if !surface_area.is_finite()||!oriented_volume.is_finite()||
+           oriented_volume<=1e-10 {
+            return Err(WorkspaceError::InvalidMesh)
+        }
+        Ok(SolidMeasurements{volume_mm3:oriented_volume,surface_area_mm2:surface_area,
+                             bounds_min:min,bounds_max:max})
     }
     pub fn remove_solid(&mut self,id:u64)->bool {
         let before=self.solids.len();
@@ -532,6 +586,47 @@ mod tests{
         assert_eq!(state.duplicate_solid(1,Vec3::new(40.0,0.0,0.0)),Ok(next));
         assert_eq!(state.solids.len(),2);
         assert_eq!(state.next_id,next+1);
+    }
+
+    #[test]fn measured_solids_report_world_bounds_and_local_stable_volume() {
+        let mut state=PreviewState::default();
+        let rectangle=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                           Point2::new(10.0,20.0),Point2::new(0.0,20.0)];
+        state.select_profile_checked(73,rectangle).unwrap();
+        let id=state.extrude_selected(-5.0).unwrap();
+        state.set_solid_offset(id,Vec3::new(90_000_000.0,-90_000_000.0,100.0)).unwrap();
+        let solids=state.solids.clone();
+        let old_camera=state.camera;
+        let m=state.measure_solid(id).unwrap();
+        assert!((m.volume_mm3-1000.0).abs()<1e-6);
+        assert!((m.surface_area_mm2-700.0).abs()<1e-6);
+        assert_eq!(m.bounds_min,Vec3::new(90_000_000.0,-90_000_000.0,95.0));
+        assert_eq!(m.bounds_max,Vec3::new(90_000_010.0,-89_999_980.0,100.0));
+        assert_eq!(state.measure_solid(999),Err(WorkspaceError::SolidNotFound));
+        assert_eq!(state.solids,solids);
+        assert_eq!(state.camera,old_camera);
+        state.set_solid_height(id,8.0).unwrap();
+        let larger=state.measure_solid(id).unwrap();
+        assert!((larger.volume_mm3-1600.0).abs()<1e-6);
+        assert!((larger.surface_area_mm2-880.0).abs()<1e-6);
+        assert_eq!(larger.bounds_min.z,100.0);
+        assert_eq!(larger.bounds_max.z,108.0);
+    }
+
+    #[test]fn measuring_invalid_preview_faces_returns_error_without_panic() {
+        let mut state=PreviewState::default();
+        let square=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                        Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile_checked(1,square).unwrap();
+        let id=state.extrude_selected(10.0).unwrap();
+        let before=state.measure_solid(id).unwrap();
+        assert_eq!(before.volume_mm3,1000.0);
+        let cam=state.camera;
+        state.solids[0].mesh.triangles[0][0]=999;
+        let bad=state.solids.clone();
+        assert_eq!(state.measure_solid(id),Err(WorkspaceError::InvalidMesh));
+        assert_eq!(state.solids,bad);
+        assert_eq!(state.camera,cam);
     }
 
     #[test]fn focusing_one_translated_solid_does_not_move_any_scene_geometry() {
