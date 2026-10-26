@@ -1,6 +1,6 @@
 //! UI-facing adapter for selected 2D profiles and an orbitable solid preview.
 //! Independent of upstream egui so CADCraft can call this through a narrow API.
-use crate::{extrude,Camera,ExtrudeError,Mesh,Point2,View,Vec3};
+use crate::{extrude,Camera,ExtrudeError,Mesh,Point2,View,Vec3,MAX_WORLD_COORD};
 
 #[derive(Clone,Debug,PartialEq)]
 pub struct Solid {
@@ -9,12 +9,15 @@ pub struct Solid {
     pub height:f64,
     pub outline:Vec<Point2>,
     pub mesh:Mesh,
+    /// World-space translation; does not change the linked 2D sketch.
+    pub offset:Vec3,
 }
 
 #[derive(Debug,PartialEq)]
 pub enum WorkspaceError {
     NoProfile,
     InvalidHeight,
+    InvalidOffset,
     Geometry(ExtrudeError),
     SolidNotFound,
     IdExhausted,
@@ -47,6 +50,21 @@ impl PreviewState {
         self.selected_outline=None;
     }
     pub fn has_profile(&self)->bool {self.selected_outline.is_some()}
+    /// Preflight every translated vertex before committing an edit.
+    /// The original profile and its non-translated triangulation stay untouched.
+    fn validate_world_mesh(mesh:&Mesh,offset:Vec3)->Result<(),WorkspaceError> {
+        let components=[offset.x,offset.y,offset.z];
+        if components.iter().any(|v|!v.is_finite()||v.abs()>MAX_WORLD_COORD) {
+            return Err(WorkspaceError::InvalidOffset)
+        }
+        for point in &mesh.vertices {
+            let world=*point+offset;
+            if [world.x,world.y,world.z].iter().any(|v|!v.is_finite()||v.abs()>MAX_WORLD_COORD) {
+                return Err(WorkspaceError::Geometry(ExtrudeError::OutOfBounds))
+            }
+        }
+        Ok(())
+    }
     pub fn extrude_selected(&mut self,height:f64)->Result<u64,WorkspaceError> {
         if !height.is_finite()||height.abs()<1e-10{return Err(WorkspaceError::InvalidHeight)}
         let points=self.selected_outline.as_ref().ok_or(WorkspaceError::NoProfile)?;
@@ -55,7 +73,8 @@ impl PreviewState {
         // u64::MAX after saturating_add, which would create duplicate solids.
         let id=self.next_id;
         let following_id=id.checked_add(1).ok_or(WorkspaceError::IdExhausted)?;
-        self.solids.push(Solid{id,source_handle:self.selected_handle,height,outline:points.clone(),mesh});
+        self.solids.push(Solid{id,source_handle:self.selected_handle,height,outline:points.clone(),mesh,
+            offset:Vec3::new(0.0,0.0,0.0)});
         self.next_id=following_id;
         Ok(id)
     }
@@ -70,6 +89,7 @@ impl PreviewState {
         }
         let candidate=extrude(&self.solids[index].outline,height)
             .map_err(WorkspaceError::Geometry)?;
+        Self::validate_world_mesh(&candidate,self.solids[index].offset)?;
         self.solids[index].mesh=candidate;
         self.solids[index].height=height;
         Ok(())
@@ -84,6 +104,7 @@ impl PreviewState {
         for (index,solid) in self.solids.iter().enumerate() {
             if solid.source_handle==Some(source_handle) {
                 let mesh=extrude(&outline,solid.height).map_err(WorkspaceError::Geometry)?;
+                Self::validate_world_mesh(&mesh,solid.offset)?;
                 rebuilt.push((index,mesh));
             }
         }
@@ -107,6 +128,21 @@ impl PreviewState {
         }
         Ok(count)
     }
+    /// Place one source extrusion in world XYZ without changing its sketch,
+    /// height, solid identity, or the saved source linkage.
+    /// Out-of-range edits are rejected without mutating camera or solids.
+    pub fn set_solid_offset(&mut self,id:u64,offset:Vec3)->Result<(),WorkspaceError> {
+        let index=self.solids.iter().position(|solid|solid.id==id)
+            .ok_or(WorkspaceError::SolidNotFound)?;
+        Self::validate_world_mesh(&self.solids[index].mesh,offset)?;
+        self.solids[index].offset=offset;
+        Ok(())
+    }
+    /// Get a source mesh vertex with its current world XYZ translation.
+    pub fn solid_world_vertex(&self,id:u64,vertex_index:usize)->Option<Vec3> {
+        let solid=self.solids.iter().find(|solid|solid.id==id)?;
+        solid.mesh.vertices.get(vertex_index).map(|point|*point+solid.offset)
+    }
     pub fn remove_solid(&mut self,id:u64)->bool {
         let before=self.solids.len();
         self.solids.retain(|solid|solid.id!=id);
@@ -126,7 +162,8 @@ impl PreviewState {
         let mut min=Vec3::new(f64::INFINITY,f64::INFINITY,f64::INFINITY);
         let mut max=Vec3::new(f64::NEG_INFINITY,f64::NEG_INFINITY,f64::NEG_INFINITY);
         for solid in &self.solids {
-            for &p in &solid.mesh.vertices {
+            for &local in &solid.mesh.vertices {
+                let p=local+solid.offset;
                 min.x=min.x.min(p.x);min.y=min.y.min(p.y);min.z=min.z.min(p.z);
                 max.x=max.x.max(p.x);max.y=max.y.max(p.y);max.z=max.z.max(p.z);
             }
@@ -287,6 +324,62 @@ mod tests{
         assert_eq!(state.selected_outline,Some(rectangle));
         assert_eq!(state.refresh_source_profile(999,vec![]),Ok(0));
         assert_eq!(state.extrude_selected(1.0).unwrap(),4);
+    }
+
+    #[test]fn translated_solids_have_safe_world_coordinates_and_camera_frame() {
+        let mut state=PreviewState::default();
+        let square=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                        Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile(7,square.clone());
+        assert_eq!(state.extrude_selected(10.0),Ok(1));
+        let first=state.solids[0].clone();
+        assert_eq!(state.set_solid_offset(999,Vec3::new(40.0,20.0,5.0)),
+                   Err(WorkspaceError::SolidNotFound));
+        assert_eq!(state.set_solid_offset(1,Vec3::new(f64::NAN,0.0,0.0)),
+                   Err(WorkspaceError::InvalidOffset));
+        assert_eq!(state.set_solid_offset(1,Vec3::new(MAX_WORLD_COORD+1.0,0.0,0.0)),
+                   Err(WorkspaceError::InvalidOffset));
+        assert_eq!(state.set_solid_offset(1,Vec3::new(MAX_WORLD_COORD-5.0,0.0,0.0)),
+                   Err(WorkspaceError::Geometry(ExtrudeError::OutOfBounds)));
+        assert_eq!(state.solids[0],first);
+        assert_eq!(state.set_solid_offset(1,Vec3::new(40.0,20.0,5.0)),Ok(()));
+        assert_eq!(state.solid_world_vertex(1,0),Some(Vec3::new(40.0,20.0,5.0)));
+        assert_eq!(state.solid_world_vertex(1,6),Some(Vec3::new(50.0,30.0,15.0)));
+        assert_eq!(state.solid_world_vertex(1,99),None);
+        assert_eq!(state.solid_world_vertex(999,0),None);
+        assert_eq!(state.solids[0].mesh,first.mesh);
+        assert_eq!(state.solids[0].source_handle,first.source_handle);
+        state.frame_solids();
+        assert_eq!(state.camera.target,Vec3::new(45.0,25.0,10.0));
+        assert_eq!(state.set_solid_height(1,15.0),Ok(()));
+        assert_eq!(state.solids[0].offset,Vec3::new(40.0,20.0,5.0));
+        let rectangle=vec![Point2::new(0.0,0.0),Point2::new(12.0,0.0),
+                           Point2::new(12.0,10.0),Point2::new(0.0,10.0)];
+        assert_eq!(state.refresh_source_profile(7,rectangle),Ok(1));
+        assert_eq!(state.solid_world_vertex(1,1),Some(Vec3::new(52.0,20.0,5.0)));
+    }
+
+    #[test]fn relocated_source_edits_are_transactional_at_world_bounds() {
+        let mut state=PreviewState::default();
+        let square=vec![Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                        Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        state.select_profile(42,square.clone());
+        assert_eq!(state.extrude_selected(5.0),Ok(1));
+        state.set_solid_offset(1,Vec3::new(MAX_WORLD_COORD-10.0,0.0,MAX_WORLD_COORD-5.0)).unwrap();
+        let original=state.solids.clone();
+        let next_id=state.next_id;
+        assert_eq!(state.set_solid_height(1,6.0),
+                   Err(WorkspaceError::Geometry(ExtrudeError::OutOfBounds)));
+        let wider=vec![Point2::new(0.0,0.0),Point2::new(11.0,0.0),
+                       Point2::new(11.0,10.0),Point2::new(0.0,10.0)];
+        assert_eq!(state.refresh_source_profile(42,wider),
+                   Err(WorkspaceError::Geometry(ExtrudeError::OutOfBounds)));
+        assert_eq!(state.solids,original);
+        assert_eq!(state.next_id,next_id);
+        assert_eq!(state.selected_outline,Some(square));
+        state.set_solid_offset(1,Vec3::new(20.0,30.0,2.0)).unwrap();
+        assert_eq!(state.set_solid_height(1,6.0),Ok(()));
+        assert_eq!(state.solid_world_vertex(1,4),Some(Vec3::new(20.0,30.0,8.0)));
     }
 
 }
