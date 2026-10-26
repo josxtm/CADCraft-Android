@@ -1895,7 +1895,27 @@ function focusSelectedSolid(){
 }
 function fit(){if(!model)return;const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
  for(const vertex of combinedScene().v)for(let i=0;i<3;i++){min[i]=Math.min(min[i],vertex[i]);max[i]=Math.max(max[i],vertex[i]);}cameraCenter=min.map((v,i)=>(v+max[i])/2);zoom=Math.max(.1,Math.min(canvas.clientWidth,canvas.clientHeight)*.7/(Math.hypot(...max.map((v,i)=>v-min[i]))||1));render();}
-let pointers=new Map(),lastDist=0,moveMode=false,moveGesture=null,moveHistory=[],moveRedoHistory=[];
+/* Navigation gestures operate in world-space camera axes, never on mesh
+ * coordinates. Two fingers pan by their midpoint and pinch by distance;
+ * one finger orbits only when the gesture did not start multi-touch.
+ * CSS pointer positions are converted by the CSS-pixel zoom factor. */
+function cameraPanWorldDelta(dx,dy,azimuth,elevation,scale){
+ if(![dx,dy,azimuth,elevation,scale].every(Number.isFinite)||scale<=0)
+  throw Error('Desplazamiento de cámara no válido');
+ const ca=Math.cos(azimuth),sa=Math.sin(azimuth),se=Math.sin(elevation),ce=Math.cos(elevation);
+ const right=[-sa,ca,0],up=[-ca*se,-sa*se,ce];
+ return [0,1,2].map(i=>(-dx*right[i]+dy*up[i])/scale);
+}
+function panCameraByScreenDelta(dx,dy){
+ const delta=cameraPanWorldDelta(dx,dy,az,el,zoom);
+ const candidate=cameraCenter.map((n,i)=>n+delta[i]);
+ if(candidate.some(n=>!Number.isFinite(n)||Math.abs(n)>1e10))
+  throw Error('Cámara fuera de límites');
+ cameraCenter=candidate;
+ return cameraCenter;
+}
+let pointers=new Map(),lastDist=0,lastPinchMid=null,multitouchOrbitBlocked=false;
+let moveMode=false,moveGesture=null,moveHistory=[],moveRedoHistory=[];
 canvas.addEventListener('pointerdown',e=>{
  if(geometryMode){
   const rect=canvas.getBoundingClientRect(),d=devicePixelRatio||1;
@@ -1917,6 +1937,14 @@ canvas.addEventListener('pointerdown',e=>{
  }
  if(faceMode){const rect=canvas.getBoundingClientRect(),d=devicePixelRatio||1;selectFaceAt((e.clientX-rect.left)*d,(e.clientY-rect.top)*d);return;}
  canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);
+ if(pointers.size>=2){
+  multitouchOrbitBlocked=true;
+  if(pointers.size===2){
+   const q=[...pointers.values()];
+   lastDist=Math.hypot(q[0][0]-q[1][0],q[0][1]-q[1][1]);
+   lastPinchMid=[(q[0][0]+q[1][0])/2,(q[0][1]+q[1][1])/2];
+  }else{lastDist=0;lastPinchMid=null;}
+ }
 });
 canvas.addEventListener('pointermove',e=>{
  if(geometryMode)return;
@@ -1940,13 +1968,34 @@ canvas.addEventListener('pointermove',e=>{
  }
  if(!pointers.has(e.pointerId))return;
  const prev=pointers.get(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);
- if(pointers.size===1){az+=(e.clientX-prev[0])*.009;el=Math.max(-1.56,Math.min(1.56,el-(e.clientY-prev[1])*.009));render();}
- else if(pointers.size===2){const q=[...pointers.values()],dist=Math.hypot(q[0][0]-q[1][0],q[0][1]-q[1][1]);if(lastDist)zoom=Math.max(.01,zoom*dist/lastDist);lastDist=dist;render();}
+ if(pointers.size===1){
+  if(!multitouchOrbitBlocked){
+   az+=(e.clientX-prev[0])*.009;
+   el=Math.max(-1.56,Math.min(1.56,el-(e.clientY-prev[1])*.009));
+   render();
+  }
+ }else if(pointers.size===2){
+  const q=[...pointers.values()];
+  const dist=Math.hypot(q[0][0]-q[1][0],q[0][1]-q[1][1]);
+  const midpoint=[(q[0][0]+q[1][0])/2,(q[0][1]+q[1][1])/2];
+  if(lastPinchMid){
+   const dx=midpoint[0]-lastPinchMid[0],dy=midpoint[1]-lastPinchMid[1];
+   try{if(dx||dy)panCameraByScreenDelta(dx,dy);}
+   catch(error){setStatus('Desplazar cámara: '+error.message);}
+  }
+  if(lastDist>1e-8&&dist>1e-8){
+   const next=zoom*dist/lastDist;
+   if(Number.isFinite(next))zoom=Math.max(.01,Math.min(10000,next));
+  }
+  lastDist=dist;lastPinchMid=midpoint;render();
+ }
 });
 for(const ev of ['pointerup','pointercancel'])canvas.addEventListener(ev,e=>{
  if(faceDragMode)finishFaceGesture(e.pointerId,ev==='pointercancel');
  if(moveMode)finishMoveGesture(e.pointerId,ev==='pointercancel');
- pointers.delete(e.pointerId);lastDist=0;
+ pointers.delete(e.pointerId);
+ lastDist=0;lastPinchMid=null;
+ if(pointers.size===0)multitouchOrbitBlocked=false;
 });
 canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.01,zoom*Math.exp(-e.deltaY*.001));render();},{passive:false});
 
