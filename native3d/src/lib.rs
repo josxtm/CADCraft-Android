@@ -2,6 +2,7 @@
 //! Does not modify upstream CADCraft or its document model.
 
 pub mod workspace;
+pub mod export;
 
 /// Same conservative world-coordinate limit as the Android 3D studio (drawing units: mm).
 pub const MAX_WORLD_COORD: f64 = 100_000_000.0;
