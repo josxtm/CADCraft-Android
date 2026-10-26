@@ -1039,4 +1039,24 @@ assert.equal(worldRegeneration.refreshed,2,'regeneration succeeds for both snaps
 assert.equal(worldRegeneration.current,true,'both results regain correct source fingerprints');
 assert.equal(worldRegeneration.volume.every(v=>Math.abs(v-3000)<1e-6),true,'both regenerated unions reflect updated 20 mm source height');
 
+
+/* C1/B3: duplicated source solids can intentionally diverge from their 2D
+ * sketch without losing world geometry or affecting sibling linked copies. */
+const detachLinkedSketch=evaluate("(()=>{const p=[[0,0],[10,0],[10,10],[0,10]];loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:2,profile:p,height:5,sourceHandle:'sketch-77',activeSolidId:1,activeOffset:[4,0,0],solids:[{id:2,profile:p,height:8,sourceHandle:'sketch-77',offset:[30,0,0]},{id:3,profile:p,height:3,sourceHandle:'other',offset:[60,0,0]}]}));const before=JSON.parse(serializeProject());const originalMesh=JSON.stringify(model),originalProfile=JSON.stringify(poly);const detached=detachActiveSketchSource();const snapshot=JSON.parse(serializeProject()),unchanged=JSON.stringify(model)===originalMesh&&JSON.stringify(poly)===originalProfile;const again=detachActiveSketchSource(),noOp=serializeProject()===JSON.stringify(snapshot,null,2);const count=refreshLinkedSourceProfile('sketch-77',[[0,0],[20,0],[20,10],[0,10]]);const after=JSON.parse(serializeProject()),source1=after.sourceHandle,source2=after.solids[0].sourceHandle,source3=after.solids[1].sourceHandle,keptProfile=after.profile[1][0]===10,updatedSibling=after.solids[0].profile[1][0]===20,untouchedOther=after.solids[1].profile[1][0]===10,positions=JSON.stringify([after.activeOffset,...after.solids.map(x=>x.offset)])===JSON.stringify([before.activeOffset,...before.solids.map(x=>x.offset)]),heights=JSON.stringify([after.height,...after.solids.map(x=>x.height)])===JSON.stringify([before.height,...before.solids.map(x=>x.height)]);loadProjectText(serializeProject());const persistent=sourceHandle===null&&storedSolids[0].sourceHandle==='sketch-77';return {detached,unchanged,snapshot,again,noOp,count,source1,source2,source3,keptProfile,updatedSibling,untouchedOther,positions,heights,persistent}})()");
+assert.equal(detachLinkedSketch.detached,true,'linked extrusion can be deliberately detached');
+assert.equal(detachLinkedSketch.unchanged,true,'unlinking sketch does not change 3D vertices or polygon');
+assert.equal(detachLinkedSketch.snapshot.sourceHandle,null,'only active source metadata is cleared');
+assert.equal(detachLinkedSketch.snapshot.solids[0].sourceHandle,'sketch-77','linked sibling retains source handle');
+assert.equal(detachLinkedSketch.again,false,'unlinked source refuses a duplicate detach action');
+assert.equal(detachLinkedSketch.noOp,true,'repeated detach does not change project state');
+assert.equal(detachLinkedSketch.count,1,'later 2D refresh updates only the remaining linked sibling');
+assert.equal(detachLinkedSketch.keptProfile,true,'unlinked copy stays independent of future 2D edits');
+assert.equal(detachLinkedSketch.updatedSibling,true,'remaining linked solid follows 2D sketch edits');
+assert.equal(detachLinkedSketch.untouchedOther,true,'third unrelated source remains unchanged');
+assert.equal(detachLinkedSketch.positions&&detachLinkedSketch.heights,true,'world placement and independent extrusion heights are preserved');
+assert.equal(detachLinkedSketch.source1,null,'active source remains detached after refresh');
+assert.equal(detachLinkedSketch.source2,'sketch-77','linked sibling retains original source association');
+assert.equal(detachLinkedSketch.source3,'other','unrelated solid retains different sketch association');
+assert.equal(detachLinkedSketch.persistent,true,'unlinking persists through project JSON save and reload');
+
 console.log('3D studio tests passed');

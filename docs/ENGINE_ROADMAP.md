@@ -124,6 +124,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **A1/A5 — mediciones geométricas del prototipo Rust (26-10-2026):** `PreviewState::measure_solid(id)` devuelve volumen orientado (mm³), superficie (mm²) y caja XYZ mundial de una pieza triangulada, con cálculo por triángulos relativo a un origen local para soportar coordenadas de ±90 millones de mm. Las consultas son de solo lectura y devuelven un error ante caras inválidas o ID inexistente. Incluye pruebas con extrusión negativa, alturas editadas y desplazamientos. No reemplaza la validación manifold completa de JavaScript ni constituye un núcleo B-Rep; **todavía no se conecta al Android WebView**.
 
+**C1/B3 — desvinculación de bocetos 2D (26-10-2026):** en el estudio 3D del Android WebView, el botón «Desvincular boceto 2D» permite convertir **solo la extrusión activa** en una copia independiente del `sourceHandle` CADCraft, conservando su malla, cotas, posición XYZ e ID. Otros sólidos duplicados desde el mismo boceto continúan actualizándose al recibir modificaciones del editor 2D. La desvinculación no afecta a resultados booleanos ni geometrías de otras fuentes y se conserva en JSON v3. Se añaden regresiones de rechazo sin vínculo, actualización parcial de hermanos y persistencia. Esta operación es de la interfaz JavaScript ya existente; no significa que el motor Rust experimental esté conectado a Android.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.
