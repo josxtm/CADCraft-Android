@@ -1,6 +1,6 @@
 //! UI-facing adapter for selected 2D profiles and an orbitable solid preview.
 //! Independent of upstream egui so CADCraft can call this through a narrow API.
-use crate::{extrude,Camera,ExtrudeError,Mesh,Point2,View,Vec3,MAX_WORLD_COORD};
+use crate::{extrude,inspect_closed_mesh,Camera,ExtrudeError,Mesh,Point2,View,Vec3,MAX_WORLD_COORD};
 
 #[derive(Clone,Debug,PartialEq)]
 pub struct Solid {
@@ -202,6 +202,8 @@ impl PreviewState {
         let solid=self.solids.iter().find(|item|item.id==id)
             .ok_or(WorkspaceError::SolidNotFound)?;
         let mesh=&solid.mesh;
+        // Measurements are meaningless for an open/reversed/bow-tie mesh.
+        inspect_closed_mesh(mesh).map_err(|_|WorkspaceError::InvalidMesh)?;
         let origin=*mesh.vertices.first().ok_or(WorkspaceError::InvalidMesh)?;
         if mesh.triangles.is_empty(){return Err(WorkspaceError::InvalidMesh)}
         let mut min=Vec3::new(f64::INFINITY,f64::INFINITY,f64::INFINITY);

@@ -24,6 +24,96 @@ pub struct Point2 {pub x:f64,pub y:f64}
 impl Point2 {pub const fn new(x:f64,y:f64)->Self{Self{x,y}}}
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mesh {pub vertices:Vec<Vec3>,pub triangles:Vec<[u32;3]>}
+/// Limited, index-based topology diagnostics for the experimental Rust core.
+/// Every edge must be incident to exactly two triangles with opposite winding.
+/// Each vertex's incident face fan must be connected. This does NOT replace
+/// robust self-intersection, nesting or coplanar-overlap tests in the JS studio.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum MeshTopologyError {
+    Empty, InvalidVertex, InvalidFace, DuplicateFace, OpenOrNonManifoldEdge,
+    InconsistentWinding, NonManifoldVertex, UnusedVertex,
+}
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct MeshTopology {
+    pub vertices:usize,
+    pub edges:usize,
+    pub faces:usize,
+}
+pub fn inspect_closed_mesh(mesh:&Mesh)->Result<MeshTopology,MeshTopologyError> {
+    use std::collections::{HashMap,HashSet};
+    if mesh.vertices.len()<4||mesh.triangles.len()<4 {
+        return Err(MeshTopologyError::Empty);
+    }
+    if mesh.vertices.iter().any(|p|{
+        [p.x,p.y,p.z].iter().any(|v|!v.is_finite()||v.abs()>MAX_WORLD_COORD)
+    }) {return Err(MeshTopologyError::InvalidVertex)}
+    let vertex_count=mesh.vertices.len();
+    // Edge values are the two ordered usages and their incident faces.
+    let mut edges:HashMap<(u32,u32),Vec<(u32,u32,usize)>>=HashMap::new();
+    let mut faces=HashSet::new();
+    let mut incident=vec![Vec::<usize>::new();vertex_count];
+    for (fi,face) in mesh.triangles.iter().enumerate() {
+        if face.iter().any(|&i|i as usize>=vertex_count)||
+           face[0]==face[1]||face[1]==face[2]||face[2]==face[0] {
+            return Err(MeshTopologyError::InvalidFace)
+        }
+        let mut canonical=*face;
+        canonical.sort_unstable();
+        if !faces.insert(canonical){return Err(MeshTopologyError::DuplicateFace)}
+        let a=mesh.vertices[face[0] as usize];
+        let b=mesh.vertices[face[1] as usize];
+        let c=mesh.vertices[face[2] as usize];
+        let magnitude=(b-a).cross(c-a).norm();
+        if !magnitude.is_finite()||magnitude<=1e-12 {
+            return Err(MeshTopologyError::InvalidFace)
+        }
+        for &i in face {incident[i as usize].push(fi);}
+        for (u,v) in [(face[0],face[1]),(face[1],face[2]),(face[2],face[0])] {
+            let key=(u.min(v),u.max(v));
+            edges.entry(key).or_default().push((u,v,fi));
+        }
+    }
+    if incident.iter().any(|v|v.is_empty()){return Err(MeshTopologyError::UnusedVertex)}
+    for ((u,v),entries) in &edges {
+        if entries.len()!=2{return Err(MeshTopologyError::OpenOrNonManifoldEdge)}
+        if entries[0].0!=*u||entries[0].1!=*v {
+            if entries[1].0!=*u||entries[1].1!=*v {
+                return Err(MeshTopologyError::InconsistentWinding)
+            }
+        } else if entries[1].0!=*v||entries[1].1!=*u {
+            return Err(MeshTopologyError::InconsistentWinding)
+        }
+        if entries[0].2==entries[1].2 {
+            return Err(MeshTopologyError::InvalidFace)
+        }
+    }
+    // A pair of otherwise closed shells touching at one indexed vertex
+    // produces a bow-tie/nonmanifold fan. Check incident-face connectivity
+    // through the two triangle edges meeting at that vertex.
+    for (vertex,incident_faces) in incident.iter().enumerate(){
+        if incident_faces.len()<2 {return Err(MeshTopologyError::NonManifoldVertex)}
+        let mut reached=HashSet::new();
+        let mut stack=vec![incident_faces[0]];
+        while let Some(fi)=stack.pop(){
+            if !reached.insert(fi){continue}
+            let face=mesh.triangles[fi];
+            for &other in &face {
+                if other as usize==vertex {continue}
+                let key=((vertex as u32).min(other),(vertex as u32).max(other));
+                if let Some(usages)=edges.get(&key) {
+                    for &(_,_,adjacent) in usages.iter() {
+                        if !reached.contains(&adjacent){stack.push(adjacent);}
+                    }
+                }
+            }
+        }
+        if reached.len()!=incident_faces.len(){
+            return Err(MeshTopologyError::NonManifoldVertex)
+        }
+    }
+    Ok(MeshTopology{vertices:vertex_count,edges:edges.len(),faces:mesh.triangles.len()})
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExtrudeError {NotEnoughVertices,ZeroHeight,DegeneratePolygon,SelfIntersection,NonFiniteInput,TooManyVertices,OutOfBounds}
 
@@ -200,6 +290,72 @@ mod tests {
         let line=[Point2::new(9e7,-9e7),Point2::new(9e7+1.0,-9e7+1.0),
                   Point2::new(9e7+2.0,-9e7+2.0)];
         assert_eq!(extrude(&line,7.0),Err(ExtrudeError::DegeneratePolygon));
+    }
+
+    #[test]fn rust_mesh_topology_accepts_positive_negative_and_distant_prisms() {
+        let rect=[Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                  Point2::new(10.0,20.0),Point2::new(0.0,20.0)];
+        for h in [5.0,-5.0] {
+            let mesh=extrude(&rect,h).unwrap();
+            assert_eq!(inspect_closed_mesh(&mesh),
+                       Ok(MeshTopology{vertices:8,edges:18,faces:12}));
+        }
+        let shifted:Vec<Point2>=rect.iter().map(|p|Point2::new(p.x+9e7,p.y-9e7)).collect();
+        assert_eq!(inspect_closed_mesh(&extrude(&shifted,-7.0).unwrap()),
+                   Ok(MeshTopology{vertices:8,edges:18,faces:12}));
+    }
+    #[test]fn rust_mesh_topology_catches_holes_winding_duplicates_and_bad_faces() {
+        let rect=[Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                  Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        let original=extrude(&rect,10.0).unwrap();
+        let mut mesh=original.clone();
+        mesh.triangles.pop();
+        assert_eq!(inspect_closed_mesh(&mesh),Err(MeshTopologyError::OpenOrNonManifoldEdge));
+        let mut mesh=original.clone();
+        mesh.triangles[0].swap(0,1);
+        assert_eq!(inspect_closed_mesh(&mesh),Err(MeshTopologyError::InconsistentWinding));
+        let mut mesh=original.clone();
+        mesh.triangles.push(mesh.triangles[0]);
+        assert_eq!(inspect_closed_mesh(&mesh),Err(MeshTopologyError::DuplicateFace));
+        let mut mesh=original.clone();
+        mesh.triangles[0]=[0,0,1];
+        assert_eq!(inspect_closed_mesh(&mesh),Err(MeshTopologyError::InvalidFace));
+        let mut mesh=original.clone();
+        mesh.triangles[0][0]=99999;
+        assert_eq!(inspect_closed_mesh(&mesh),Err(MeshTopologyError::InvalidFace));
+        let mut mesh=original.clone();
+        mesh.vertices.push(Vec3::new(900.0,900.0,900.0));
+        assert_eq!(inspect_closed_mesh(&mesh),Err(MeshTopologyError::UnusedVertex));
+    }
+    #[test]fn rust_mesh_topology_catches_bowtie_vertex_and_edge_overuse() {
+        let rect=[Point2::new(0.0,0.0),Point2::new(10.0,0.0),
+                  Point2::new(10.0,10.0),Point2::new(0.0,10.0)];
+        let first=extrude(&rect,10.0).unwrap();
+        let second=extrude(&rect,10.0).unwrap();
+        let mut separate=first.clone();
+        let base=separate.vertices.len() as u32;
+        separate.vertices.extend(second.vertices.iter().copied().map(|p|p+Vec3::new(30.0,0.0,0.0)));
+        separate.triangles.extend(second.triangles.iter().map(|f|[f[0]+base,f[1]+base,f[2]+base]));
+        assert!(inspect_closed_mesh(&separate).is_ok());
+        // Weld only one vertex, making two otherwise closed fans share an ID.
+        let second_first=base as usize;
+        separate.vertices[second_first]=separate.vertices[0];
+        for face in &mut separate.triangles {
+            for vertex in face.iter_mut(){
+                if *vertex==base {*vertex=0;}
+            }
+        }
+        separate.vertices.remove(second_first);
+        for face in &mut separate.triangles {
+            for vertex in face.iter_mut() {
+                if *vertex>base {*vertex-=1;}
+            }
+        }
+        assert_eq!(inspect_closed_mesh(&separate),Err(MeshTopologyError::NonManifoldVertex));
+        let mut overused=first.clone();
+        overused.triangles.push([0,1,2]);
+        // Duplicate canonical triangles are rejected before overused edges.
+        assert_eq!(inspect_closed_mesh(&overused),Err(MeshTopologyError::DuplicateFace));
     }
 
     #[test]fn extrusion_respects_world_bounds() {

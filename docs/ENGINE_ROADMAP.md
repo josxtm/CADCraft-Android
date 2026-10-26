@@ -130,6 +130,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **A1/C1 — medición individual en estudio Android (26-10-2026):** el botón «Medir pieza activa/resultado» inspecciona el sólido extruido activo o el resultado booleano seleccionado en coordenadas XYZ mundiales, mostrando anchura/profundidad/altura, volumen (mm³), superficie (mm²) y cascarones. La inspección utiliza el mismo validador topológico de mallas que el guardado, es de solo lectura y señala una malla dañada sin alterar la escena. Pruebas JavaScript validan un cubo trasladado, dos piezas CSG disjuntas, fallos y conservación de JSON. Estas medidas están en el código del WebView, pero su uso táctil requiere una futura APK de hito.
 
+**A1/A5 — cierre topológico comprobable en Rust (26-10-2026):** `native3d::inspect_closed_mesh` verifica referencias a vértices, triángulos degenerados/duplicados, ausencia de aristas abiertas o compartidas por más de dos caras, orientación opuesta de las caras a cada lado y conectividad de los abanicos de triángulos alrededor de cada vértice. La medición del `PreviewState` rechaza ahora mallas abiertas o invertidas antes de informar volumen/superficie. Pruebas cubren prismas positivos y negativos, traslación a 90 millones de mm, triángulos corruptos, aristas abiertas y vértices con topología de lazo no manifold. **No** detecta todas las autointersecciones ni reemplaza el verificador JavaScript/una representación B-Rep; este núcleo Rust sigue experimental y separado del APK.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.
