@@ -905,12 +905,34 @@ function diagnoseSelectedMesh(){
   return report;
  }catch(e){setStatus('Diagnóstico de malla: '+e.message);return null;}
 }
+/* Lightweight provenance fingerprints for stale-result notifications.
+ * Advisory only, not cryptographic and never used to accept unsafe geometry. */
+function booleanSourceById(id){
+ return id===activeSolidId?captureActiveSolid():
+   storedSolids.find(record=>record.id===id)||null;
+}
+function sourceFingerprint(record){
+ const source=JSON.stringify([record.id,record.profile,record.height,record.offset]);
+ let hash=0x811c9dc5;
+ for(let i=0;i<source.length;i++)
+  hash=Math.imul(hash^source.charCodeAt(i),0x01000193);
+ return (hash>>>0).toString(16).padStart(8,'0');
+}
+function derivedSourceStatus(item){
+ if(!item||!Array.isArray(item.sourceFingerprints))return 'unknown';
+ const sources=item.parents.map(booleanSourceById);
+ if(sources.some(src=>!src))return 'missing';
+ return sources.every((src,i)=>sourceFingerprint(src)===item.sourceFingerprints[i])?
+  'current':'stale';
+}
 function addBooleanToScene(mode){
  try{
   if(!storedSolids.length)throw Error('Falta una segunda pieza');
   if(storedSolids.length+derivedSolids.length>=23)throw Error('Límite de 24 piezas');
   const mesh=validateDerivedMesh(booleanBoxMesh(captureActiveSolid(),storedSolids[0],mode));
-  const item={id:nextSolidId,mode,parents:[activeSolidId,storedSolids[0].id],offset:[0,0,0],mesh};
+  const item={id:nextSolidId,mode,parents:[activeSolidId,storedSolids[0].id],
+   sourceFingerprints:[sourceFingerprint(captureActiveSolid()),sourceFingerprint(storedSolids[0])],
+   offset:[0,0,0],mesh};
   derivedSolids.push(item);nextSolidId++;derivedUndo=[];derivedRedo=[];selectedGeometryFeature=null;
   selectedDerivedId=item.id;selectedFace=-1;syncOffsetFields();invalidateSceneContacts();fit();
   setStatus('Resultado '+item.id+' creado y seleccionado · '+mode);
@@ -927,15 +949,14 @@ function regenerateSelectedBoolean(){
  try{
   const item=selectedDerived();
   if(!item)throw Error('Selecciona un resultado booleano');
-  const source=id=>id===activeSolidId?captureActiveSolid():
-    storedSolids.find(record=>record.id===id)||null;
-  const first=source(item.parents[0]),second=source(item.parents[1]);
+  const first=booleanSourceById(item.parents[0]),second=booleanSourceById(item.parents[1]);
   if(!first||!second)throw Error('Una pieza origen ya no existe');
   const result=booleanBoxMesh(first,second,item.mode);
   if(!result.faces.length)throw Error('El resultado regenerado no tiene volumen');
   const mesh=validateDerivedMesh(result);
   // Atomic commit after volume, topology, source and empty-result checks.
-  item.mesh=mesh;derivedUndo=[];derivedRedo=[];selectedGeometryFeature=null;selectedFace=-1;
+  item.mesh=mesh;item.sourceFingerprints=[sourceFingerprint(first),sourceFingerprint(second)];
+  derivedUndo=[];derivedRedo=[];selectedGeometryFeature=null;selectedFace=-1;
   invalidateSceneContacts();fit();
   setStatus('Resultado '+item.id+' regenerado desde piezas '+item.parents.join(' y '));
   return true;
@@ -1092,7 +1113,11 @@ function cycleDerivedSolid(){
  const idx=derivedSolids.findIndex(item=>item.id===selectedDerivedId);
  selectedDerivedId=derivedSolids[(idx+1)%derivedSolids.length].id;derivedUndo=[];derivedRedo=[];
  selectedFace=-1;syncOffsetFields();render();
- setStatus('Resultado booleano seleccionado: '+selectedDerivedId+' (solo malla)');
+ const sourceState=derivedSourceStatus(selectedDerived());
+ const advisory=sourceState==='stale'?' · fuentes modificadas: regenera resultado':
+  sourceState==='missing'?' · falta una pieza origen':
+  sourceState==='unknown'?' · procedencia antigua sin verificar':'';
+ setStatus('Resultado booleano seleccionado: '+selectedDerivedId+advisory);
  return true;
 }
 function selectExtrudedSolid(){
@@ -1106,6 +1131,7 @@ function duplicateDerivedSolid(){
  const item=selectedDerived();
  if(!item||storedSolids.length+derivedSolids.length>=23){setStatus('Selecciona un resultado; máximo 24 piezas');return false;}
  const copy={id:nextSolidId++,mode:item.mode,parents:item.parents.slice(),
+  sourceFingerprints:item.sourceFingerprints?item.sourceFingerprints.slice():null,
   offset:[item.offset[0]+20,item.offset[1],item.offset[2]],
   mesh:validateDerivedMesh(item.mesh)};
  derivedSolids.push(copy);selectedDerivedId=copy.id;derivedUndo=[];derivedRedo=[];selectedGeometryFeature=null;selectedFace=-1;
@@ -1669,7 +1695,9 @@ function plainSolidRecord(record){
  return {id:record.id,profile:record.profile.map(p=>p.slice()),height:record.height,offset:record.offset.slice(),sourceHandle:record.sourceHandle||null};
 }
 function serializeDerivedSolid(item){
- return {id:item.id,mode:item.mode,parents:item.parents.slice(),offset:item.offset.slice(),
+ return {id:item.id,mode:item.mode,parents:item.parents.slice(),
+  sourceFingerprints:item.sourceFingerprints?item.sourceFingerprints.slice():null,
+  offset:item.offset.slice(),
   mesh:{v:item.mesh.v.map(p=>p.slice()),faces:item.mesh.faces.map(f=>f.slice())}};
 }
 function projectData(){
@@ -1699,7 +1727,12 @@ function validateProjectDerived(data){
     !Array.isArray(data.parents)||data.parents.length!==2||
     !data.parents.every(id=>Number.isSafeInteger(id)&&id>0))
   throw Error('Registro booleano incompatible');
+ const fingerprints=data.sourceFingerprints==null?null:data.sourceFingerprints;
+ if(fingerprints!==null&&(!Array.isArray(fingerprints)||fingerprints.length!==2||
+     !fingerprints.every(hash=>typeof hash==='string'&&/^[0-9a-f]{8}$/.test(hash))))
+  throw Error('Metadatos de procedencia no válidos');
  return {id:data.id,mode:data.mode,parents:data.parents.slice(),
+  sourceFingerprints:fingerprints?fingerprints.slice():null,
   offset:validateOffset(data.offset),mesh:validateDerivedMesh(data.mesh)};
 }
 function loadProjectText(text){

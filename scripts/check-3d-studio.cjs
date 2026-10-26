@@ -675,4 +675,16 @@ assert.equal(regeneration.unchangedIds&&regeneration.offsetIntact,true,'source r
 assert.equal(regeneration.rejected,true,'missing parent source refuses regeneration without destroying previous geometry');
 assert.equal(regeneration.button,true,'regeneration command is exposed in 3D tooling');
 
+
+// B3 provenance: stale results are detected, can be refreshed, and survive JSON v3.
+const sourceTracking=evaluate("(()=>{const p={format:'cadcraft-android-3d',version:1,profile:[[0,0],[10,0],[10,10],[0,10]],height:10};loadProjectText(JSON.stringify(p));duplicateSceneSolid();addBooleanToScene('union');const original=derivedSourceStatus(selectedDerived()),signatures=selectedDerived().sourceFingerprints.slice(),oldJSON=JSON.parse(serializeProject());selectExtrudedSolid();changeHeight(5);cycleDerivedSolid();const changed=derivedSourceStatus(selectedDerived()),advisory=status.textContent.includes('regenera resultado');const updated=regenerateSelectedBoolean(),refreshed=derivedSourceStatus(selectedDerived());loadProjectText(serializeProject());const reloaded=derivedSourceStatus(selectedDerived());const missingInput={...oldJSON,derivedSolids:oldJSON.derivedSolids.map(item=>{const {...copy}=item;delete copy.sourceFingerprints;return copy;})};loadProjectText(JSON.stringify(missingInput));const oldProject=derivedSourceStatus(selectedDerived());return {original,changed,advisory,updated,refreshed,reloaded,oldProject,signatures:signatures.length}})()");
+assert.equal(sourceTracking.original,'current','fresh CSG carries two source fingerprints');
+assert.equal(sourceTracking.changed,'stale','source height changes invalidate the derived provenance');
+assert.equal(sourceTracking.advisory,true,'selecting a stale result shows a regeneration hint');
+assert.equal(sourceTracking.updated,true,'stale result can be explicitly refreshed');
+assert.equal(sourceTracking.refreshed,'current','regeneration updates both source fingerprints');
+assert.equal(sourceTracking.reloaded,'current','provenance survives project roundtrip');
+assert.equal(sourceTracking.oldProject,'unknown','existing v3 projects without fingerprints remain loadable');
+assert.equal(sourceTracking.signatures,2,'exactly two source signatures are stored');
+
 console.log('3D studio tests passed');
