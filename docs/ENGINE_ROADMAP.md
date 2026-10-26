@@ -128,6 +128,8 @@ Acercar el proyecto a un CAD mecánico táctil en Android, con un único flujo d
 
 **C1/B3 — desvinculación de piezas en el prototipo Rust (26-10-2026):** `PreviewState::detach_solid_source(id)` elimina únicamente el vínculo con el perfil 2D de una extrusión seleccionada. Una copia desvinculada conserva malla, medidas, desplazamiento XYZ e ID y no se regenera al editar el boceto original; las demás copias sí se actualizan. Repetir la orden es inocuo y un ID inexistente no modifica el proyecto. Regresiones Rust verifican estado, cámara, secuencia de ID y refresco selectivo. Es la API equivalente a la orden de desvinculación existente en el estudio JavaScript; el núcleo Rust **aún no está conectado a la APK**.
 
+**A1/C1 — medición individual en estudio Android (26-10-2026):** el botón «Medir pieza activa/resultado» inspecciona el sólido extruido activo o el resultado booleano seleccionado en coordenadas XYZ mundiales, mostrando anchura/profundidad/altura, volumen (mm³), superficie (mm²) y cascarones. La inspección utiliza el mismo validador topológico de mallas que el guardado, es de solo lectura y señala una malla dañada sin alterar la escena. Pruebas JavaScript validan un cubo trasladado, dos piezas CSG disjuntas, fallos y conservación de JSON. Estas medidas están en el código del WebView, pero su uso táctil requiere una futura APK de hito.
+
 ## Próximos pasos de ejecución
 
 1. Completar A1 con casos límite de orientaciones y componentes de superficie, **sin romper cavidades válidas**.

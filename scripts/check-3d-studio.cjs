@@ -1059,4 +1059,26 @@ assert.equal(detachLinkedSketch.source2,'sketch-77','linked sibling retains orig
 assert.equal(detachLinkedSketch.source3,'other','unrelated solid retains different sketch association');
 assert.equal(detachLinkedSketch.persistent,true,'unlinking persists through project JSON save and reload');
 
+
+/* A1/C1: inspect an individual source or derived mesh in world space;
+ * invalid geometry must report an error without modifying scene state. */
+const partInspection=evaluate("(()=>{const sq=[[0,0],[10,0],[10,10],[0,10]];loadProjectText(JSON.stringify({format:'cadcraft-android-3d',version:1,profile:sq,height:10}));moveActiveSolid(40,20,5);const sourceJSON=serializeProject(),source=inspectSelectedSolid(),sourceDisplay=status.textContent,sourceUnchanged=serializeProject()===sourceJSON;duplicateSceneSolid();const union=addBooleanToScene('union'),derivedJSON=serializeProject(),derived=inspectSelectedSolid(),derivedDisplay=status.textContent,derivedUnchanged=serializeProject()===derivedJSON,oldFaces=selectedDerived().mesh.faces.map(f=>f.slice());selectedDerived().mesh.faces.pop();const corruptJSON=serializeProject(),bad=inspectSelectedSolid(),badMessage=status.textContent,badUnchanged=serializeProject()===corruptJSON;selectedDerived().mesh.faces=oldFaces;return {source,sourceDisplay,sourceUnchanged,union,derived,derivedDisplay,derivedUnchanged,bad,badMessage,badUnchanged}})()");
+assert.equal(partInspection.source.id,1,'inspection identifies active extrusion');
+assert.equal(partInspection.source.derived,false,'active extrusion reported as source');
+assert.equal(JSON.stringify(partInspection.source.report.bounds),JSON.stringify({min:[40,20,5],max:[50,30,15]}),'source bounds respect independent XYZ placement');
+assert.equal(JSON.stringify(partInspection.source.dimensions),JSON.stringify([10,10,10]),'source world dimensions remain 10mm');
+assert.equal(Math.abs(partInspection.source.report.signedVolume-1000)<1e-6,true,'source volume is 1000mm3');
+assert.equal(Math.abs(partInspection.source.report.surfaceArea-600)<1e-6,true,'source surface is 600mm2');
+assert.equal(partInspection.sourceUnchanged,true,'measurement leaves source project unchanged');
+assert.equal(Number.isInteger(partInspection.union),true,'derived result created for inspection');
+assert.equal(partInspection.derived.derived,true,'inspection resolves currently selected CSG result');
+assert.equal(partInspection.derived.id,partInspection.union,'selected derived ID matches result');
+assert.equal(partInspection.derived.report.shells,2,'disconnected boolean union reports its two shells');
+assert.equal(Math.abs(partInspection.derived.report.signedVolume-2000)<1e-6,true,'derived source union volume');
+assert.equal(Math.abs(partInspection.derived.report.surfaceArea-1200)<1e-6,true,'derived source union surface area');
+assert.equal(partInspection.derivedUnchanged,true,'CSG measurement does not mutate scene or dependencies');
+assert.equal(partInspection.bad,null,'damaged derived mesh cannot be measured');
+assert.equal(partInspection.badMessage.includes('Medición de pieza'),true,'failure is explained in status');
+assert.equal(partInspection.badUnchanged,true,'failed inspection never mutates damaged model');
+
 console.log('3D studio tests passed');
