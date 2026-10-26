@@ -37,6 +37,21 @@ assert.equal(sessionStorage.getItem('cadcraft.android.dxf.handoff'),null,'handof
 assert.equal(evaluate("JSON.parse(serializeProject()).format"),'cadcraft-android-3d','project format');
 assert.equal(evaluate("loadProjectText(serializeProject()).faces.length"),12,'project JSON roundtrip');
 assert.equal(evaluate("(()=>{try{loadProjectText('{\"format\":\"invalid\"}');return false}catch(e){return true}})()"),true,'invalid project rejected');
+
+/* A1/C3: imported JSON source extrusions use the same topology gate as the
+ * live 2D-to-3D handoff, including offsets and stored inactive sources. */
+const sourceImportGate=evaluate("(()=>{const original=serializeProject(),rect=[[0,0],[10,0],[10,10],[0,10]];const attempt=mutate=>{const candidate=JSON.parse(original);mutate(candidate);try{loadProjectText(JSON.stringify(candidate));return {rejected:false}}catch(e){return {rejected:true,message:e.message,unchanged:serializeProject()===original}}};return {tiny:attempt(p=>{p.profile=[[0,0],[0.01,0],[0.01,0.01],[0,0.01]];p.height=0.00001}),outside:attempt(p=>{p.profile=rect;p.height=10;p.activeOffset=[1e8,0,0]}),stored:attempt(p=>{p.solids=[{id:99,profile:rect,height:10,offset:[1e8,0,0]}]})}})()");
+for(const [name,caseResult] of Object.entries(sourceImportGate)){
+ assert.equal(caseResult.rejected,true,name+' invalid source extrusion is rejected at JSON import');
+ assert.equal(caseResult.unchanged,true,name+' rejected JSON source leaves the live project unchanged');
+}
+assert.match(sourceImportGate.tiny.message,/volumen|invertida|vacía/i,'near-zero imported volume is diagnosed');
+assert.match(sourceImportGate.outside.message,/vértices|inválidos/i,'out-of-range imported world coordinates are diagnosed');
+const sourceSaveGate=evaluate("(()=>{const before=serializeProject(),old=activeOffset;activeOffset=[1e8,0,0];let saved,message;try{saved=saveProject();message=status.textContent}finally{activeOffset=old}return {saved,message,unchanged:serializeProject()===before}})()");
+assert.equal(sourceSaveGate.saved,false,'save rejects a source extending beyond world bounds');
+assert.match(sourceSaveGate.message,/Guardar:.*[Vv]értices/,'save reports invalid source geometry');
+assert.equal(sourceSaveGate.unchanged,true,'failed save does not modify project geometry');
+
 assert.equal(typeof evaluate('addPrecisePoint'),'function','precise XY input is wired');
 assert.equal(evaluate('parseDxfProfile(profileAsDxf([[0,0],[20,0],[20,10],[0,10]])).length'),4,'DXF export-import roundtrip');
 assert.equal(evaluate("(()=>{try{profileAsDxf([[0,0],[10,10],[0,10],[10,0]]);return false}catch(e){return true}})()"),true,'invalid DXF profile cannot export');

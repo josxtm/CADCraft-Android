@@ -1957,10 +1957,14 @@ function validateProjectSolid(data,id,offset){
  if(!data.profile.every(p=>Array.isArray(p)&&p.length===2&&p.every(n=>typeof n==='number'&&Number.isFinite(n))))throw Error('Coordenadas incorrectas');
  if(typeof data.height!=='number'||!Number.isFinite(data.height)||Math.abs(data.height)<1e-8)throw Error('Altura incorrecta');
  if(!Number.isSafeInteger(id)||id<1)throw Error('ID de pieza no válido');
+ const placement=validateOffset(offset);
  const mesh=extrude(data.profile,data.height);
+ // Loading and saving must enforce the same world-space topology gate as
+ // 2D handoff and interactive extrusion, for every source piece.
+ inspectMeshTopology(offsetMesh(mesh,placement));
  return {id,profile:data.profile.map(p=>p.slice()),height:data.height,
   sourceHandle:typeof data.sourceHandle==='string'?data.sourceHandle:null,
-  offset:validateOffset(offset),mesh};
+  offset:placement,mesh};
 }
 function validateProjectDerived(data){
  if(!data||!Number.isSafeInteger(data.id)||data.id<1||
