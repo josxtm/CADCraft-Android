@@ -37,6 +37,9 @@ def redact(text):
             text = text.replace(value, '[redacted]')
     text = re.sub(r'\b(?:gh[pousr]_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{12,})', '[redacted]', text)
     text = re.sub(r'(?i)(bearer\s+|(?:token|password|api_key|signature)=)[^\s&]+', r'\1[redacted]', text)
+    text = re.sub(r'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+', '[redacted JWT]', text)
+    text = re.sub(r'(?i)("(?:access_token|refresh_token|id_token|authorization)"\s*:\s*")[^"]+',
+                  r'\1[redacted]', text)
     return text[-4000:]
 
 
@@ -463,16 +466,43 @@ class Services:
         environment = {k: v for k, v in os.environ.items()
                        if not re.search(r'TOKEN|SECRET|PASSWORD|API_KEY', k, re.I)}
         instructions = (self.controller / 'instructions.txt').read_text()
-        self.cmd.run(['codex', 'exec', '--ignore-user-config', '--ephemeral', '--json',
+        code, output = self.cmd.run(['codex', 'exec', '--ignore-user-config', '--ephemeral', '--json',
                       '--sandbox', 'workspace-write', '-c', 'approval_policy="never"',
                       '-c', 'sandbox_workspace_write.network_access=false', instructions + '\n' + prompt],
-                     timeout=self.config['limits']['command_seconds'], env=environment)
+                     timeout=self.config['limits']['command_seconds'], env=environment,
+                     check=False, diagnostics=True)
+        reports, failures, errors = [], [], []
+        for line in output.splitlines():
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            item = event.get('item') or {}
+            if event.get('type') == 'item.completed' and isinstance(item, dict):
+                if item.get('type') == 'agent_message':
+                    reports.append(str(item.get('text', '')))
+                elif item.get('type') == 'command_execution' and item.get('exit_code') not in (0, None):
+                    failures.append(redact(str(item.get('aggregated_output', ''))))
+            if event.get('type') in ('error', 'turn.failed'):
+                errors.append(redact(str(event.get('message') or event.get('error') or 'CLI turn failed')))
+        # Keep bounded redacted diagnostics, not raw agent transcripts. A zero
+        # exit status alone does not establish that tools or code generation worked.
+        task['agent_report'] = redact(reports[-1]) if reports else 'No final agent message captured'
+        if failures:
+            task['agent_command_failures'] = failures[-3:]
+        if code or errors:
+            task['agent_error'] = errors[-1] if errors else redact(output)
+            raise Blocked('Codex failed; redacted diagnostics retained in task state')
         if self.git('branch', '--show-current') != self.branch or self.git('rev-parse', 'HEAD') != self.head:
             raise Blocked('Agent changed Git history/branch; manual review required')
 
     def validate(self, task):
         changed = set(self.git('diff', '--name-only', '-z', 'HEAD').split('\0'))
         changed.update(self.git('ls-files', '--others', '--exclude-standard', '-z').split('\0'))
+        if not changed - {''}:
+            raise Blocked('Agent produced no changes; review the retained agent report')
         for name in changed - {''}:
             # New tests are allowed; changes/removal of existing tests are frozen.
             exists, _ = self.cmd.run(['git', 'cat-file', '-e', self.head + ':' + name], check=False)

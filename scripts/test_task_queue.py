@@ -400,7 +400,8 @@ class QueueTests(unittest.TestCase):
         commands = mock.Mock()
         commands.run.return_value = (1, 'Compiler error: secret-sentinel')
         service = Services(self.cfg, commands, self.root)
-        service.git = mock.Mock(return_value='')
+        service.head = 'a' * 40
+        service.git = mock.Mock(return_value='app/source.java\0')
         with mock.patch.dict(os.environ, {'GH_TOKEN': 'secret-sentinel'}):
             with self.assertRaises(Repairable) as failure: service.validate({'issue': 11})
         self.assertIn('Compiler error', str(failure.exception))
@@ -425,6 +426,43 @@ class QueueTests(unittest.TestCase):
         self.assertNotIn('GH_TOKEN', kwargs['env'])
         self.assertNotIn('OPENAI_API_KEY', kwargs['env'])
         self.assertNotIn('--dangerously-bypass-approvals-and-sandbox', command)
+
+    def test_agent_report_retains_failed_tool_diagnostic_without_credentials(self):
+        (self.root / 'instructions.txt').write_text('Trusted instructions')
+        commands = mock.Mock()
+        commands.run.return_value = (0, '\n'.join(json.dumps(event) for event in [
+            {'type': 'item.completed', 'item': {'type': 'command_execution', 'exit_code': 1,
+             'aggregated_output': 'app-server socket directory must have mode 0700'}},
+            {'type': 'item.completed', 'item': {'type': 'agent_message',
+             'text': 'Unable to edit: secret-sentinel eyJabc.abc.signature "access_token":"private"'}},
+        ]))
+        service = Services(self.cfg, commands, self.root)
+        service.gh = mock.Mock(return_value={'state': 'open', 'title': 'Task', 'body': 'Task'})
+        service.branch, service.head = 'codex-queue/issue-11', 'a' * 40
+        service.git = mock.Mock(side_effect=[service.branch, service.head])
+        task = {'issue': 11}
+        with mock.patch.dict(os.environ, {'GH_TOKEN': 'secret-sentinel'}): service.edit(task, None)
+        self.assertIn('Unable to edit', task['agent_report'])
+        for secret in ['secret-sentinel', 'eyJabc.abc.signature', '"private"']:
+            self.assertNotIn(secret, task['agent_report'])
+        self.assertIn('mode 0700', task['agent_command_failures'][0])
+
+    def test_zero_changes_blocks_before_running_stock_tests(self):
+        commands = mock.Mock()
+        service = Services(self.cfg, commands, self.root)
+        service.git = mock.Mock(return_value='')
+        with self.assertRaisesRegex(Blocked, 'no changes'): service.validate({'issue': 11})
+        commands.run.assert_not_called()
+
+    def test_cli_failed_turn_retains_redacted_error(self):
+        (self.root / 'instructions.txt').write_text('Trusted instructions')
+        commands = mock.Mock()
+        commands.run.return_value = (1, json.dumps({'type': 'turn.failed', 'error': {'message': 'Authentication failed'}}))
+        service = Services(self.cfg, commands, self.root)
+        service.gh = mock.Mock(return_value={'state': 'open', 'title': 'Task', 'body': 'Task'})
+        task = {'issue': 11}
+        with self.assertRaisesRegex(Blocked, 'diagnostics retained'): service.edit(task, None)
+        self.assertIn('Authentication failed', task['agent_error'])
 
     def test_stacked_pr_dispatch_uses_own_branch_and_explicitly_disables_apk(self):
         commands = mock.Mock()

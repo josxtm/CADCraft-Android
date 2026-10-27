@@ -16,7 +16,7 @@ Se distingue entre:
 | GitHub del entorno publicado | API y Git operativos; PR #5 y su CI verificadas anteriormente |
 | Encadenamiento del controlador | Prueba con dos tareas, ramas/commits Git reales en repositorios temporales; agente, PR y checks simulados |
 | Reparación y detención | Fallos locales/CI inyectados; máximo dos reparaciones; no avanza tras bloqueo |
-| Generación real desatendida | Prueba autorizada intentada; bloqueada sin cambios por arranque del CLI y posterior 401 de autenticación |
+| Generación real desatendida | Login y prueba mínima correctos; Issue #1 sin cambios tras 3 invocaciones registradas, Issue #2 sin iniciar |
 | Nueva tarea automática en Codex Cloud | **No implementada ni demostrada**; no hay un servicio de despacho conectado |
 
 La simulación no cumple por sí sola el criterio de la Issue #6 de demostrar dos
@@ -220,7 +220,7 @@ el controlador, no una ejecución real del agente. La demostración pendiente de
 registrar dos PR reales, SHA/checks de ambas y una detención real ante fallo, en
 una tanda expresamente autorizada y con tareas de prueba revisadas.
 
-Validación local de esta entrega: 38 pruebas del controlador correctas, regresiones
+Validación local de esta entrega: 41 pruebas del controlador correctas, regresiones
 JS/Python existentes correctas y 45 pruebas Rust correctas. Además, el nuevo
 validador `--android` se ejecutó sobre una copia temporal del SHA de PR #5:
 13 pruebas Android nuevas y correctas, sin fallos ni omisiones ni APK. Esa prueba
@@ -311,3 +311,45 @@ Será necesario mantener acceso de escritura al estado del CLI durante esa
 operación y las siguientes ejecuciones. La autorización de la tanda ya existe;
 lo pendiente es conectividad de login y autenticación válida. Solo una prueba
 mínima correcta permite reconciliar/reanudar la cola preservando contadores.
+
+## Login completado y reanudación real: límite alcanzado sin cambios
+
+El propietario completó personalmente `codex login --device-auth`. El CLI confirmó
+`Successfully logged in` y la prueba mínima posterior respondió `CONNECTION_OK`
+con código 0. No se copian aquí códigos de acceso, credenciales ni tokens.
+
+Se reanudó Issue #1 preservando el intento anterior. El agente terminó con código
+0 sin modificar archivos. Un diagnóstico de herramientas de solo lectura reveló:
+
+```text
+error building bubblewrap command: app-server socket directory must be a user-owned directory with mode 0700
+```
+
+La ruta `/tmp/codex-daemon-1000` aparece enmascarada con modo 000 dentro del sandbox
+padre. El código oficial de `codex-uds` confirma que es una ruta reservada para RPC
+privilegiado. No se modificaron sus permisos ni se desactivó el sandbox de Codex.
+
+Se solicitó y concedió la ejecución de una prueba fuera del sandbox padre,
+manteniendo el sandbox propio del CLI y la red de shell desactivada. Esa prueba
+ejecutó `pwd` y `git status` con código 0. Después se autorizó por la misma vía la
+tanda acotada, conservando protecciones, contadores, locks y checks del controlador.
+
+El último intento de Issue #1 volvió a salir con código 0 sin producir cambios.
+El adaptador anterior descartó su mensaje final, por lo que no se atribuye una causa
+específica a ese último resultado. Las pruebas locales del código existente pasaron,
+pero no constituyen una corrección de Issue #1. No hubo commit/PR/CI de esa tarea.
+
+Estado final de la prueba: Issue #1 `blocked`, `agent_calls: 3`, motivo
+`Agent produced no changes`; Issue #2 `pending`, 0 llamadas. Son invocaciones
+registradas, no tres generaciones verificadas: la primera falló al arrancar el CLI.
+Se conservaron las instantáneas de estado, se liberó el lock remoto, se restauró
+la rama del controlador y se desactivó la copia externa de configuración. No se
+reiniciaron contadores ni se hicieron merge/APK/cambios en native3d.
+
+Se corrigió el adaptador para conservar un informe final redactado y diagnósticos
+de comandos/fallos de turno, sin guardar transcripciones brutas. Ahora bloquea
+un resultado sin cambios antes de ejecutar la suite del código original. Las
+regresiones cubren errores de herramientas, redacción de JWT/token y turno fallido.
+No se ha reejecutado el agente con ese cambio: su límite de tres invocaciones ya
+está agotado y necesita una autorización explícita para ampliarse. La demostración
+de dos tareas reales con PR/CI propias sigue sin completarse.
