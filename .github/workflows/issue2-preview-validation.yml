@@ -1,0 +1,51 @@
+name: Issue #2 Rust/egui preview — isolated validation
+on:
+  push:
+    branches:
+      - integration/issue-2-preview
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: issue2-preview-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing source and selection regression checks (unchanged)
+        run: |
+          set -eux
+          python3 -m py_compile scripts/patch-upstream-selection.py scripts/preview-v1/stage.py tests/preview/run.py
+          python3 scripts/check-upstream-selection-patch.py
+          python3 scripts/check-upstream-command-patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('app/src/main/assets/3d/index.html').read_text()
+          assert s.count('<script>')==1 and s.count('</script>')==1
+          Path('/tmp/cadcraft-3d.js').write_text(s.split('<script>',1)[1].split('</script>',1)[0])
+          PY
+          node --check /tmp/cadcraft-3d.js
+          node scripts/check-3d-studio.cjs /tmp/cadcraft-3d.js
+          node scripts/check-selection-bridge.cjs app/src/main/assets/bridge/selection.js
+      - name: Clone exact upstream CADCraft v0.13.0
+        run: git clone --depth 1 --branch v0.13.0 https://github.com/storytold/cadcraft.git upstream
+      - name: Patch selection, command input and native Rust/egui preview
+        run: |
+          python3 scripts/patch-upstream-selection.py
+          test -s upstream/apps/cadcraft-web/src/android_preview.rs
+          test -s upstream/crates/cadcraft-android-3d/Cargo.toml
+          grep -q 'cadcraft-android-3d' upstream/apps/cadcraft-web/Cargo.toml
+      - name: Build exact upstream WASM web shell (not APK)
+        working-directory: upstream
+        run: cargo check --locked --target wasm32-unknown-unknown -p cadcraft-web -j 3
+      - name: Run actual Rust/egui preview feature integration tests
+        run: python3 tests/preview/run.py upstream
