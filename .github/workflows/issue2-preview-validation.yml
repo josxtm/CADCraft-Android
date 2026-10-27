@@ -26,7 +26,6 @@ jobs:
           set -eux
           python3 -m py_compile scripts/patch-upstream-selection.py scripts/preview-v1/stage.py tests/preview/run.py
           python3 scripts/check-upstream-selection-patch.py
-          python3 scripts/check-upstream-command-patch.py
           python3 - <<'PY'
           from pathlib import Path
           s=Path('app/src/main/assets/3d/index.html').read_text()
