@@ -58,6 +58,7 @@ public class MainActivity extends Activity {
             }
         }
         view = new WebView(this);
+        view.setFocusableInTouchMode(true);
         setContentView(view);
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
             .addPathHandler("/assets/",new WebViewAssetLoader.AssetsPathHandler(this)).build();
@@ -101,6 +102,9 @@ public class MainActivity extends Activity {
             @Override public void onPageFinished(WebView v,String url){
                 v.evaluateJavascript(saveBridge,null);
                 if(url.endsWith("/assets/web/index.html")){
+                    v.evaluateJavascript("if(!document.getElementById('cadcraftCommandScript')){" +
+                        "var s=document.createElement('script');s.id='cadcraftCommandScript';" +
+                        "s.src='../bridge/commands.js';document.head.appendChild(s);}",null);
                     // Loads the Android-side selection UI after the patched CADCraft WASM starts.
                     v.evaluateJavascript("if(!document.getElementById('cadcraftSelectionScript')){" +
                         "var s=document.createElement('script');s.id='cadcraftSelectionScript';" +
