@@ -1,0 +1,37 @@
+name: CADCraft · Task queue guardrails (no agent)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'AGENTS.md'
+      - 'DEVELOPMENT_PLAN.md'
+      - 'automation/**'
+      - 'scripts/task_queue.py'
+      - 'scripts/test_task_queue.py'
+      - 'scripts/automation_checks.py'
+      - 'docs/TASK_QUEUE.md'
+      - '.github/workflows/task-queue.yml'
+permissions:
+  contents: read
+concurrency:
+  group: task-queue-tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    name: Queue regression checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check the explicit disabled queue
+        run: python3 scripts/task_queue.py plan
+      - name: Test chaining, locks, retries, failure and kill switch without a model
+        run: python3 -m unittest discover -s scripts -p 'test_task_queue.py' -v
+      - name: Run existing repository regression checks
+        run: python3 scripts/automation_checks.py
