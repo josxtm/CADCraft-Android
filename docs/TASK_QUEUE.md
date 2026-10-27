@@ -16,7 +16,7 @@ Se distingue entre:
 | GitHub del entorno publicado | API y Git operativos; PR #5 y su CI verificadas anteriormente |
 | Encadenamiento del controlador | Prueba con dos tareas, ramas/commits Git reales en repositorios temporales; agente, PR y checks simulados |
 | Reparación y detención | Fallos locales/CI inyectados; máximo dos reparaciones; no avanza tras bloqueo |
-| Generación real desatendida | **No ejecutada**; no se ha autorizado/activado una tanda con el adaptador |
+| Generación real desatendida | Prueba autorizada intentada; bloqueada sin cambios por arranque del CLI y posterior 401 de autenticación |
 | Nueva tarea automática en Codex Cloud | **No implementada ni demostrada**; no hay un servicio de despacho conectado |
 
 La simulación no cumple por sí sola el criterio de la Issue #6 de demostrar dos
@@ -262,3 +262,52 @@ el acceso, hará falta revisar el estado bloqueado y la rama local vacía antes 
 una reanudación explícita, conservando el intento ya registrado y los límites.
 La configuración externa se volvió a desactivar; el estado y sus contadores se
 conservan. No se hizo merge, APK ni cambios en `native3d`.
+
+## Revalidación de red y conexión mínima: autenticación pendiente
+
+La nueva red permite llegar a `chatgpt.com`: una petición HEAD al endpoint de
+respuestas devolvió 405/Allow POST en lugar del anterior bloqueo CONNECT 403.
+Eso comprueba transporte, no autenticación ni generación.
+
+Se ejecutó una prueba mínima real de `codex exec`, sin herramientas y con sandbox
+de solo lectura, conservando completos stdout y stderr en archivos privados fuera
+del repositorio. El primer resultado fue:
+
+```text
+Error: failed to initialize in-process app-server client: Read-only file system (os error 30)
+```
+
+El código oficial del tag `rust-v0.163.0`,
+`codex-rs/core/src/installation_id.rs`, confirma que el arranque abre
+`$CODEX_HOME/installation_id` con lectura/escritura incluso en modo efímero. Se
+concedió permiso de escritura en la ubicación original de estado para este turno;
+no se cambió CODEX_HOME ni se copiaron credenciales. Este permiso no modifica por
+sí solo la configuración persistente del entorno.
+
+Tras ese cambio, una segunda prueba mínima pudo arrancar el cliente y alcanzar el
+servicio, pero terminó con 401 en catálogo y respuestas. El error final fue:
+
+```text
+Your access token could not be refreshed because you have since logged out or signed in to another account. Please sign in again.
+```
+
+Ahora la causa está registrada: la autenticación que recibe el CLI no es válida o
+renovable. `codex login status` no basta para demostrar una sesión utilizable. No
+se volvió a intentar la tarea de código ni se alteró el estado de la cola:
+Issue #1 sigue bloqueada con un intento registrado e Issue #2 sigue pendiente.
+No hay nuevas PR ni ejecuciones de Actions para esas dos tareas.
+
+Los errores completos originales están en directorios privados
+`/workspace/.cadcraft-queue/connection-check-*`; la segunda prueba corresponde a
+`connection-check-3c8be6e0`. Se guardó también
+`error-completo.redactado.log` para revisión sin exponer credenciales.
+
+La autenticación interactiva del CLI necesita el host `auth.openai.com`, cuyo
+CONNECT sigue devolviendo 403. Se incorporó ese dominio al borrador de red sin
+quitar los anteriores; falta revisar, guardar y publicar. Después, el propietario
+debe autenticar el CLI de forma segura con su cuenta ChatGPT, por ejemplo mediante
+`codex login --device-auth`, sin API key de pago ni valores de tokens en el chat.
+Será necesario mantener acceso de escritura al estado del CLI durante esa
+operación y las siguientes ejecuciones. La autorización de la tanda ya existe;
+lo pendiente es conectividad de login y autenticación válida. Solo una prueba
+mínima correcta permite reconciliar/reanudar la cola preservando contadores.
