@@ -232,3 +232,33 @@ con `gh 2.46.0` del entorno y el dispatch manual de CI con `build_apk=false` sob
 esta rama. GitHub aceptó el dispatch y omitió el job APK. Estas operaciones sí
 usan GitHub; las pruebas unitarias descritas antes no lo usan. Ninguna inició un
 agente ni una llamada de generación de código.
+
+## Primera prueba real autorizada: bloqueada
+
+El propietario autorizó una tanda finita de las dos tareas de la cola. Se habilitó
+solo una copia externa de la configuración, conservando la plantilla desactivada.
+El controlador comprobó la dependencia PR #5, tomó/liberó los bloqueos y llamó una
+vez a `codex exec` para Issue #1. El proceso salió con código 1 antes de producir
+cambios. La tarea quedó `blocked` con `agent_calls: 1`; Issue #2 permaneció
+`pending`. No se crearon PR nuevas ni se despachó CI para esas tareas.
+
+Se verificaron los argumentos del CLI sin inferencia (`exec --help`) y la lectura
+del catálogo (`debug models`). El catálogo se pudo leer. El directorio de estado
+`/run/codex-environment/codex-home` es de solo lectura y genera una advertencia;
+no se ha demostrado que esa advertencia sea la causa fatal.
+
+Una comprobación HTTP independiente al endpoint
+`https://chatgpt.com/backend-api/codex/responses`, sin credenciales ni petición de
+generación, recibió `403` del proxy al establecer CONNECT. Este es un bloqueo de
+red confirmado. El controlador descartó stderr del primer proceso: solo conserva
+`Command failed: codex (exit 1)`, por lo que no se atribuye con certeza su causa
+interna al proxy ni a la advertencia de archivos. La demostración de dos tareas
+reales continúa pendiente.
+
+Se añadió `chatgpt.com` al borrador de red conservando los dominios anteriores;
+requiere revisión, guardado y publicación. No se pidió API key, no se cambió el
+modo de autenticación ni se activó un servicio permanente/de pago. Tras resolver
+el acceso, hará falta revisar el estado bloqueado y la rama local vacía antes de
+una reanudación explícita, conservando el intento ya registrado y los límites.
+La configuración externa se volvió a desactivar; el estado y sus contadores se
+conservan. No se hizo merge, APK ni cambios en `native3d`.
