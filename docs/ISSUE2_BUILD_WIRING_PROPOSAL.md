@@ -1,122 +1,86 @@
-# Issue #2: dependency wiring proposal — blocked, no functional integration
+# Issue #2: local Rust/egui integration v1
 
-## Verified starting point
+The owner authorized the local kernel path dependency and matching lock entries.
+`scripts/patch-upstream-selection.py <upstream-main.rs>` now stages the versioned
+application module in `scripts/preview-v1/` when a real Cargo workspace exists.
+The existing minimal selection and command-input fixtures remain supported.
+No workflow, Gradle, controller, queue, existing test or original native3d file
+is changed. The staged kernel is copied from native3d without source changes.
+There are no new external dependencies.
 
-Issue #1 remains an open draft PR #8 at
-`8c6fadfd958e407fc7616f9c623f42d1ac9a3851`, with Code verification gate and Android
-file access regression tests successful. APK generation was skipped. A fresh
-`codex exec` connection probe using the owner's ChatGPT login succeeded before
-starting this task.
+The web shell owns PreviewState. Original CADCraft 2D drawing and command/IME
+integration remain in place. A separate egui window provides EXTRUIR height in
+millimetres, source selection validation, fit/clear, mesh picking, a projected
+ViewCube with face snapping and incremental touch/pointer orbit, plus viewport
+orbit and pinch/scroll zoom. Its software rasterizer interpolates a depth buffer
+across all solids and shades mesh faces with directional light.
 
-The controller created `codex-queue/issue-2` from that exact SHA and invoked the
-agent once. The agent produced no project changes because the required build
-wiring is outside ordinary queued-task scope. No further invocation was made.
-Issue #1 was not repeated. Persistent state remains Issue #2 `blocked`,
-`agent_calls: 1`; the finite continuation allowed at most two calls, leaving one
-unused, without increasing that limit. Both external execution gates returned to
-false, and the remote controller lock was released.
+Closed straight LWPOLYLINE entities (including upstream rectangles) are read from
+the actual selected document entity. Bulges/arcs, open profiles, circles, nonzero
+XY-plane elevation, invalid geometry, oversized outlines and ambiguous/unsupported
+INSUNITS are rejected. Supported INSUNITS convert coordinates to mm; requested
+height is explicitly mm. The existing kernel validates the converted polygon and
+requested extrusion. Upstream drawing entities are never replaced by preview solids.
 
-## Exact scope conflict
+Recovery uses a versioned eframe local-storage sidecar, separate from DXF saving.
+It restores validated profiles, source handles, extrusion heights and camera only
+when the complete serialized DXF drawing matches. A mismatch clears the preview
+rather than attaching solids to another drawing. Document changes invalidate the
+preview, and only one previous recovery snapshot is retained. Recovery is atomic
+on invalid data. Preview IDs may be regenerated on restore. This is not native
+solid persistence in CADCraft files, and does not claim DXF solid export.
 
-`AGENTS.md` from the reviewed controller branch states:
+## Validation
 
-> Ordinary queued tasks cannot change the controller, queue, workflow, existing
-> test harnesses, build configuration or native3d. Infrastructure changes require
-> separate review. Do not loosen these controls to make a queued task pass.
+The new stdlib driver is:
 
-The prompt repeats the build restriction. The pinned upstream web app has no
-Cargo dependency on `cadcraft-android-3d`. Reusing `PreviewState` from egui needs
-that dependency; changes confined to the existing JavaScript 3D viewer would not
-satisfy the requested Rust/egui integration. The trusted instructions were supplied
-inline by the controller although AGENTS.md/DEVELOPMENT_PLAN.md are absent from
-the inherited application branch itself.
-
-This draft contains documentation only. It does not apply the proposed build
-changes or implement EXTRUIR, rendering, ViewCube, units conversion or persistence.
-Passing inherited regression checks is not evidence that Issue #2 is implemented.
-
-## Minimum proposed change for separate review
-
-Keep every original native3d source and manifest byte-for-byte unchanged. At
-upstream patch/build staging time, copy that existing crate into
-`upstream/crates/cadcraft-android-3d/`, which matches the existing `crates/*`
-workspace member pattern. The repository's experimental kernel remains untouched.
-The proposed web-only manifest change, not applied by this PR, is:
-
-```diff
---- a/apps/cadcraft-web/Cargo.toml
-+++ b/apps/cadcraft-web/Cargo.toml
-@@ -26,6 +26,7 @@
- web-sys = { version = "0.3", features = ["HtmlInputElement", "FileList", "File"] }
-
- [target.'cfg(target_arch = "wasm32")'.dependencies]
-+cadcraft-android-3d = { path = "../../crates/cadcraft-android-3d" }
- eframe = { workspace = true, features = ["persistence", "default_fonts", "wgpu", "accesskit"] }
- wasm-bindgen = "0.2"
- wasm-bindgen-futures = "0.4"
+```
+python3 tests/preview/run.py /path/to/fresh/upstream-v0.13.0
 ```
 
-Cargo resolves the local package with only these lockfile additions. Do not
-update registry versions, remove the lockfile, disable checks or change Android
-Gradle configuration, CI, queue limits or existing tests:
+It stages a temporary complete workspace, audits the manifest/lock delta and
+kernel byte identity, then executes four actual Rust feature tests. These cover
+profile conversion/rejection, extrusion volume, recovery and transactional errors,
+order-independent depth occlusion, camera rendering and cube hit regions.
+Compilation outputs stay outside the checkout. No network is used.
 
-```diff
---- a/Cargo.lock
-+++ b/Cargo.lock
-@@ -576,6 +576,10 @@
- ]
+Executed checks and final compilation status are reported below after the finite
+local validation run. Exact-candidate Actions, the controller's Android unit suite,
+and phone validation are not performed by this invocation. The controller owns
+Git/GitHub operations; no commit, push, PR, APK, release or merge is authorized.
 
- [[package]]
-+name = "cadcraft-android-3d"
-+version = "0.1.0"
-+
-+[[package]]
- name = "cadcraft-cli"
- version = "0.13.0"
- dependencies = [
-@@ -742,6 +746,7 @@
- name = "cadcraft-web"
- version = "0.13.0"
- dependencies = [
-+ "cadcraft-android-3d",
-  "cadcraft-engine",
-  "cadcraft-io",
-  "cadcraft-ui-egui",
-```
+## Remaining limitations
 
-After separately authorizing this narrow dependency wiring, a bounded continuation
-can implement the application adapter in a new web-shell module using the existing
-kernel APIs. It must preserve the upstream 2D drawing, validate closed straight
-profiles, reject unsupported bulges/arcs and ambiguous units, render a separate
-3D view with depth and shading, route ViewCube/touch interactions to PreviewState,
-and define/test restoration without silently altering the original drawing.
-Existing JS functionality must not be relabeled as this integration. No extra
-agent call or broader scope is approved by this document itself.
+Phone touch, WebView rendering, viewport sizing, local-storage quota/recovery and
+software rendering performance need device validation at a separately authorized
+milestone. The viewport defaults collapsed to keep the 2D drawing usable. Solids
+are previews in local browser recovery storage, not CAD document entities; source
+edits invalidate rather than regenerate preview solids. Curved profiles and
+nonzero profile elevation require later work. Large multi-solid scenes may render
+slowly on mobile CPUs. Existing JavaScript 3D tools remain separate.
 
-## Checks actually executed
+### Local results in this invocation
 
-A disposable copy of pinned upstream v0.13.0 outside the checkout was used for a
-compile-only spike. The existing Issue #1 application patch, proposed local Cargo
-dependency, an unchanged copy of native3d, and a probe calling
-`select_profile_checked`, `extrude_selected`, `focus_solid`, `view`,
-`drag_viewcube` and `project` were applied to that copy only.
+- Complete patched upstream: `cargo check --offline --locked --target
+  wasm32-unknown-unknown -p cadcraft-web -j 2` passed (three inherited upstream
+  dead-code warnings). This compiled the actual shell integration, not a probe.
+- Existing kernel tests on the staged unchanged copy: 45 passed, zero failed.
+- Existing minimal selection patch check passed; pinned command patch: eight
+  assertions passed. Selection bridge: 15 assertions passed. File bridge passed.
+  Command bridge: 18 assertions passed. `git diff --check` passed.
+- Existing 3D JS harness, with the extracted script, hit its unchanged 3000 ms
+  execution timeout. It is unresolved; assertions and timeout were not weakened.
+- The first fixture-path repair was insufficient; a second guard repair fixed
+  short fixture paths. The allowed two focused repairs are consumed.
+- The full wasm build and four feature tests were also started offline; their
+  final status must be checked in the handoff report. Starting a test build is
+  not evidence those tests passed. Android tests, exact-SHA Actions and phone
+  validation remain the controller/owner's responsibility.
 
-- `cargo check --offline --target wasm32-unknown-unknown -p cadcraft-web -j 4`:
-  passed. Cargo added the local package to the disposable lockfile; existing
-  registry pins were preserved. This proves API/dependency compilation only.
-- `cargo test --offline --locked -p cadcraft-android-3d --all-targets -j 4` on
-  that copy: 45 passed, 0 failed. These are existing kernel tests, not tests of a
-  new integration.
-- The copied original kernel files were compared byte-for-byte before testing.
-  Repository native3d, main, workflows and build configuration were unchanged.
-- No tests ran inside the blocked coding invocation because it made no changes.
-- This documentation-only candidate is also sent through the inherited GitHub
-  Actions workflow with `build_apk=false`; results are reported in the PR. New
-  integration tests and device validation remain unrun because the feature does
-  not exist yet.
-
-Logs and compile-only fixtures remain private outside the checkout under
-`/workspace/.cadcraft-tools/issue2-*`. No tokens, device codes, APK, release, merge,
-paid API, scheduler or permanent service are included. The recovery of Issue #1
-was supervised and Issue #2 stopped on scope, so a complete autonomous chain of
-two successful development tasks has not been demonstrated.
+Final handoff: validation is blocked by the unresolved inherited JS harness timeout
+and exhausted repair allowance. The full wasm build and feature-test builds were
+interrupted (exit 130) before completion to end this finite invocation; neither
+is reported as passing. No build or test process is intentionally left running.
+The four feature tests remain unverified. The completed wasm check and 45 kernel
+tests are the available Rust evidence. The controller must review this incomplete
+validation status before treating Issue #2 as done.

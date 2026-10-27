@@ -1,0 +1,19 @@
+{
+  "kind": "original-files-recovered-from-restored-storage",
+  "original_branch": "codex-queue/issue-2",
+  "original_base_sha": "d75ddc6d0dfae278f57accc83bd864dc78deeaf7",
+  "preservation_commit": "df3c19fd8bb9442b2f29da4df3c58c84288ab3f6",
+  "files_sha256": {
+    "docs/ISSUE2_BUILD_WIRING_PROPOSAL.md": "53863f493082689cfaab4723a98e0ae1b11560e8a1ccb64fefc85a480e4c9c0e",
+    "scripts/patch-upstream-selection.py": "7b63f553f780e50bdeb85f8f3723c5e0cd58eccc23b90e355e21ea1d97188c83",
+    "scripts/preview-v1/android_preview.rs": "b2d06ee653b693bc8926a454a2294f86a467a37614c7a37c64b2261fb3371e8d",
+    "scripts/preview-v1/stage.py": "6d3ac8e38f2b7f7e4ce3cf499e2ba12272bc0aa27414093e83baece1c20ed04d",
+    "tests/preview/run.py": "37c007f2479e65f84dbffb82db67f9e88c403251a2643532c58ee6c6cdf06d68",
+    "tests/preview/integration.rs": "b864e025452da830d187fcbd2f825b31ae1d209519fd90a7baf8b763f4b6fbb7"
+  },
+  "reconstructed_source_files": [],
+  "controller_calls_consumed": 2,
+  "controller_calls_remaining": 0,
+  "controller_repairs_consumed": 2,
+  "verification": "Current recovery checks recorded in issue2-recovery-verification.json; initial intermittent JS timeout retained; exact-SHA Actions pending"
+}
