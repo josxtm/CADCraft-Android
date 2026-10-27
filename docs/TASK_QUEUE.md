@@ -220,7 +220,7 @@ el controlador, no una ejecución real del agente. La demostración pendiente de
 registrar dos PR reales, SHA/checks de ambas y una detención real ante fallo, en
 una tanda expresamente autorizada y con tareas de prueba revisadas.
 
-Validación local de esta entrega: 37 pruebas del controlador correctas, regresiones
+Validación local de esta entrega: 38 pruebas del controlador correctas, regresiones
 JS/Python existentes correctas y 45 pruebas Rust correctas. Además, el nuevo
 validador `--android` se ejecutó sobre una copia temporal del SHA de PR #5:
 13 pruebas Android nuevas y correctas, sin fallos ni omisiones ni APK. Esa prueba

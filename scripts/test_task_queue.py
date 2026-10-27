@@ -329,9 +329,25 @@ class QueueTests(unittest.TestCase):
         candidate['statusCheckRollup'][0].update(conclusion='FAILURE', detailsUrl='https://github.com/owner/repo/actions/runs/123/job/456')
         service.pr = mock.Mock(return_value=candidate)
         service.source_checks = mock.Mock(return_value=candidate['statusCheckRollup'])
-        service.gh = mock.Mock(return_value={'headSha': 'a' * 40})
+        service.gh = mock.Mock(return_value={'headSha': 'a' * 40, 'status': 'completed'})
         with self.assertRaisesRegex(Blocked, 'logs unavailable'):
             service.verified({'pr': 1, 'sha': 'a' * 40}, wait=True)
+
+    def test_failure_waits_for_run_cleanup_before_fetching_diagnostic(self):
+        commands = mock.Mock()
+        commands.deadline = time.monotonic() + 10
+        commands.run.return_value = (0, 'test failed: expected document contents')
+        service = Services(self.cfg, commands, self.root)
+        candidate = pr()
+        candidate['statusCheckRollup'][0].update(conclusion='FAILURE', detailsUrl='https://github.com/owner/repo/actions/runs/123/job/456')
+        service.pr = mock.Mock(return_value=candidate)
+        service.source_checks = mock.Mock(return_value=candidate['statusCheckRollup'])
+        service.gh = mock.Mock(side_effect=[{'headSha': 'a' * 40, 'status': 'in_progress'},
+                                           {'headSha': 'a' * 40, 'status': 'completed'}])
+        with mock.patch('task_queue.time.sleep'), self.assertRaisesRegex(Repairable, 'expected document contents'):
+            service.verified({'pr': 1, 'sha': 'a' * 40}, wait=True)
+        self.assertEqual(service.gh.call_count, 2)
+        self.assertEqual(commands.run.call_count, 1)
 
     def test_exact_head_check_runs_are_paginated_and_not_dependent_on_pr_rollup(self):
         commands = mock.Mock()

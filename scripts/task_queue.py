@@ -398,9 +398,17 @@ class Services:
                 match = re.fullmatch(pattern, failed.get('detailsUrl', ''))
                 if not match:
                     raise Blocked('CI failure cannot be linked to an exact run') from None
-                run = self.gh('run', 'view', match[1], '--repo', self.config['repository'], '--json', 'headSha')
+                run = self.gh('run', 'view', match[1], '--repo', self.config['repository'], '--json', 'headSha,status')
                 if run.get('headSha') != task['sha']:
                     raise Blocked('Failure diagnostic belongs to another SHA')
+                # gh cannot download run logs until all jobs/cleanup finish.
+                if run.get('status') != 'completed':
+                    if time.monotonic() >= deadline:
+                        raise Blocked('Failed CI run did not finish within the diagnostic budget')
+                    for _ in range(10):
+                        self.cmd.checkpoint()
+                        time.sleep(0.5)
+                    continue
                 code, logs = self.cmd.run(['gh', 'run', 'view', match[1], '--repo', self.config['repository'],
                                            '--log-failed'], check=False)
                 if code or not logs.strip():
