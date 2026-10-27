@@ -124,5 +124,13 @@ if ui_hook in source:
 
 source = source.replace(hook, insertion, 1)
 source = source.replace(anchor, bridge + anchor, 1)
+# Build-time Rust/egui preview integration (separate from the JS studio).
+# Shallow test fixtures are intentionally left unchanged by stage().
+import importlib.util
+preview_spec = importlib.util.spec_from_file_location(
+    "android_preview_stage", Path(__file__).with_name("preview-v1") / "stage.py")
+preview_stage = importlib.util.module_from_spec(preview_spec)
+preview_spec.loader.exec_module(preview_stage)
+source = preview_stage.stage(target, source)
 target.write_text(source, encoding="utf-8")
 print(f"Selection bridge inserted into {target}")
