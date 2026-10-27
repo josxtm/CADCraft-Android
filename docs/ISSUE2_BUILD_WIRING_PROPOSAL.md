@@ -48,7 +48,7 @@ The proposed web-only manifest change, not applied by this PR, is:
 +++ b/apps/cadcraft-web/Cargo.toml
 @@ -26,6 +26,7 @@
  web-sys = { version = "0.3", features = ["HtmlInputElement", "FileList", "File"] }
- 
+
  [target.'cfg(target_arch = "wasm32")'.dependencies]
 +cadcraft-android-3d = { path = "../../crates/cadcraft-android-3d" }
  eframe = { workspace = true, features = ["persistence", "default_fonts", "wgpu", "accesskit"] }
@@ -65,7 +65,7 @@ Gradle configuration, CI, queue limits or existing tests:
 +++ b/Cargo.lock
 @@ -576,6 +576,10 @@
  ]
- 
+
  [[package]]
 +name = "cadcraft-android-3d"
 +version = "0.1.0"
