@@ -52,3 +52,51 @@ jobs:
         run: cargo check --locked --target wasm32-unknown-unknown -p cadcraft-web -j 3
       - name: Run actual Rust/egui preview feature integration tests
         run: python3 tests/preview/run.py upstream-reference
+  package-preview-apk:
+    name: Android APK milestone — Rust/egui preview
+    # Only the dedicated integration PR #10, not other commits/projects.
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 10 }}
+    needs: preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install Trunk for pinned CADCraft upstream
+        run: cargo install trunk --locked
+      - name: Clone exact CADCraft 0.13.0 and patch UI with native preview
+        run: |
+          git clone --depth 1 --branch v0.13.0 https://github.com/storytold/cadcraft.git upstream
+          python3 scripts/patch-upstream-selection.py
+          test -s upstream/apps/cadcraft-web/src/android_preview.rs
+      - name: Release-build full WASM bundle
+        working-directory: upstream/apps/cadcraft-web
+        run: trunk build --release
+      - name: Verify and include real Rust/egui UI
+        run: |
+          test -s upstream/dist/web/index.html
+          test -s upstream/apps/cadcraft-web/src/android_preview.rs
+          mkdir -p app/src/main/assets/web
+          cp -a upstream/dist/web/. app/src/main/assets/web/
+          test -s app/src/main/assets/web/index.html
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Set up Android build tools
+        run: |
+          set -euo pipefail
+          test -d "${ANDROID_HOME:?}"
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Compile debug APK with 2D drawing and integrated Rust preview
+        run: gradle --no-daemon --max-workers=4 :app:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CADCraft-Issue2-Rust-Preview-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
