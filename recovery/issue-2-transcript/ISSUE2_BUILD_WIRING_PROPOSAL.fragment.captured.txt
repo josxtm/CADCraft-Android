@@ -1,0 +1,25 @@
+### Local results in this invocation
+
+- Complete patched upstream: `cargo check --offline --locked --target
+  wasm32-unknown-unknown -p cadcraft-web -j 2` passed (three inherited upstream
+  dead-code warnings). This compiled the actual shell integration, not a probe.
+- Existing kernel tests on the staged unchanged copy: 45 passed, zero failed.
+- Existing minimal selection patch check passed; pinned command patch: eight
+  assertions passed. Selection bridge: 15 assertions passed. File bridge passed.
+  Command bridge: 18 assertions passed. `git diff --check` passed.
+- Existing 3D JS harness, with the extracted script, hit its unchanged 3000 ms
+  execution timeout. It is unresolved; assertions and timeout were not weakened.
+- The first fixture-path repair was insufficient; a second guard repair fixed
+  short fixture paths. The allowed two focused repairs are consumed.
+- The full wasm build and four feature tests were also started offline; their
+  final status must be checked in the handoff report. Starting a test build is
+  not evidence those tests passed. Android tests, exact-SHA Actions and phone
+  validation remain the controller/owner's responsibility.
+
+Final handoff: validation is blocked by the unresolved inherited JS harness timeout
+and exhausted repair allowance. The full wasm build and feature-test builds were
+interrupted (exit 130) before completion to end this finite invocation; neither
+is reported as passing. No build or test process is intentionally left running.
+The four feature tests remain unverified. The completed wasm check and 45 kernel
+tests are the available Rust evidence. The controller must review this incomplete
+validation status before treating Issue #2 as done.
