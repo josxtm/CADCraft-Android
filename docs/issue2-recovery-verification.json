@@ -1,0 +1,105 @@
+{
+  "start_utc": "2026-10-27T20:04:30.178195+00:00",
+  "budget_seconds": 1142,
+  "command_limit_seconds": 600,
+  "development_calls": 0,
+  "checks": [
+    {
+      "name": "existing-regressions-and-android",
+      "exit_code": 1,
+      "elapsed_seconds": 10.22
+    },
+    {
+      "name": "unchanged-base-js-reproduction",
+      "exit_code": 0,
+      "elapsed_seconds": 5.58
+    },
+    {
+      "name": "studio-syntax",
+      "exit_code": 0,
+      "elapsed_seconds": 0.07
+    },
+    {
+      "name": "selection-bridge",
+      "exit_code": 0,
+      "elapsed_seconds": 0.12
+    },
+    {
+      "name": "file-bridge",
+      "exit_code": 0,
+      "elapsed_seconds": 0.12
+    },
+    {
+      "name": "selection-patch",
+      "exit_code": 0,
+      "elapsed_seconds": 0.37
+    },
+    {
+      "name": "existing-kernel-tests",
+      "exit_code": 0,
+      "elapsed_seconds": 3.21
+    },
+    {
+      "name": "android-unit-tests",
+      "exit_code": 0,
+      "elapsed_seconds": 51.11
+    },
+    {
+      "name": "command-bridge",
+      "exit_code": 0,
+      "elapsed_seconds": 0.12
+    },
+    {
+      "name": "command-patch",
+      "exit_code": 0,
+      "elapsed_seconds": 0.38
+    },
+    {
+      "name": "diff-check",
+      "exit_code": 0,
+      "elapsed_seconds": 0.02
+    },
+    {
+      "name": "stage-upstream",
+      "exit_code": 0,
+      "elapsed_seconds": 0.17
+    },
+    {
+      "name": "rust-preview-feature-tests",
+      "exit_code": 0,
+      "elapsed_seconds": 335.73
+    },
+    {
+      "name": "wasm-build",
+      "exit_code": 0,
+      "elapsed_seconds": 588.49
+    }
+  ],
+  "status": "partial",
+  "source_sha": "6eace226e0a7a2e5cda337a597754a8709b04169",
+  "elapsed_seconds": 1092.04,
+  "initial_failure": "existing-regressions-and-android failed; see /workspace/scratch/cadcraft-rescue-20261027T195949Z/verification/existing-regressions-and-android.log",
+  "kernel_tests": 45,
+  "android": {
+    "tests": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "dependency_audit": {
+    "local_package_only": true,
+    "external_package_changes": 0,
+    "native3d_identical": true
+  },
+  "feature_tests": 4,
+  "wasm": {
+    "bytes": 103913373,
+    "sha256": "1f2aa6e4d157b507ad66b6219db2a38ce69a0f6b296fad6cb302166159baedf8",
+    "runtime_optimization": "RUSTFLAGS opt-level=0 debuginfo=0; no project profile edited"
+  },
+  "queue_unchanged": true,
+  "recovered_source_unchanged": true,
+  "checks_scope": "Independent local recovery verification; no controller/model invocation",
+  "ci": "pending on final documentation commit",
+  "issue2_complete": false
+}

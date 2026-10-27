@@ -15,5 +15,5 @@
   "controller_calls_consumed": 2,
   "controller_calls_remaining": 0,
   "controller_repairs_consumed": 2,
-  "verification": "pending independent checks on recovery branch"
+  "verification": "Current recovery checks recorded in issue2-recovery-verification.json; initial intermittent JS timeout retained; exact-SHA Actions pending"
 }
