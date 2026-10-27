@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - integration/issue-2-preview
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
