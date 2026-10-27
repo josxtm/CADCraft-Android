@@ -418,3 +418,39 @@ La recuperación necesitó intervención supervisada: no demuestra por sí sola 
 tareas reales consecutivas sin intervención. Tras renovar acceso se comprobará
 una conexión mínima y se podrá reanudar la segunda tarea con los límites
 originales. No se habilitaron servicios, scheduler, API de pago, APK ni merge.
+
+## Issue #2: conexión válida, bloqueo real de alcance
+
+El propietario renovó personalmente el login. La prueba mínima posterior de
+`codex exec` devolvió `CONNECTION_OK` con exit 0. El controlador revalidó PR #5
+y PR #8 por SHA, preservó todos los contadores y arrancó únicamente Issue #2
+desde `8c6fadfd958e407fc7616f9c623f42d1ac9a3851`. La continuación se acotó a
+1 tarea/2 llamadas/1200 segundos, descontando la llamada adicional previa de #1.
+
+La primera llamada de #2 terminó sin cambios y con un diagnóstico concreto:
+el upstream no depende de `cadcraft-android-3d`, pero la configuración de build
+está prohibida en tareas ordinarias. No se consumió otra llamada con el mismo
+conflicto ni se relajó la protección. Estado: #1 `done`, 4 llamadas y 1 reparación
+supervisada; #2 `blocked`, 1 llamada y 1 llamada restante dentro de esta
+continuación. Los gates externos volvieron a false y el lock remoto se liberó.
+
+La PR borrador https://github.com/josxtm/CADCraft-Android/pull/9 conserva únicamente
+una propuesta documental, no una implementación funcional de #2. Detalla la
+dependencia local mínima en `apps/cadcraft-web/Cargo.toml`, las entradas locales de
+Cargo.lock y la copia intacta del crate al árbol de build del upstream. Esos
+cambios de build no están aplicados en el proyecto y requieren revisión de alcance
+separada antes de reanudar. No se propone modificar native3d, Gradle, CI ni límites.
+
+Una prueba de compilación fuera del checkout aplicó la propuesta a una copia del
+upstream v0.13.0 y comprobó llamadas a PreviewState, extrusión y cámara.
+`cargo check --offline --target wasm32-unknown-unknown -p cadcraft-web -j 4`
+pasó. También pasaron las 45 pruebas existentes de la copia byte-a-byte del
+kernel. Esto comprueba compatibilidad de la dependencia, no la integración egui.
+
+El candidato documental `d75ddc6d0dfae278f57accc83bd864dc78deeaf7` se envió al
+workflow existente con `build_apk=false`:
+https://github.com/josxtm/CADCraft-Android/actions/runs/40562305493 . Su resultado
+se registra en PR #9; sus regresiones heredadas no validan EXTRUIR/ViewCube nuevos.
+No hubo APK, merge, cambios en main/native3d ni servicios permanentes/de pago.
+La secuencia de dos tareas reales completadas autónomamente sigue sin demostrarse:
+la recuperación de #1 fue supervisada y #2 está bloqueada por el alcance permitido.
