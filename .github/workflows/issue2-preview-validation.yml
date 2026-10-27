@@ -38,7 +38,9 @@ jobs:
           node scripts/check-3d-studio.cjs /tmp/cadcraft-3d.js
           node scripts/check-selection-bridge.cjs app/src/main/assets/bridge/selection.js
       - name: Clone exact upstream CADCraft v0.13.0
-        run: git clone --depth 1 --branch v0.13.0 https://github.com/storytold/cadcraft.git upstream
+        run: |
+          git clone --depth 1 --branch v0.13.0 https://github.com/storytold/cadcraft.git upstream
+          cp -a upstream upstream-reference
       - name: Patch selection, command input and native Rust/egui preview
         run: |
           python3 scripts/patch-upstream-selection.py
@@ -49,4 +51,4 @@ jobs:
         working-directory: upstream
         run: cargo check --locked --target wasm32-unknown-unknown -p cadcraft-web -j 3
       - name: Run actual Rust/egui preview feature integration tests
-        run: python3 tests/preview/run.py upstream
+        run: python3 tests/preview/run.py upstream-reference
