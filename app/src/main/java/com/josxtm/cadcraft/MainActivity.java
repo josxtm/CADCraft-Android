@@ -2,6 +2,7 @@ package com.josxtm.cadcraft;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.ClipData;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Base64;
@@ -16,34 +17,48 @@ import android.webkit.WebSettings;
 import android.widget.Toast;
 import androidx.webkit.WebViewAssetLoader;
 import java.io.OutputStream;
+import java.io.InputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private static final int OPEN_FILE = 300;
     private static final int SAVE_FILE = 301;
     private WebView view;
     private ValueCallback<Uri[]> uploadCallback;
-    private byte[] pendingSave;
-    private String pendingName = "dibujo.dxf";
-
-    private static final String SAVE_BRIDGE =
-        "(function(){if(window.__cadAndroidSaveInstalled)return;window.__cadAndroidSaveInstalled=true;" +
-        "function send(url,name){fetch(url).then(r=>r.blob()).then(b=>{" +
-        "let reader=new FileReader();reader.onload=function(){" +
-        "let value=String(reader.result);AndroidFiles.save(name||'dibujo.dxf',value.substring(value.indexOf(',')+1),b.type||'application/octet-stream');};" +
-        "reader.onerror=function(){AndroidFiles.report('No se pudo leer el archivo');};reader.readAsDataURL(b);" +
-        "}).catch(e=>AndroidFiles.report(String(e)));}" +
-        "const original=HTMLAnchorElement.prototype.click;" +
-        "HTMLAnchorElement.prototype.click=function(){let href=this.href||'';" +
-        "if(href.startsWith('blob:')||href.startsWith('data:')){send(href,this.download);return;}" +
-        "return original.apply(this,arguments);};" +
-        "document.addEventListener('click',function(e){let a=e.target.closest&&e.target.closest('a[download]');" +
-        "if(a&&(a.href.startsWith('blob:')||a.href.startsWith('data:'))){" +
-        "e.preventDefault();e.stopImmediatePropagation();send(a.href,a.download);}},true);" +
-        "})();";
+    private static final int MAX_SAVE_BYTES = 32 * 1024 * 1024;
+    private final Object saveLock = new Object();
+    private File pendingSave;
+    private String pendingName;
+    private String saveBridge;
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        try (InputStream in = getAssets().open("bridge/files.js")) {
+            ByteArrayOutputStream script = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4096];
+            int count;
+            while ((count = in.read(buffer)) != -1) script.write(buffer, 0, count);
+            saveBridge = new String(script.toByteArray(), StandardCharsets.UTF_8);
+        } catch (Exception error) {
+            throw new IllegalStateException("Falta el puente de archivos Android", error);
+        }
+        if (savedInstanceState != null) {
+            String token = savedInstanceState.getString("pendingSaveToken");
+            if (token != null && token.startsWith("cadcraft-save-") && new File(token).getName().equals(token)) {
+                File restored = new File(getCacheDir(), token);
+                if (restored.isFile() && restored.length() <= MAX_SAVE_BYTES) {
+                    pendingSave = restored;
+                    pendingName = savedInstanceState.getString("pendingSaveName", "dibujo.dxf");
+                }
+            }
+        }
         view = new WebView(this);
+        view.setFocusableInTouchMode(true);
         setContentView(view);
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
             .addPathHandler("/assets/",new WebViewAssetLoader.AssetsPathHandler(this)).build();
@@ -58,13 +73,21 @@ public class MainActivity extends Activity {
                 if(uploadCallback!=null)uploadCallback.onReceiveValue(null);
                 uploadCallback=callback;
                 try {
-                    Intent intent=params.createIntent();
+                    Intent intent = params.createIntent();
+                    // SAF providers often label DXF/JSON as application/octet-stream.
+                    // Let the app validate extensions/content after selection.
+                    intent.setAction(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+                    intent.removeExtra(Intent.EXTRA_MIME_TYPES);
                     startActivityForResult(intent,OPEN_FILE);
                     return true;
                 } catch(Exception ex){
+                    // Returning true means we own completion, including failure.
                     uploadCallback=null;
+                    callback.onReceiveValue(null);
                     Toast.makeText(MainActivity.this,"No se pudo abrir el selector",Toast.LENGTH_LONG).show();
-                    return false;
+                    return true;
                 }
             }
         });
@@ -77,8 +100,11 @@ public class MainActivity extends Activity {
                 return response;
             }
             @Override public void onPageFinished(WebView v,String url){
-                v.evaluateJavascript(SAVE_BRIDGE,null);
+                v.evaluateJavascript(saveBridge,null);
                 if(url.endsWith("/assets/web/index.html")){
+                    v.evaluateJavascript("if(!document.getElementById('cadcraftCommandScript')){" +
+                        "var s=document.createElement('script');s.id='cadcraftCommandScript';" +
+                        "s.src='../bridge/commands.js';document.head.appendChild(s);}",null);
                     // Loads the Android-side selection UI after the patched CADCraft WASM starts.
                     v.evaluateJavascript("if(!document.getElementById('cadcraftSelectionScript')){" +
                         "var s=document.createElement('script');s.id='cadcraftSelectionScript';" +
@@ -101,47 +127,137 @@ public class MainActivity extends Activity {
         view.loadUrl("https://appassets.androidplatform.net/assets/web/index.html");
     }
 
-    private class AndroidFiles {
-        @JavascriptInterface public void save(String name,String base64,String mime) {
-            try {
-                byte[] bytes=Base64.decode(base64,Base64.DEFAULT);
-                runOnUiThread(()->{
-                    pendingSave=bytes;
-                    pendingName=(name==null||name.trim().isEmpty())?"dibujo.dxf":name;
-                    Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType(mime==null||mime.isEmpty()?"application/octet-stream":mime);
-                    intent.putExtra(Intent.EXTRA_TITLE,pendingName);
-                    try { startActivityForResult(intent,SAVE_FILE); }
-                    catch(Exception e){Toast.makeText(MainActivity.this,"No se pudo abrir Guardar como",Toast.LENGTH_LONG).show();}
-                });
-            } catch(Exception e){report("No se pudo preparar el archivo");}
+    final class AndroidFiles {
+        @JavascriptInterface public boolean save(String name,String base64,String mime) {
+            synchronized (saveLock) {
+                if (pendingSave != null) return false;
+                File prepared = null;
+                try {
+                    if (base64 == null || base64.length() > ((MAX_SAVE_BYTES + 2L) / 3L) * 4L) return false;
+                    byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                    if (bytes.length > MAX_SAVE_BYTES) return false;
+                    prepared = File.createTempFile("cadcraft-save-", ".tmp", getCacheDir());
+                    try (OutputStream out = new FileOutputStream(prepared)) { out.write(bytes); }
+                    pendingSave = prepared;
+                    pendingName = (name == null || name.trim().isEmpty()) ? "dibujo.dxf" : new File(name).getName();
+                    String contentType = (mime == null || mime.isEmpty()) ? "application/octet-stream" : mime;
+                    runOnUiThread(() -> {
+                        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                        intent.addCategory(Intent.CATEGORY_OPENABLE);
+                        intent.setType(contentType);
+                        intent.putExtra(Intent.EXTRA_TITLE, pendingName);
+                        try { startActivityForResult(intent, SAVE_FILE); }
+                        catch (Exception error) {
+                            clearPendingSave();
+                            saveResult("error", "No se pudo abrir Guardar como");
+                        }
+                    });
+                    return true;
+                } catch (Exception error) {
+                    if (prepared != null) prepared.delete();
+                    pendingSave = null;
+                    pendingName = null;
+                    return false;
+                }
+            }
         }
         @JavascriptInterface public void report(String error) {
-            runOnUiThread(()->Toast.makeText(MainActivity.this,error,Toast.LENGTH_LONG).show());
+            runOnUiThread(() -> Toast.makeText(MainActivity.this,error,Toast.LENGTH_LONG).show());
         }
+    }
+
+    private void clearPendingSave() {
+        synchronized (saveLock) {
+            if (pendingSave != null) pendingSave.delete();
+            pendingSave = null;
+            pendingName = null;
+        }
+    }
+
+    private void saveResult(String status, String message) {
+        Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
+        if (view != null && !isDestroyed()) {
+            String detail = "{status:" + JSONObject.quote(status) + ",message:" + JSONObject.quote(message) + "}";
+            view.evaluateJavascript("window.dispatchEvent(new CustomEvent('cadcraft-file-save',{detail:" + detail + "}));", null);
+        }
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        synchronized (saveLock) {
+            if (pendingSave != null) {
+                state.putString("pendingSaveToken", pendingSave.getName());
+                state.putString("pendingSaveName", pendingName);
+            }
+        }
+        super.onSaveInstanceState(state);
     }
 
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent data) {
         super.onActivityResult(requestCode,resultCode,data);
-        if(requestCode==OPEN_FILE){
-            if(uploadCallback!=null){
-                uploadCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode,data));
-                uploadCallback=null;
+        if (requestCode == OPEN_FILE) {
+            ValueCallback<Uri[]> callback = uploadCallback;
+            uploadCallback = null;
+            if (callback != null) callback.onReceiveValue(selectedDocuments(resultCode,data));
+        } else if (requestCode == SAVE_FILE) {
+            final File source;
+            final String name;
+            synchronized (saveLock) {
+                source = pendingSave;
+                name = pendingName;
+                pendingSave = null;
+                pendingName = null;
             }
-        }else if(requestCode==SAVE_FILE){
-            if(resultCode==RESULT_OK && data!=null && data.getData()!=null && pendingSave!=null){
-                try(OutputStream out=getContentResolver().openOutputStream(data.getData())){
-                    if(out==null)throw new Exception("No hay acceso al archivo");
-                    out.write(pendingSave);
-                    Toast.makeText(this,"Plano guardado: "+pendingName,Toast.LENGTH_LONG).show();
-                }catch(Exception e){Toast.makeText(this,"Error al guardar: "+e.getMessage(),Toast.LENGTH_LONG).show();}
+            if (resultCode != RESULT_OK) {
+                if (source != null) source.delete();
+                saveResult("cancelled", "Guardado cancelado; el proyecto sigue abierto");
+            } else if (source == null || data == null || data.getData() == null) {
+                if (source != null) source.delete();
+                saveResult("error", "No se pudo recuperar el archivo pendiente; vuelve a guardar");
+            } else {
+                Uri destination = data.getData();
+                // Document providers may be slow. Do not block the WebView/UI.
+                new Thread(() -> {
+                    String status = "saved", message = "Archivo guardado: " + name;
+                    try (InputStream in = new FileInputStream(source);
+                         OutputStream out = getContentResolver().openOutputStream(destination, "wt")) {
+                        if (out == null) throw new java.io.IOException("No hay acceso al archivo");
+                        byte[] buffer = new byte[8192];
+                        int count;
+                        while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+                        out.flush();
+                    } catch (Exception error) {
+                        status = "error";
+                        message = "Error al guardar: " + error.getMessage();
+                    } finally { source.delete(); }
+                    final String outcome = status, notice = message;
+                    runOnUiThread(() -> saveResult(outcome, notice));
+                }, "cadcraft-document-save").start();
             }
-            pendingSave=null;
         }
+    }
+
+    // We launch ACTION_OPEN_DOCUMENT ourselves, so parse its result directly
+    // rather than delegating to the installed WebView provider's picker parser.
+    private static Uri[] selectedDocuments(int resultCode, Intent data) {
+        if (resultCode != RESULT_OK || data == null) return null;
+        ClipData selected = data.getClipData();
+        if (selected != null && selected.getItemCount() > 0) {
+            Uri[] uris = new Uri[selected.getItemCount()];
+            for (int i = 0; i < uris.length; i++) {
+                uris[i] = selected.getItemAt(i).getUri();
+                if (uris[i] == null) return null;
+            }
+            return uris;
+        }
+        return data.getData() == null ? null : new Uri[]{data.getData()};
     }
     @Override public void onBackPressed(){
         if(view!=null&&view.canGoBack())view.goBack(); else super.onBackPressed();
     }
-    @Override protected void onDestroy(){if(view!=null)view.destroy();super.onDestroy();}
+    @Override protected void onDestroy(){
+        if(uploadCallback!=null){uploadCallback.onReceiveValue(null);uploadCallback=null;}
+        if(isFinishing())clearPendingSave();
+        if(view!=null)view.destroy();
+        super.onDestroy();
+    }
 }

@@ -2489,6 +2489,9 @@ window.addEventListener('pagehide',()=>{if(recoveryEnabled)saveRecoverySnapshot(
 document.addEventListener('visibilitychange',()=>{
  if(recoveryEnabled&&document.visibilityState==='hidden')saveRecoverySnapshot();
 });
+window.addEventListener('cadcraft-file-save',event=>{
+ if(event.detail&&typeof event.detail.message==='string')setStatus(event.detail.message);
+});
 function saveProject(){
  try{
   const content=verifiedProjectJSON();
@@ -2499,7 +2502,7 @@ function saveProject(){
   // Android WebView may ignore blob downloads without a native download bridge.
   // Keep a validated recovery copy and never claim a file was saved to disk.
   const recovered=saveRecoverySnapshot();
-  setStatus(recovered?'Proyecto validado · copia local conservada; comprueba la descarga JSON':'Proyecto validado · comprueba que Android haya descargado el JSON');return true;
+  setStatus(recovered?'Proyecto validado · copia local conservada; completa Guardar como':'Proyecto validado · completa Guardar como y comprueba el resultado');return true;
  }catch(e){setStatus('Guardar: '+e.message);return false;}
 }
 function pickProject(){
@@ -2514,7 +2517,7 @@ document.getElementById('projectFile').addEventListener('change',async e=>{
  if(!file)return;
  try{
   if(file.size>2000000)throw Error('Proyecto demasiado grande');
-  if(!/\\.json$/i.test(file.name))throw Error('Selecciona un proyecto JSON');
+  if(!/\.json$/i.test(file.name))throw Error('Selecciona un proyecto JSON');
   loadProjectText(await file.text());
  }catch(err){setStatus('Proyecto: '+err.message);}
  finally{picker.value='';}
