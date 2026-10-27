@@ -156,7 +156,7 @@ class Commands:
         if time.monotonic() >= self.deadline:
             raise Blocked('Run time budget exhausted')
 
-    def run(self, args, *, cwd=None, timeout=60, env=None, check=True, cleanup=False):
+    def run(self, args, *, cwd=None, timeout=60, env=None, check=True, cleanup=False, diagnostics=False):
         if not cleanup:
             self.checkpoint()
         budget = timeout if cleanup else min(timeout, self.deadline - time.monotonic())
@@ -192,6 +192,9 @@ class Commands:
             if check and child.returncode:
                 # No credential-bearing stdout/stderr in exceptions or state.
                 raise Blocked('Command failed: ' + Path(args[0]).name + ' (exit ' + str(child.returncode) + ')')
+            if diagnostics:
+                err.seek(0)
+                result += '\n' + err.read(4 * 1024 * 1024).decode(errors='replace')
             return child.returncode, result
 
 
@@ -350,11 +353,41 @@ class Services:
         return self.gh('pr', 'view', str(number), '--repo', self.config['repository'], '--json',
                        'number,url,state,isDraft,headRefOid,headRefName,headRepositoryOwner,baseRefName,statusCheckRollup')
 
+    def source_checks(self, sha):
+        # gh 2.46 (installed in this environment) has --paginate, not --slurp.
+        # Parse its sequence of complete JSON page objects without shell tools.
+        _, output = self.cmd.run(['gh', 'api', 'repos/' + self.config['repository'] + '/commits/' + sha +
+                                  '/check-runs?per_page=100', '--paginate'])
+        decoder, pages, offset = json.JSONDecoder(), [], 0
+        while offset < len(output):
+            if output[offset].isspace():
+                offset += 1
+                continue
+            page, offset = decoder.raw_decode(output, offset)
+            pages.append(page)
+        checks = []
+        for page in pages:
+            for item in page['check_runs']:
+                if item.get('head_sha') != sha:
+                    raise Blocked('CI check belongs to another SHA')
+                checks.append({'__typename': 'CheckRun', 'name': item['name'],
+                               'status': item['status'].upper(),
+                               'conclusion': (item.get('conclusion') or '').upper(),
+                               'detailsUrl': item.get('html_url', '')})
+        return checks
+
     def verified(self, task, wait=False):
         deadline = min(self.cmd.deadline, time.monotonic() + self.config['limits']['ci_seconds'])
         while True:
             self.cmd.checkpoint()
             pr = self.pr(task['pr'])
+            if pr.get('headRefOid') != task['sha']:
+                raise Blocked('PR head changed outside the controller')
+            if any(c.get('__typename') != 'CheckRun' for c in pr.get('statusCheckRollup') or []):
+                raise Blocked('Unsupported CI status provider; review required')
+            # PR rollups can lag or omit a manual dispatch. Read the candidate's
+            # check runs directly, including all pages, instead of assuming parity.
+            pr['statusCheckRollup'] = self.source_checks(task['sha'])
             try:
                 passed = check_gate(pr, task['sha'], self.config['required_checks'])
             except Repairable as failure:
@@ -381,7 +414,9 @@ class Services:
                 return
             if not wait or time.monotonic() >= deadline:
                 raise Blocked('Required checks absent/pending; no verified continuation')
-            time.sleep(1)
+            for _ in range(10):
+                self.cmd.checkpoint()
+                time.sleep(0.5)
 
     def prepare(self, task, records):
         if self.git('status', '--porcelain'):
@@ -435,12 +470,12 @@ class Services:
             exists, _ = self.cmd.run(['git', 'cat-file', '-e', self.head + ':' + name], check=False)
             if name.startswith(self.FROZEN) and not (exists != 0 and name.startswith('app/src/test/')):
                 raise Blocked('Protected path changed: ' + name)
-        code, _ = self.cmd.run(['python3', str(self.controller / 'automation_checks.py'), '--android'],
-                               timeout=self.config['limits']['command_seconds'], check=False,
+        code, output = self.cmd.run(['python3', str(self.controller / 'automation_checks.py'), '--android'],
+                               timeout=self.config['limits']['command_seconds'], check=False, diagnostics=True,
                                env={k: v for k, v in os.environ.items()
                                     if not re.search(r'TOKEN|SECRET|PASSWORD|API_KEY', k, re.I)})
         if code:
-            raise Repairable('Local checks failed; inspect and fix locally without weakening checks')
+            raise Repairable('Local checks failed; do not weaken checks.\n' + redact(output))
 
     def publish(self, task):
         if not self.git('status', '--porcelain'):

@@ -84,6 +84,9 @@ El controlador despacha **solo** `android-apk.yml` sobre la rama actual con
 `check_gate` exige los checks configurados sobre el SHA de esa PR. Un check vacío,
 omitido o pendiente no cuenta como correcto; un job `android` que no esté omitido
 bloquea. La cancelación de CI bloquea en lugar de lanzar una reparación automática.
+Se consultan directamente todas las páginas de `commits/<sha>/check-runs`: el
+resumen de checks de una PR puede tardar o no mostrar un dispatch manual. No se
+asume que ese resumen equivale a la lista de comprobaciones del commit.
 
 ## Ejecución, credenciales y aislamiento
 
@@ -155,6 +158,9 @@ infraestructura/test harnesses se bloquean y necesitan una tarea supervisada.
   de logs (`results-receiver.actions.githubusercontent.com`) sigue restringido en
   el entorno inspeccionado: antes de una demostración real de reparación deberá
   permitirse en red y verificarse, sin ampliar permisos a dominios innecesarios.
+  Su incorporación aditiva está guardada en el borrador del entorno, conservando
+  `api.github.com`; falta revisar, guardar y publicar esa configuración. No se ha
+  aplicado a esta instancia ni afirmado que la descarga de logs ya funcione.
 - Git local y una rama remota de bloqueo impiden controladores simultáneos. El
   bloqueo remoto se crea/elimina con compare-and-swap (`--force-with-lease`);
   otro propietario no puede liberarlo por accidente. No se fuerza main.
@@ -214,9 +220,15 @@ el controlador, no una ejecución real del agente. La demostración pendiente de
 registrar dos PR reales, SHA/checks de ambas y una detención real ante fallo, en
 una tanda expresamente autorizada y con tareas de prueba revisadas.
 
-Validación local de esta entrega: 35 pruebas del controlador correctas, regresiones
+Validación local de esta entrega: 37 pruebas del controlador correctas, regresiones
 JS/Python existentes correctas y 45 pruebas Rust correctas. Además, el nuevo
 validador `--android` se ejecutó sobre una copia temporal del SHA de PR #5:
 13 pruebas Android nuevas y correctas, sin fallos ni omisiones ni APK. Esa prueba
 valida el comando de la cola sobre su dependencia; no se atribuye a este branch
 una suite Android que aún no está en main.
+
+También se comprobaron realmente `doctor`, la lectura paginada de checks por SHA
+con `gh 2.46.0` del entorno y el dispatch manual de CI con `build_apk=false` sobre
+esta rama. GitHub aceptó el dispatch y omitió el job APK. Estas operaciones sí
+usan GitHub; las pruebas unitarias descritas antes no lo usan. Ninguna inició un
+agente ni una llamada de generación de código.

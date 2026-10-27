@@ -328,9 +328,29 @@ class QueueTests(unittest.TestCase):
         candidate = pr()
         candidate['statusCheckRollup'][0].update(conclusion='FAILURE', detailsUrl='https://github.com/owner/repo/actions/runs/123/job/456')
         service.pr = mock.Mock(return_value=candidate)
+        service.source_checks = mock.Mock(return_value=candidate['statusCheckRollup'])
         service.gh = mock.Mock(return_value={'headSha': 'a' * 40})
         with self.assertRaisesRegex(Blocked, 'logs unavailable'):
             service.verified({'pr': 1, 'sha': 'a' * 40}, wait=True)
+
+    def test_exact_head_check_runs_are_paginated_and_not_dependent_on_pr_rollup(self):
+        commands = mock.Mock()
+        commands.deadline = time.monotonic() + 10
+        service = Services(self.cfg, commands, self.root)
+        candidate = pr()
+        candidate.update(statusCheckRollup=[], url='https://example.invalid/pr/1', headRefName='codex-queue/issue-11')
+        service.pr = mock.Mock(return_value=candidate)
+        raw = lambda name: {'name': name, 'head_sha': 'a' * 40, 'status': 'completed', 'conclusion': 'success'}
+        commands.run.return_value = (0, json.dumps({'check_runs': [raw('unit')]}) + '\n' +
+                                     json.dumps({'check_runs': [raw('integration')]}))
+        task = {'pr': 1, 'sha': 'a' * 40}
+        service.verified(task)
+        self.assertEqual(task['ci'], 'passed')
+        self.assertIn('--paginate', commands.run.call_args.args[0])
+        self.assertNotIn('--slurp', commands.run.call_args.args[0])
+        wrong = raw('unit'); wrong['head_sha'] = 'b' * 40
+        commands.run.return_value = (0, json.dumps({'check_runs': [wrong]}))
+        with self.assertRaisesRegex(Blocked, 'another SHA'): service.source_checks('a' * 40)
 
     def test_remote_lock_is_atomic_across_separate_state_directories(self):
         repo, remote = init_repo(self.root)
@@ -359,6 +379,17 @@ class QueueTests(unittest.TestCase):
         service = Services(self.cfg, Commands(repo, self.root / 'state', 10), self.root)
         service.head = git(repo, 'rev-parse', 'HEAD')
         with self.assertRaisesRegex(Blocked, 'Protected path'): service.validate({'issue': 11})
+
+    def test_local_failure_supplies_redacted_diagnostics_to_repair(self):
+        commands = mock.Mock()
+        commands.run.return_value = (1, 'Compiler error: secret-sentinel')
+        service = Services(self.cfg, commands, self.root)
+        service.git = mock.Mock(return_value='')
+        with mock.patch.dict(os.environ, {'GH_TOKEN': 'secret-sentinel'}):
+            with self.assertRaises(Repairable) as failure: service.validate({'issue': 11})
+        self.assertIn('Compiler error', str(failure.exception))
+        self.assertNotIn('secret-sentinel', str(failure.exception))
+        self.assertTrue(commands.run.call_args.kwargs['diagnostics'])
 
     def test_real_codex_adapter_is_opt_in_sandboxed_and_strips_tokens(self):
         (self.root / 'instructions.txt').write_text('Trusted instructions')
