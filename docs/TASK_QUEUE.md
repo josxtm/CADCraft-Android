@@ -353,3 +353,25 @@ regresiones cubren errores de herramientas, redacción de JWT/token y turno fall
 No se ha reejecutado el agente con ese cambio: su límite de tres invocaciones ya
 está agotado y necesita una autorización explícita para ampliarse. La demostración
 de dos tareas reales con PR/CI propias sigue sin completarse.
+
+## Intento adicional autorizado y preflight de escritura
+
+El propietario autorizó exactamente una llamada adicional para Issue #1. El campo
+opcional `additional_agent_calls` admite únicamente un mapa issue→1; por defecto
+no existe ninguna ampliación. La copia externa puede contener `{"1": 1}`: el tope
+de esa tarea pasa de 3 a 4 conservando `agent_calls: 3`, sin ampliar ninguna otra.
+Los límites globales, de tiempo, reparaciones y paths protegidos permanecen.
+
+Se comprobó CWD y detección mediante Git y se ejecutó un diagnóstico Codex con
+sandbox workspace-write: creó un archivo temporal, leyó WRITE_OK y Git lo detectó
+como untracked. El controlador lo eliminó; no se modificó código del proyecto.
+Esta comprobación se hizo fuera del sandbox padre, con autorización específica,
+conservando el sandbox propio del CLI y su red de shell desactivada.
+
+El prompt declara ahora la autorización de esta invocación finita y el CLI recibe
+`--cd` explícito. Se guarda el prompt efectivo en el directorio privado temporal
+del controlador durante la ejecución. La causa del último resultado vacío anterior
+no puede reconstruirse retroactivamente porque se descartó su informe. Se ofrece
+además una referencia local de upstream v0.13.0 sin metadatos Git, fuera del checkout,
+para que el agente pueda investigar offline sin cambiar el núcleo experimental.
+Validación de estas correcciones: 43 pruebas locales correctas.

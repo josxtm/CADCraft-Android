@@ -184,6 +184,20 @@ class QueueTests(unittest.TestCase):
         state, _, _ = self.run_simulation()
         self.assertEqual([t['state'] for t in state['tasks']], ['done', 'pending'])
 
+    def test_owner_additional_call_preserves_count_and_allows_only_one(self):
+        self.cfg['additional_agent_calls'] = {'11': 1}
+        self.cfg['tasks'][0]['agent_calls'] = 3
+        state, _, _ = self.run_simulation(lambda s: setattr(s, 'local_failures', 100))
+        self.assertEqual(state['tasks'][0]['agent_calls'], 4)
+        self.assertEqual(state['tasks'][0]['state'], 'blocked')
+        self.assertEqual(sum(e == ('edit', 11) for e in self.service.events), 1)
+        self.assertNotIn(('prepare', 12), self.service.events)
+
+    def test_additional_call_rejects_unbounded_or_unknown_allowances(self):
+        for extra in [{'11': 2}, {'11': True}, {'99': 1}]:
+            candidate=config();candidate['additional_agent_calls']=extra
+            with self.subTest(extra=extra), self.assertRaises(Blocked): self.validate_config(candidate)
+
     def test_priority_only_selects_ready_tasks(self):
         self.cfg['tasks'][1]['priority'] = -10
         state, _, _ = self.run_simulation()
