@@ -18,8 +18,9 @@ Object.assign(controls,{
 });
 const canvas={clientWidth:900,clientHeight:600,width:900,height:600,getContext(){return draw},getBoundingClientRect(){return {left:0,top:0,width:900,height:600}},listeners:{},addEventListener(name,fn){this.listeners[name]=fn},setPointerCapture(){}};
 const file={addEventListener(){},click(){}};
+const projectFile={listeners:{},value:'',files:[],addEventListener(name,fn){this.listeners[name]=fn},click(){this.clicks=(this.clicks||0)+1}};
 const document={
- getElementById(id){return id==='scene'?canvas:(id==='file'||id==='projectFile')?file:controls[id]},
+ getElementById(id){return id==='scene'?canvas:id==='file'?file:id==='projectFile'?projectFile:controls[id]},
  createElement(){const link={click(){},style:{}};this.lastDownload=link;return link;},
  addEventListener(name,fn){this.listeners[name]=fn},
  listeners:{},
@@ -1724,4 +1725,45 @@ assert.equal(sketchPointerTrial.redone,true,'sketch redo restores the edited out
 assert.equal(sketchPointerTrial.cleared,true,'closing sketch clears transient touch navigation');
 assert.equal(sketchPointerTrial.projectSafe,true,'temporary sketch changes do not alter solid before pressing extrude');
 
-console.log('3D studio tests passed');
+async function checkProjectFiles(){
+ const valid=evaluate('verifiedProjectJSON()');
+ const before=evaluate('serializeProject()');
+ assert.equal(evaluate('pickProject()'),true,'project picker opens');
+ assert.equal(projectFile.value,'','picker resets before selecting the same file');
+ assert.equal(projectFile.clicks,1,'project input is activated');
+ const choose=async file=>{
+  projectFile.files=file?[file]:[];
+  projectFile.value=file?'selected':'';
+  await projectFile.listeners.change({target:projectFile});
+ };
+ for(const name of ['scene.json','scene.JSON','scene.json']){
+  await choose({name,size:valid.length,text:async()=>valid});
+  assert.match(controls.status.textContent,/Proyecto cargado/,'JSON file accepted, including repeat import');
+  assert.equal(projectFile.value,'','successful import clears the file input');
+  assert.equal(evaluate('serializeProject()'),before,'valid JSON roundtrip preserves the scene');
+ }
+ const recovery=localStorage.getItem('cadcraft.android.3d.recovery.v1');
+ const statusBefore=controls.status.textContent;
+ await choose(null);
+ assert.equal(controls.status.textContent,statusBefore,'cancelled picker keeps current status');
+ for(const file of [
+  {name:'bad.json',size:4,text:async()=>'{bad'},
+  {name:'wrong.txt',size:valid.length,text:async()=>valid},
+  {name:'huge.json',size:2000001,text:async()=>{throw Error('must not read oversized file')}},
+  {name:'unavailable.json',size:10,text:async()=>{throw Error('provider read failed')}},
+  {name:'invalid.json',size:10,text:async()=>'{}'}
+ ]){
+  await choose(file);
+  assert.match(controls.status.textContent,/^Proyecto:/,'file errors are reported');
+  assert.equal(projectFile.value,'','failed import clears picker for retry');
+  assert.equal(evaluate('serializeProject()'),before,'failed import preserves live scene');
+  assert.equal(localStorage.getItem('cadcraft.android.3d.recovery.v1'),recovery,'failed import preserves recovery');
+ }
+ for(const [status,message] of [['saved','Archivo guardado: escena.json'],['cancelled','Guardado cancelado'],['error','Error al guardar: sin acceso']]){
+  window.listeners['cadcraft-file-save']({detail:{status,message}});
+  assert.equal(controls.status.textContent,message,'native save result reaches studio status');
+  assert.equal(evaluate('serializeProject()'),before,'save outcome never modifies scene');
+ }
+ console.log('3D studio tests passed (including async project open/save regressions)');
+}
+checkProjectFiles().catch(error=>{console.error(error);process.exitCode=1});

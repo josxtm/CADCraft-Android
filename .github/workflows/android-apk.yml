@@ -2,6 +2,8 @@ name: CADCraft · Verificación continua / APK manual
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       build_apk:
@@ -49,12 +51,32 @@ jobs:
           node scripts/check-3d-studio.cjs /tmp/cadcraft-3d.js
           node --check app/src/main/assets/bridge/selection.js
           node scripts/check-selection-bridge.cjs app/src/main/assets/bridge/selection.js
+          node --check app/src/main/assets/bridge/files.js
+          node scripts/check-file-bridge.cjs
           python3 -m py_compile scripts/patch-upstream-selection.py
           python3 scripts/check-upstream-selection-patch.py
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify Rust 3D unit tests
         working-directory: native3d
         run: cargo test --all-targets
+  android-file-tests:
+    name: Android file access regression tests (no APK)
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Install Android test build prerequisites
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Compile Android and test document picker/save outcomes
+        run: gradle --no-daemon --max-workers=4 :app:testDebugUnitTest
   android:
     # Push only runs preflight. A release APK requires an explicit manual opt-in.
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_apk == true }}
