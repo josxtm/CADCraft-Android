@@ -31,6 +31,9 @@ maximum of two repairs. A verified draft PR is `done`; this never means merged.
 
 Ordinary queued tasks cannot change the controller, queue, workflow, existing
 test harnesses, build configuration or native3d. Infrastructure changes require
-separate review. Do not loosen these controls to make a queued task pass.
+separate review. Do not loosen these controls to make a queued task pass. New
+JavaScript/Python tests belong under `tests/<feature>/`; `scripts/check-*` is a
+reserved harness path even for new files. New Android unit tests may use
+`app/src/test/`. Keep existing tests unchanged.
 
 See [execution and limits](docs/TASK_QUEUE.md) before proposing activation.

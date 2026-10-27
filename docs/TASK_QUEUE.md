@@ -16,7 +16,7 @@ Se distingue entre:
 | GitHub del entorno publicado | API y Git operativos; PR #5 y su CI verificadas anteriormente |
 | Encadenamiento del controlador | Prueba con dos tareas, ramas/commits Git reales en repositorios temporales; agente, PR y checks simulados |
 | Reparación y detención | Fallos locales/CI inyectados; máximo dos reparaciones; no avanza tras bloqueo |
-| Generación real desatendida | Login y prueba mínima correctos; Issue #1 sin cambios tras 3 invocaciones registradas, Issue #2 sin iniciar |
+| Generación real desatendida | Issue #1: PR #8 verificada tras 4 invocaciones acumuladas y 1 reparación supervisada; Issue #2 pendiente de renovar la sesión restaurada |
 | Nueva tarea automática en Codex Cloud | **No implementada ni demostrada**; no hay un servicio de despacho conectado |
 
 La simulación no cumple por sí sola el criterio de la Issue #6 de demostrar dos
@@ -375,3 +375,46 @@ no puede reconstruirse retroactivamente porque se descartó su informe. Se ofrec
 además una referencia local de upstream v0.13.0 sin metadatos Git, fuera del checkout,
 para que el agente pueda investigar offline sin cambiar el núcleo experimental.
 Validación de estas correcciones: 43 pruebas locales correctas.
+
+## Continuación supervisada: PR #8 verificada
+
+El intento adicional autorizado sí produjo cambios para Issue #1: input HTML
+enfocable con IME y botón Deseleccionar, conservados en la PR borrador
+https://github.com/josxtm/CADCraft-Android/pull/8 . La cola se detuvo porque
+`scripts/check-command-patch.py` era un nuevo test en un path reservado.
+
+En la continuación supervisada se trasladaron únicamente los dos tests nuevos a
+`tests/commands/`. No se cambió `FROZEN`, ningún harness existente, workflow o
+configuración de build. El diff completo contra la base verificada de PR #5
+pasó la misma regla original. Se conservan `agent_calls: 4` y `repairs: 1`; no
+hubo quinta llamada al agente ni reinicio de contadores.
+
+La dependencia craft-libs/hayro-jbig2 y el target WASM ya pudieron prepararse con
+la red existente. `cargo check --locked --target wasm32-unknown-unknown
+-p cadcraft-web -j 4` pasó sobre una copia desechable del upstream v0.13.0 con el
+parche aplicado, sin cambiar pins ni lockfile. También pasaron 18 comprobaciones
+del puente, 8 del parche, regresiones JS/Python, 45 pruebas Rust en copia temporal
+y 13 Android (0 fallos/errores/omisiones). Los tests nuevos de comandos se ejecutan
+localmente y aún no forman parte del workflow protegido.
+
+GitHub Actions verde para el candidato exacto
+`8c6fadfd958e407fc7616f9c623f42d1ac9a3851`:
+https://github.com/josxtm/CADCraft-Android/actions/runs/40550328949 . Ambos checks
+requeridos correctos; el job APK está omitido. Se reconcilió Issue #1 a `done`,
+que aquí significa PR borrador verificada, sin cerrar la issue ni hacer merge.
+Las pruebas reales de teclado y batería en dispositivo siguen pendientes de un
+hito expresamente autorizado.
+
+Antes de gastar un intento de Issue #2, la prueba mínima del CLI restaurado
+devolvió 401: `Could not parse your authentication token. Please try signing in
+again.` y `Your access token could not be refreshed because you have since logged
+out or signed in to another account. Please sign in again.` Se inició el flujo
+de dispositivo para que el propietario lo complete personalmente; no se guardan
+códigos ni credenciales aquí. Issue #2 permanece `pending`, con 0 llamadas, y la
+copia externa sigue desactivada. Una publicación del entorno no garantiza que
+la autenticación interactiva sobreviva a la restauración.
+
+La recuperación necesitó intervención supervisada: no demuestra por sí sola dos
+tareas reales consecutivas sin intervención. Tras renovar acceso se comprobará
+una conexión mínima y se podrá reanudar la segunda tarea con los límites
+originales. No se habilitaron servicios, scheduler, API de pago, APK ni merge.
